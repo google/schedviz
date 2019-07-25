@@ -33,6 +33,17 @@ import (
 // NextState conflicts with B's PrevState -- then the threadTransition's
 // appropriate ConflictPolicies are compared, and the resulting policy
 // implemented.
+// During inference, transitions are accumulated in increasing temporal order
+// until a 'forward barrier' transition is reached -- one which has a fixed
+// forward state (with known NextCPU and NextState fields) and which cannot
+// be dropped on any forward conflict.  When a forward-barrier transition is
+// discovered, all conflicts prior to that transition can be resolved,
+// conversely, if no forward-barrier transition is discovered before the end
+// of the transition stream, then all the thread's transitions must be kept in
+// memory and must be reexamined upon any conflict.
+// Accordingly, the choice of conflict policy can significantly affect
+// collection inference time: if few events are forward barriers, then
+// inference will be more complex.
 type ConflictPolicy int
 
 const (
@@ -173,7 +184,8 @@ type threadTransition struct {
 // inference passes on groups of adjacent transitions which start with, and run
 // up to just prior to, forward barriers.
 func (tt *threadTransition) isForwardBarrier() bool {
-	return tt.NextCPU != UnknownCPU && tt.NextState != UnknownState && tt.onForwardsStateConflict == Fail && tt.onForwardsCPUConflict == Fail
+	return tt.NextCPU != UnknownCPU && tt.NextState != UnknownState &&
+		(tt.onForwardsStateConflict&Drop) != Drop && (tt.onForwardsCPUConflict&Drop) != Drop
 }
 
 // setCPUForwards propagates a CPU, known to hold for the receiver's PID just
