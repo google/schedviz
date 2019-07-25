@@ -1,0 +1,31 @@
+<button class="collections-button"
+        mat-button
+        (click)="goToCollections()"
+        matTooltip="Go to Collections">
+  <mat-icon inline>list</mat-icon>
+</button>
+<h2 class="collection-metadata" *ngIf="collectionMetadata | async as metadata">
+  Scheduling collection by <span class="emphasized">{{metadata.creator}}</span>
+  on target <span class="emphasized">{{metadata.targetMachine}}</span>
+  on <span class="emphasized">{{metadata.creationTime | date:'full'}}</span>
+</h2>
+<div class="dashboard-buttons">
+  <button mat-button
+          color="accent"
+          (click)="editCollectionInfo()"
+          matTooltip="Edit collection info">
+    <mat-icon>edit</mat-icon>
+  </button>
+  <button mat-button
+          color="accent"
+          (click)="createBug()"
+          matTooltip="Report a bug">
+    <mat-icon>bug_report</mat-icon>
+  </button>
+  <button mat-button
+          color="accent"
+          matTooltip="View Documentation"
+          onclick="window.open('https://github.com/google/schedviz/blob/master/README.md', '_blank')">
+      <mat-icon>help_outline</mat-icon>
+  </button>
+</div>

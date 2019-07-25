@@ -1,0 +1,57 @@
+load("@npm_bazel_typescript//:defs.bzl", "ts_library")
+load("@npm_angular_bazel//:index.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ng_module(
+    name = "thread_table",
+    srcs = [
+        "antagonist_table.ts",
+        "event_table.ts",
+        "layer_toggle.ts",
+        "sched_events_table.ts",
+        "selectable_table.ts",
+        "thread_table.ts",
+        "thread_table_module.ts",
+    ],
+    assets = [
+        "antagonist_table.ng.html",
+        "event_table.ng.html",
+        "layer_toggle.css",
+        "sched_events_table.ng.html",
+        "thread_table.ng.html",
+        "thread_table.css",
+    ],
+    deps = [
+        "//client/app/models",
+        "//client/app/services",
+        "//client/app/util",
+        "@npm//@angular/animations",
+        "@npm//@angular/cdk",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser",
+        "@npm//@types/node",
+        "@npm//rxjs",
+    ],
+)
+
+ts_library(
+    name = "thread_table_tests",
+    testonly = True,
+    srcs = ["thread_table_test.ts"],
+    deps = [
+        ":thread_table",
+        "//client/app/models",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser",
+        "@npm//@angular/platform-browser-dynamic",
+        "@npm//@types/jasmine",
+        "@npm//rxjs",
+    ],
+)

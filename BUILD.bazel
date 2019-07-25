@@ -1,0 +1,32 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+exports_files(["LICENSE"])
+
+config_setting(
+    name = "environment",
+    values = {
+        "define": "environment=dev",
+    },
+)
+
+alias(
+    name = "tsconfig.json",
+    actual = "//client:tsconfig.app.json",
+)
+
+package_group(
+    name = "schedviz",
+    packages = [
+        "//analysis/...",
+        "//client/...",
+        "//tracedata/...",
+        "//traceparser/...",
+    ],
+)
+
+# gazelle:prefix github.com/google/schedviz
+gazelle(name = "gazelle")

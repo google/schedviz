@@ -1,0 +1,28 @@
+load("@npm_angular_bazel//:index.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ng_module(
+    name = "app_root",
+    srcs = [
+        "app_root.ts",
+        "app_root_module.ts",
+        "app_routing_module.ts",
+    ],
+    assets = [
+        "app.css",
+        "app.ng.html",
+    ],
+    deps = [
+        "//client/app/collections",
+        "//client/app/dashboard",
+        "//client/app/services",
+        "//client/app/util",
+        "//client/environments",
+        "@npm//@angular/core",
+        "@npm//@angular/material",
+        "@npm//@angular/router",
+    ],
+)

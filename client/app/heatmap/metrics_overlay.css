@@ -1,0 +1,39 @@
+:host {
+  background-color: #475d67;
+  font-family: sans-serif;
+  font-size: 13px;
+  display: block;
+  color: #fff;
+  padding: 1px 10px 2px 10px;
+  height: 40px;
+}
+
+.metric {
+  display: inline-block;
+  margin-right: 3px;
+}
+
+.metric:not(:last-child):after {
+  content: '|';
+  margin-left: 3px;
+  margin-right: 3px;
+}
+
+.metric-name {
+  font-weight: bold;
+}
+
+.title > span {
+  font-size: 14px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.help-button {
+  width: 25px;
+  height: 25px;
+  line-height: 25px;
+}
+

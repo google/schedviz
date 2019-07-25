@@ -1,0 +1,28 @@
+<div class="collection-forms">
+  <div style="display:inline-block;" class="upload-trace">
+    <button mat-raised-button
+            color="primary"
+            type="submit"
+            (click)="fileInput.click()">
+      <mat-icon>cloud_upload</mat-icon>
+      <span class="upload-file-label">Upload File</span>
+    </button>
+    <input #fileInput
+           type="file"
+           style="display:none;"
+           (change)="uploadFile()">
+  </div>
+  <form #lookupForm="ngForm" (ngSubmit)="onLookupFormSubmit()">
+    <span> or </span>
+    <mat-form-field [hideRequiredMarker]="true">
+      <input matInput type="text" placeholder="Look up trace by ID"
+             [(ngModel)]="lookupFormModel.traceID" name="traceID"
+             required [errorStateMatcher]="matcher">
+    </mat-form-field>
+    <button mat-mini-fab color="primary" type="submit" [disabled]="!lookupForm.form.valid">
+      <mat-icon>search</mat-icon>
+    </button>
+  </form>
+</div>
+<collections-table [owner]="owner" [loading]="loading" [refresh]="refreshTable$" [filter]="filter">
+</collections-table>

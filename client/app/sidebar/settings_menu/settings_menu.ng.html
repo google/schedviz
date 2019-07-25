@@ -1,0 +1,104 @@
+<div class="settings-container">
+    <mat-expansion-panel [expanded]="true">
+      <mat-expansion-panel-header>
+        <mat-icon class="settings-icon">tune</mat-icon>
+        Display Settings
+      </mat-expansion-panel-header>
+      <div>
+        <mat-slide-toggle class="settings-toggle"
+          [checked]="showSleeping.value"
+          (change)="showSleeping.next($event.checked)">
+          Show Sleeping Intervals
+        </mat-slide-toggle>
+        <mat-slide-toggle class="settings-toggle"
+          [checked]="showMigrations.value"
+          (change)="showMigrations.next($event.checked)">
+          Show Migrations
+        </mat-slide-toggle>
+      </div>
+      <div>
+        <div class="slider-container">
+          Max rendered interval count (in thousands):
+          <div style="margin-top: 30px;">
+            <mat-icon matTooltip="Less detailed, more interactive">line_weight</mat-icon>
+            <mat-slider class="display-slider"
+              min="5"
+              step="0.5"
+              max="50"
+              tickInterval="auto"
+              [value]="maxIntervalCount.value / 1000"
+              thumbLabel="true"
+              (change)="maxIntervalCount.next(1000*$event.value)">
+            </mat-slider>
+            <mat-icon matTooltip="More detailed, less interactive">line_style</mat-icon>
+          </div>
+        </div>
+      </div>
+    </mat-expansion-panel>
+
+    <mat-expansion-panel [expanded]="true">
+      <mat-expansion-panel-header>
+
+        <mat-icon class="settings-icon">layers</mat-icon>
+        Layers
+      </mat-expansion-panel-header>
+
+      <div cdkDropList class="layer-list" (cdkDropListDropped)="drop($event)">
+        <div class="layer-box" [class.hidden]="!layer.value.visible"
+             *ngFor="let layer of adjustableLayers"
+             cdkDrag>
+          <div class="layer-label">
+            <div class="layer-handle" cdkDragHandle>
+              <mat-icon>menu</mat-icon>
+            </div>
+            {{layer.value.name}}
+          </div>
+          <input class="color-input"
+                 type="color"
+                 id="head"
+                 [ngModel]="layer.value.color"
+                 (ngModelChange)="updateLayerColor(layer, $event)"
+                 #ctrl="ngModel"
+                 matTooltip="Select Color">
+          <button (click)="hideLayer(layer)"
+                  mat-icon-button
+                  aria-label="hide-layer">
+            <mat-icon>
+              <p *ngIf="layer.value.visible"
+                 matTooltip="Hide Layer">visibility</p>
+              <p *ngIf="!layer.value.visible"
+                 matTooltip="Show Layer">visibility_off</p>
+            </mat-icon>
+          </button>
+          <button (click)="removeLayer(layer)"
+                  mat-icon-button
+                  aria-label="remove-layer"
+                  matTooltip="Remove Layer">
+            <mat-icon>
+              remove_circle_outline
+            </mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="layer-list fixed">
+        <div class="layer-box fixed"
+             *ngFor="let layer of fixedLayers">
+          <div class="layer-fixed">
+            {{layer.value.name}}
+          </div>
+          <button (click)="hideLayer(layer)"
+                  mat-icon-button
+                  aria-label="hide-layer">
+            <mat-icon>
+              <p *ngIf="layer.value.visible"
+                 matTooltip="Hide Layer">visibility</p>
+              <p *ngIf="!layer.value.visible"
+                 matTooltip="Show Layer">visibility_off</p>
+            </mat-icon>
+          </button>
+        </div>
+      </div>
+
+    </mat-expansion-panel>
+</div>

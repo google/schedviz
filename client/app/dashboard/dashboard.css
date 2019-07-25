@@ -1,0 +1,58 @@
+#heatmapContainer {
+  margin: 4px;
+  display: inline-block;
+  width: calc(100% - 10px);
+  height: calc(100% - 48px);
+  overflow: hidden;
+  border: 1px solid lightgray;
+}
+
+#sidebarContainer {
+  display: inline-block;
+  width: 50%;
+  height: calc(100% - 20px);
+  vertical-align: top;
+  overflow: hidden;
+}
+
+.container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  top: 34px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  flex-direction: initial;
+}
+
+.spinner-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  top: 33px;
+  background-color: white;
+  position: absolute;
+  z-index: 2000;
+  width: 100%;
+  height: 100%;
+}
+
+.sidenav-container {
+  /* When the sidenav is not fixed, stretch the sidenav container to fill the
+   * available space. This causes `<mat-sidenav-content>` to act as our
+   * scrolling element for desktop layouts. */
+  flex: 1;
+}
+
+heatmap {
+  width: 100%;
+  height: 100%;
+}
+
+sidebar {
+  max-width: 600px;
+  min-width: 600px;
+  width: 600px;
+}

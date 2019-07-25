@@ -1,0 +1,29 @@
+load("@npm_angular_bazel//:index.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ng_module(
+    name = "settings_menu",
+    srcs = [
+        "settings_menu.ts",
+        "settings_menu_module.ts",
+    ],
+    assets = [
+        "settings_menu.ng.html",
+        "settings_menu.css",
+    ],
+    deps = [
+        "//client/app/models",
+        "//client/app/services",
+        "@npm//@angular/cdk",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser",
+        "@npm//@types/node",
+        "@npm//hammerjs",
+        "@npm//rxjs",
+    ],
+)

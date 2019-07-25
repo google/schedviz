@@ -1,0 +1,47 @@
+load("@npm_bazel_typescript//:defs.bzl", "ts_library")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ts_library(
+    name = "models",
+    srcs = [
+        "checkpoint.ts",
+        "collection.ts",
+        "cpu_intervals.ts",
+        "cpu_layers.ts",
+        "index.ts",
+        "interval.ts",
+        "layer.ts",
+        "sched_event.ts",
+        "thread.ts",
+        "thread_event.ts",
+        "thread_intervals.ts",
+        "utilization_metrics.ts",
+    ],
+    deps = [
+        ":collections_filter",
+        ":service_models",
+        "//client/app/util",
+        "@npm//d3",
+    ],
+)
+
+ts_library(
+    name = "service_models",
+    srcs = [
+        "collection_data_services.ts",
+        "events.ts",
+        "metrics_services.ts",
+        "render_data_services.ts",
+    ],
+)
+
+ts_library(
+    name = "collections_filter",
+    srcs = [
+        "collections_filter.ts",
+    ],
+    deps = ["@npm//rxjs"],
+)

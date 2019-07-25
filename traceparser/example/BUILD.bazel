@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+go_binary(
+    name = "trace_to_proto_converter",
+    srcs = ["trace_to_proto_converter.go"],
+    deps = [
+        "//traceparser",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+    ],
+)

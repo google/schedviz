@@ -1,0 +1,70 @@
+<mat-progress-bar class="heatmap-loading"
+                  mode="indeterminate"
+                  *ngIf="loading"
+                  color="accent">
+</mat-progress-bar>
+<metrics-overlay [visibleCpus]="visibleCpus"
+                 [parameters]="parameters"
+                 [viewport]="viewport">
+</metrics-overlay>
+<div id="scalingSvgContainer">
+  <div #tooltip class="tooltip">
+  </div>
+  <svg #svg class="scaling-svg">
+    <defs id="defs">
+      <clipPath id="clip-axes">
+        <rect #clipRectAxes
+            [attr.x]="-100"
+            [attr.y]="-20"
+            [attr.width]="100"
+            [attr.height]="500">
+        </rect>
+      </clipPath>
+    </defs>
+    <g transform="translate(50, 10)">
+      <g #zoomGroup>
+        <g #intervalGroup>
+          <g *ngFor="let layer of layers.value.slice().reverse()" class="layersGroup">
+            <g
+               [intervalsLayer]
+               [tooltip]="tooltip"
+               [viewport]="viewport"
+               [layer]="layer"
+               [layers]="layers"
+               [cpus]="sortedFilteredCpus"
+               [generateEdges]="showMigrations"
+               [showSleeping]="showSleeping">
+            </g>
+          </g>
+        </g>
+        <g
+          #previewGroup [previewLayer]
+          [sortedFilteredCpus]="sortedFilteredCpus"
+          [preview]="preview"
+          [viewport]="viewport">
+        </g>
+      </g>
+      <g #xAxisGroup [xAxis] [parameters]="parameters" [viewport]="viewport">
+      </g>
+      <g
+        #cpuAxisGroup [cpuAxis] [parameters]="parameters"
+          [viewport]="viewport"
+          [topology]="systemTopology"
+          [cpuFilter]="cpuFilter"
+          clip-path="url(#clip-axes)">
+      </g>
+      <g
+        #topoCpuAxisGroup [topoCpuAxis] [parameters]="parameters"
+          [viewport]="viewport"
+          [topology]="systemTopology"
+          [cpuFilter]="cpuFilter"
+          clip-path="url(#clip-axes)">
+      </g>
+      <g #zoomBrushGroup *ngIf="baseIntervals.length"
+        [zoomBrush] [parameters]="parameters"
+        [intervals] = "baseIntervals"
+        [viewport]="viewport">
+      </g>
+    </g>
+  </svg>
+</div>

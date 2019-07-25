@@ -1,0 +1,47 @@
+{
+  "name": "schedviz",
+  "version": "0.0.1",
+  "description": "Visualizer for kernel scheduler traces",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@angular/animations": "8.1.0",
+    "@angular/cdk": "8.0.2",
+    "@angular/common": "8.1.0",
+    "@angular/core": "8.1.0",
+    "@angular/forms": "8.1.0",
+    "@angular/material": "8.0.2",
+    "@angular/platform-browser": "8.1.0",
+    "@angular/platform-browser-dynamic": "8.1.0",
+    "@angular/router": "8.1.0",
+    "d3": "5.9.7",
+    "hammerjs": "2.0.8",
+    "pako": "1.0.10",
+    "rxjs": "6.5.2",
+    "systemjs": "0.21.6",
+    "tslib": "1.10.0",
+    "zone.js": "0.9.1"
+  },
+  "devDependencies": {
+    "@angular/bazel": "8.1.0",
+    "@angular/cli": "8.1.0",
+    "@angular/compiler": "8.1.0",
+    "@angular/compiler-cli": "8.1.0",
+    "@bazel/bazel": "0.27.0",
+    "@bazel/benchmark-runner": "0.1.0",
+    "@bazel/buildifier": "0.26.0",
+    "@bazel/ibazel": "0.10.3",
+    "@bazel/hide-bazel-files": "0.32.2",
+    "@bazel/karma": "0.32.2",
+    "@bazel/typescript": "0.32.2",
+    "@types/hammerjs": "2.0.36",
+    "@types/jasmine": "3.3.13",
+    "@types/node": "12.0.10",
+    "husky": "0.14.3",
+    "jasmine": "3.4.0",
+    "protractor": "6.0.0",
+    "typescript": "3.4.5"
+  },
+  "scripts": {
+    "postinstall": "ngc -p angular-metadata.tsconfig.json"
+  }
+}

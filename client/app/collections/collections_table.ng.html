@@ -1,0 +1,108 @@
+<div #table class="table-container">
+  <div>
+    <span class="selection-info">
+      {{dataSource.filteredData.length}} filtered traces, {{selection.selected.length}} selected
+    </span>
+    <button mat-button
+            color="basic"
+            (click)="deleteCollections()"
+            [disabled]="!selection.selected.length"
+            matTooltip="Delete Collections">
+      <mat-icon>delete</mat-icon>
+    </button>
+  </div>
+  <mat-table [dataSource]="dataSource" matSort multiTemplateDataRow>
+
+    <!-- Selection Column -->
+    <ng-container matColumnDef="select">
+      <mat-header-cell *matHeaderCellDef>
+        <mat-checkbox (change)="$event ? selectAllToggle() : null"
+                      [checked]="selection.hasValue() && areAllSelected()"
+                      [indeterminate]="selection.hasValue() && !areAllSelected()">
+        </mat-checkbox>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let metadata" (click)="$event.stopPropagation()">
+        <mat-checkbox (change)="$event ? selection.toggle(metadata) : null"
+                      [checked]="selection.isSelected(metadata)">
+        </mat-checkbox>
+        <a class="mat-row-link"
+           routerLink="/dashboard"
+           [fragment]="'collection=' + metadata.name">
+        </a>
+      </mat-cell>
+    </ng-container>
+
+    <!-- Creator Column -->
+    <ng-container matColumnDef="creator">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>
+        <mat-form-field (click)="$event.stopPropagation()">
+          <input matInput placeholder="Collected By" [ngModel]="owner.value" (ngModelChange)="owner.next($event)">
+        </mat-form-field>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let metadata">{{metadata.creator}}</mat-cell>
+    </ng-container>
+
+    <!-- Target Machine Column -->
+    <ng-container matColumnDef="targetMachine">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>
+        <mat-form-field (click)="$event.stopPropagation()">
+          <input matInput placeholder="Target Machine" [(ngModel)]="filter.targetMachine">
+        </mat-form-field>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let metadata">{{metadata.targetMachine}}</mat-cell>
+    </ng-container>
+
+    <!-- Creation Time Column -->
+    <ng-container matColumnDef="creationTime">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>
+        <mat-form-field (click)="$event.stopPropagation()">
+          <input matInput placeholder="Collected On" [(ngModel)]="filter.creationTime">
+        </mat-form-field>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let metadata">{{metadata.creationTime | date:'medium'}}</mat-cell>
+    </ng-container>
+
+    <!-- Tags Column -->
+    <ng-container matColumnDef="tags">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>
+        <mat-form-field (click)="$event.stopPropagation()">
+          <input matInput placeholder="Tags" [(ngModel)]="filter.tags">
+        </mat-form-field>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let metadata">{{metadata.tags.join(", ")}}</mat-cell>
+    </ng-container>
+
+    <!-- Description Column -->
+    <ng-container matColumnDef="description">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>
+        <mat-form-field (click)="$event.stopPropagation()">
+          <input matInput placeholder="Description" [(ngModel)]="filter.description">
+        </mat-form-field>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let metadata">{{metadata.description}}</mat-cell>
+    </ng-container>
+
+    <!-- Collection Name Column -->
+    <ng-container matColumnDef="name">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>
+        <mat-form-field (click)="$event.stopPropagation()">
+          <input matInput placeholder="Name" [(ngModel)]="filter.name">
+        </mat-form-field>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let metadata">{{metadata.name}}</mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef="displayedColumns; sticky: true">
+    </mat-header-row>
+    <mat-row *matRowDef="let metadata; columns: displayedColumns;" class="metadata-row"></mat-row>
+  </mat-table>
+  <mat-paginator showFirstLastButtons>
+  </mat-paginator>
+  <div *ngIf="loading | async" class="spinner-container">
+      <mat-progress-spinner color="primary" mode="indeterminate">
+      </mat-progress-spinner>
+    </div>
+  <div *ngIf="dataSource.filteredData.length === 0" class="no-data-label">
+    <i>No data to display</i>
+  </div>
+</div>

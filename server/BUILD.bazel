@@ -1,0 +1,141 @@
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+go_binary(
+    name = "server",
+    srcs = ["server.go"],
+    data = [
+        "//client:app_fileset",
+    ],
+    deps = [
+        ":apiservice",
+        ":models",
+        ":storageservice",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+        "@com_github_gorilla_mux//:go_default_library",
+    ],
+)
+
+go_image(
+    name = "go_image",
+    srcs = ["server.go"],
+    args = [
+        "-storage_path=/data",
+        "-port=8080",
+    ],
+    data = [
+        "//client:app_fileset",
+    ],
+    deps = [
+        ":apiservice",
+        ":models",
+        ":storageservice",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+        "@com_github_gorilla_mux//:go_default_library",
+    ],
+)
+
+container_image(
+    name = "server_image",
+    base = ":go_image",
+    ports = ["8080"],
+    tags = ["local"],
+    volumes = ["/data"],
+    workdir = "/app/server/go_image.binary.runfiles/schedviz",
+)
+
+go_test(
+    name = "server_test",
+    size = "small",
+    srcs = ["server_test.go"],
+    data = [
+        "testdata/collections",
+        "testdata/test.tar.gz",
+        "//client:app_fileset",
+    ],
+    embed = [":server"],
+    deps = [
+        ":models",
+        "//testhelpers",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+        "@com_github_gorilla_mux//:go_default_library",
+    ],
+)
+
+go_library(
+    name = "storageservice",
+importpath = "github.com/google/schedviz/server/storageservice",
+
+    srcs = [
+        "fs_storage.go",
+        "fs_upload_file.go",
+        "storage_proto_converters.go",
+        "storage_service.go",
+    ],
+    deps = [
+        ":models",
+        "//analysis:legacysched",
+        "//analysis:sched",
+        "//tracedata:schedviz_events_go_proto",
+        "//tracedata:trace",
+        "//traceparser",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_groupcache//lru:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library_gen",
+        "@com_github_google_uuid//:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_x_sync//errgroup:go_default_library",
+    ],
+)
+
+go_test(
+    name = "fs_storage_test",
+    size = "small",
+    srcs = ["fs_storage_test.go"],
+    data = [
+        "testdata/test.tar.gz",
+    ],
+    embed = [":storageservice"],
+    deps = [
+        ":models",
+        "@com_github_golang_groupcache//lru:go_default_library",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+    ],
+)
+
+go_library(
+    name = "apiservice",
+importpath = "github.com/google/schedviz/server/apiservice",
+
+    srcs = ["api_service.go"],
+    deps = [
+        ":models",
+        ":storageservice",
+        "//analysis:legacysched",
+        "//analysis:sched",
+        "//tracedata:trace",
+        "@org_golang_x_sync//errgroup:go_default_library",
+    ],
+)
+
+go_library(
+    name = "models",
+importpath = "github.com/google/schedviz/server/models",
+
+    srcs = [
+        "collection_data_services.go",
+        "events.go",
+        "metrics_services.go",
+        "render_data_services.go",
+    ],
+)

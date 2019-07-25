@@ -1,0 +1,25 @@
+load("@npm_angular_bazel//:index.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ng_module(
+    name = "services",
+    srcs = [
+        "collection_data_service.ts",
+        "color_service.ts",
+        "index.ts",
+        "metrics_service.ts",
+        "render_data_service.ts",
+    ],
+    deps = [
+        "//client/app/models",
+        "//client/app/models:service_models",
+        "//client/app/util",
+        "@npm//@angular/common",
+        "@npm//@angular/core",
+        "@npm//d3",
+        "@npm//rxjs",
+    ],
+)

@@ -1,0 +1,26 @@
+load("@npm_angular_bazel//:index.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ng_module(
+    name = "cpu_axes",
+    srcs = [
+        "cpu_axes_module.ts",
+        "cpu_axis_layer.ts",
+        "index.ts",
+        "topological_cpu_axis_layer.ts",
+    ],
+    assets = [
+        "cpu_axes.css",
+    ],
+    deps = [
+        "//client/app/util",
+        "@npm//@angular/core",
+        "@npm//@angular/platform-browser",
+        "@npm//@types/node",
+        "@npm//d3",
+        "@npm//rxjs",
+    ],
+)

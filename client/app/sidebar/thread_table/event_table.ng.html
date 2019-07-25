@@ -1,0 +1,59 @@
+<div class="table-container-events">
+  <mat-table class="embeddedTable" matSort [dataSource]="dataSource" (mouseout)="previewRow();">
+
+    <!-- TODO(sainsley): Add back select column when event layer persistence is fixed -->
+    <!--<ng-container matColumnDef="select">
+      <mat-header-cell mat-header-cell *matHeaderCellDef>
+        <mat-icon>
+          layers
+        </mat-icon>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let row" (mouseenter)="previewRow(row)">
+        <layer-toggle (click)="$event.stopPropagation()"
+                      (mouseenter)="previewRow(row)"
+                      [color]="colorService.getColorFor(row.label)"
+                      [toggledOn]="selection.isSelected(row.label)"
+                      (toggledOnChange)="toggleSelection(row)"></layer-toggle>
+      </mat-cell>
+    </ng-container>-->
+
+    <!-- Timestamp Column -->
+    <ng-container matColumnDef="startTimeNs">
+      <mat-header-cell class="timestamp" *matHeaderCellDef mat-sort-header>
+        Timestamp
+      </mat-header-cell>
+      <mat-cell class="timestamp"
+                *matCellDef="let thread_event">
+        {{formatTime(thread_event.startTimeNs)}}
+      </mat-cell>
+    </ng-container>
+
+    <!-- Detail Column -->
+    <ng-container matColumnDef="description">
+      <mat-header-cell *matHeaderCellDef> Event Detail</mat-header-cell>
+      <mat-cell class="detail"
+                *matCellDef="let thread_event">
+        {{thread_event.description}}
+      </mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef="displayedColumns; sticky: true">
+    </mat-header-row>
+    <mat-row *matRowDef="let thread_event; columns: displayedColumns;"
+             class="selectable-row"
+             (mouseenter)="previewRow(thread_event)"
+             (mouseout)="$event.stopPropagation();">
+    </mat-row>
+  </mat-table>
+  <div *ngIf="data.value.length == 0" class="spinner-container">
+    <mat-progress-spinner *ngIf="dataPending; else noData"
+                          color="primary"
+                          mode="indeterminate">
+    </mat-progress-spinner>
+    <ng-template #noData>
+      <i>No data to display</i>
+    </ng-template>
+  </div>
+  <mat-paginator [pageSize]="pageSize" showFirstLastButtons>
+  </mat-paginator>
+</div>

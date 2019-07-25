@@ -1,0 +1,41 @@
+<h2 mat-dialog-title>Idle-While-Overloaded Metrics</h2>
+<mat-dialog-content class="mat-typography">
+  The amount of time at least one CPU sat idle while runnable threads waited on
+  another CPU. CPUs for which the trace contains no information are not included
+  in these metrics, since it isn't possible to distinguish whether they were
+  disabled, idle, or running a single thread during the entire trace.
+  <ul>
+    <li>
+      The <b>Wall Time</b> metric shows the accumulated time during which any
+      CPU was idle while another CPU was overloaded.
+    </li>
+    <li>
+      The <b>Per-CPU Time</b> metric shows the total time, aggregated across
+      all idle CPUs, for which there was some other overloaded CPU.
+    </li>
+    <li>
+      The <b>Per-Thread Time</b> metric shows the total amount of work, in
+      CPU-seconds, that could have been accomplished if waiting threads had been
+      moved to idle CPUs in the current view. Note that system policies such as
+      CPU-set affinity may have precluded such moves.
+    </li>
+    <li>
+      The <b>CPU Utilization</b> metric shows the proportion of not-idle
+      CPU-time in the current view.
+    </li>
+  </ul>
+  For example, if two CPUs were overloaded for one second, one with one waiting
+  thread and the other with two waiting threads, and four other CPUs were idle
+  for that same second, the <b>Wall Time</b> for that interval would be one
+  second (At least one CPU was idle while another was overloaded for the entire
+  second); the <b>Per-CPU Time</b> would be two seconds (two CPUs were
+  overloaded while at least two others were idle); and the
+  <b>Per-Thread Time</b> would be three seconds (three threads were waiting
+  while at least three CPUs were idle.) If, however, only two CPUs were idle
+  during that second, <b>Per-CPU Time</b> would remain the same while
+  <b>Per-Thread Time</b> would only be two seconds, because while three threads
+  were waiting over that second, only two CPUs were idle.
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-stroked-button mat-dialog-close>Close</button>
+</mat-dialog-actions>

@@ -1,0 +1,35 @@
+<div class="container">
+   <sidebar *ngIf="collectionParameters && systemTopology"
+             [preview]="preview" [layers]="layers"
+             [parameters]="collectionParameters"
+             [systemTopology]="systemTopology"
+             [filter]="filter"
+             [tab]="tab"
+             [sort]="sort"
+             [showSleeping]="showSleeping"
+             [showMigrations]="showMigrations"
+             [maxIntervalCount]="maxIntervalCount"
+             [cpuFilter]="cpuFilter"
+             [viewport]="viewport">
+    </sidebar>
+  <div id="heatmapContainer">
+    <heatmap *ngIf="collectionParameters && systemTopology"
+             #heatmap [preview]="preview"
+             [cpuFilter]="cpuFilter"
+             [layers]="layers"
+             [viewport]="viewport"
+             [maxIntervalCount]="maxIntervalCount"
+             [showSleeping]="showSleeping"
+             [showMigrations]="showMigrations"
+             [parameters]="collectionParameters"
+             [systemTopology]="systemTopology"
+             (mouseover)="preview.next(undefined)"
+             >
+    </heatmap>
+  </div>
+</div>
+<div *ngIf="loading | async" class="spinner-container">
+  <mat-progress-spinner color="primary" mode="indeterminate">
+  </mat-progress-spinner>
+</div>
+

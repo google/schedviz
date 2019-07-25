@@ -1,0 +1,8 @@
+# For docker rules
+build --host_force_python=PY2
+test --host_force_python=PY2
+run --host_force_python=PY2
+
+build --incompatible_strict_action_env --incompatible_new_actions_api=false --experimental_allow_incremental_repository_updates --incompatible_depset_is_not_iterable=false
+run --incompatible_strict_action_env --incompatible_new_actions_api=false --experimental_allow_incremental_repository_updates --incompatible_depset_is_not_iterable=false
+test --test_output=errors --incompatible_strict_action_env --incompatible_new_actions_api=false --experimental_allow_incremental_repository_updates --incompatible_depset_is_not_iterable=false

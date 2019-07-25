@@ -1,0 +1,14 @@
+/deep/.mat-tab-label, /deep/.mat-tab-label-active{
+ min-width: 120px!important;
+ padding: 3px!important;
+ margin: 3px!important;
+}
+
+.layers-badge-icon {
+  margin-top: 5px;
+}
+
+.cpu-filter-form {
+  width: calc(100% - 60px);
+  margin: 10px;
+}

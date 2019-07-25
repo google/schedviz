@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package schedviz.events;
+
+import "google/protobuf/timestamp.proto";
+
+message EventDescriptor {
+  message PropertyDescriptor {
+    enum FieldType {
+      UNKNOWN = 0;
+      NUMBER = 1;
+      TEXT = 2;
+    }
+    // Indexes into the string table.
+    int64 name = 1;
+    FieldType type = 2;
+  }
+
+  // Indexes into the string table.
+  int64 name = 1;
+  repeated PropertyDescriptor property_descriptor = 2;
+}
+
+message Event {
+  // Indexes into the EventDescriptor table.
+  int64 event_descriptor = 1;
+  // The CPU on which, and timestamp at which, this event was recorded.
+  int64 cpu = 2;
+  // TODO(ilhamster) rename to timestamp, and add a description.  The timestamp
+  // recorded in the event may have different units depending on what trace
+  // clock was used: 'local' and 'global' are converted to ns, but some clocks,
+  // such as the arch-specific 'x86_tsc', are in clockticks (convertible to,
+  // but not natively, ns), and some, like 'counter', cannot be converted to
+  // ns at all.  Sideband data, such as the requested trace clock, must be used
+  // to properly interpret these.
+  int64 timestamp_ns = 3;
+  // True if this Event fell outside of the known-valid range of a trace which
+  // experienced buffer overruns.
+  bool clipped = 4;
+  // This set of property fields has a 1:1 correspondence with the
+  // PropertyDescriptors in this event's EventDescriptor.  If the corresponding
+  // PropertyDescriptor's type is NUMBER, this field should be interpreted as
+  // an int64.  If the corresponding PropertyDescriptor's type is TEXT, this
+  // field should be interpreted as an index into the EventSet's string_table.
+  repeated int64 property = 5;
+}
+
+message EventSet {
+  // Set of strings referenced by string-index fields among the events and
+  // event descriptors
+  repeated string string_table = 1;
+  repeated EventDescriptor event_descriptor = 2;
+  repeated Event event = 3;
+}
+
+message MetadataList {
+  repeated Metadata metadata = 1;
+}
+
+message Metadata {
+  // The unique name of the collection.
+  string collection_unique_name = 1;
+  // The creator tag provided at this collection's creation.
+  string creator = 2;
+  // This collection's owners.
+  repeated string owners = 3;
+  // The collection's tags.
+  repeated string tags = 4;
+  // The collection's description.
+  string description = 5;
+  // The time of this collection's creation.
+  google.protobuf.Timestamp creation_time = 6;
+  // Additional properties applied to this collection.
+  map<string, PropertyValue> properties = 7;
+  // The events collected during the collection.
+  repeated string ftrace_events = 8;
+  // The target machine on which the collection was performed.
+  string target_machine = 9;
+}
+
+// A single named property's value.  Properties may not contain PII, either in
+// their names or in their values.
+message PropertyValue {
+  oneof value {
+    string str_value = 1;
+    int64 int64_value = 2;
+  }
+}
+
+message SystemTopology {
+  message LogicalCore {
+    // This logical core's index in the topology.  Used as a scalar identifier
+    // of this CPU in profiling tools.
+    uint64 cpu_id = 1;
+    // The 0-indexed identifier of the socket of this logical core.  'Socket'
+    // represents a distinct IC package.
+    int32 socket_id = 2;
+    // The 0-indexed NUMA node of this logical core.  NUMA nodes are groupings
+    // of cores and cache hierarchy that are 'local' to their own memory;
+    // accessing non-local memory is costlier than accessing local memory.
+    int32 numa_node_id = 3;
+    // The 0-indexed die identifier.  Some IC packages may include more than one
+    // distinct dies.
+    int32 die_id = 4;
+    // The 0-indexed core identifier within its die.  A core is a single
+    // processing unit with its own register storage and L1 caches.
+    int32 core_id = 5;
+    // The 0-indexed hyperthread, or hardware thread, identifier within its
+    // core.  A hardware thread is a partitioning of a core that can execute a
+    // single instruction stream.  Hyperthreads on a core share the core's
+    // resources, such as its functional units and cache hierarchy, but maintain
+    // independent registers, and help ensure that the CPU remains fully
+    // utilized.
+    int32 thread_id = 6;
+  }
+  // The index of this platform
+  int32 cpu_identifier = 1;
+  // CPU vendor
+  int32 cpu_vendor = 2;
+  // CPUID fields.
+  int32 cpu_family = 3;
+  int32 cpu_model = 4;
+  int32 cpu_stepping = 5;
+  // The set of logical cores.
+  repeated LogicalCore logical_core = 6;
+}
+
+message Collection {
+  Metadata metadata = 1;
+  EventSet event_set = 2;
+  SystemTopology topology = 3;
+}

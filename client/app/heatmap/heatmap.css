@@ -1,0 +1,45 @@
+#scalingSvgContainer {
+  position: relative;
+  height: calc(100% - 43px);
+  width: 100%;
+  background: #000;
+}
+
+.scaling-svg {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+}
+
+.loader-hidden {
+    visibility: hidden;
+}
+
+.loader-overlay {
+    position: absolute;
+    width:100%;
+    top:0;
+    left: 0;
+    opacity: 1;
+    z-index: 500000;
+}
+
+.tooltip {
+  color: white;
+  font-family: Roboto;
+  position: absolute;
+  z-index: 1000;
+  background: #546e7a;
+  border-radius: 10px;
+  padding: 5px 10px;
+  font-size: 14px;
+  border: 2px solid #ffc107;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.heatmap-loading {
+  position: absolute;
+  top: 5px;
+  z-index: 1;
+}

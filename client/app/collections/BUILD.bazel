@@ -1,0 +1,60 @@
+load("@npm_bazel_typescript//:defs.bzl", "ts_library")
+load("@npm_angular_bazel//:index.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ng_module(
+    name = "collections",
+    srcs = [
+        "collections.ts",
+        "collections_module.ts",
+        "collections_table.ts",
+        "collections_toolbar.ts",
+    ],
+    assets = [
+        "collections.ng.html",
+        "collections.css",
+        "collections_table.css",
+        "collections_table.ng.html",
+        "collections_toolbar.css",
+        "collections_toolbar.ng.html",
+    ],
+    deps = [
+        "//client/app/models",
+        "//client/app/models:collections_filter",
+        "//client/app/services",
+        "//client/app/util",
+        "@npm//@angular/cdk",
+        "@npm//@angular/common",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser",
+        "@npm//@angular/router",
+        "@npm//@types/node",
+        "@npm//rxjs",
+    ],
+)
+
+ts_library(
+    name = "collections_tests",
+    testonly = True,
+    srcs = ["collections_test.ts"],
+    deps = [
+        ":collections",
+        "//client/app:app_root",
+        "//client/app/dashboard",
+        "//client/app/models:collections_filter",
+        "//client/app/services",
+        "@npm//@angular/common",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser",
+        "@npm//@angular/router",
+        "@npm//@types/jasmine",
+        "@npm//rxjs",
+    ],
+)

@@ -1,0 +1,44 @@
+<div #table class="table-container">
+  <mat-table class="sched-events-mat-table"
+             [dataSource]="dataSource"
+             multiTemplateDataRows>
+
+    <!-- Checkbox Column -->
+    <ng-container matColumnDef="selected">
+      <mat-header-cell mat-header-cell *matHeaderCellDef>
+        <mat-icon>
+          layers
+        </mat-icon>
+      </mat-header-cell>
+      <mat-cell *matCellDef="let row">
+       <layer-toggle (click)="$event.stopPropagation()"
+                     [color]="colorService.getColorFor(row)"
+                     [toggledOn]="selection.isSelected(row)"
+                     (toggledOnChange)="toggleEventType(row)">
+        </layer-toggle>
+      </mat-cell>
+    </ng-container>
+
+    <!-- Name Column -->
+    <ng-container matColumnDef="name">
+      <mat-header-cell *matHeaderCellDef>Event Type</mat-header-cell>
+      <mat-cell *matCellDef="let eventType">{{eventType}}</mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef="displayedColumns; sticky: true">
+    </mat-header-row>
+    <mat-row *matRowDef="let eventType; columns: displayedColumns;" class="selectable-row">
+    </mat-row>
+  </mat-table>
+  <div *ngIf="data.value.length == 0" class="spinner-container">
+    <mat-progress-spinner *ngIf="dataPending; else noData"
+      color="primary"
+      mode="indeterminate">
+    </mat-progress-spinner>
+    <ng-template #noData>
+      <i>No data to display</i>
+    </ng-template>
+  </div>
+  <mat-paginator [pageSize]="pageSize" showFirstLastButtons>
+  </mat-paginator>
+</div>

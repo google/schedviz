@@ -1,0 +1,63 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+go_library(
+    name = "traceparser",
+importpath = "github.com/google/schedviz/traceparser/traceparser",
+
+    srcs = [
+        "eventformat.go",
+        "formatparser.go",
+        "protoconverter.go",
+        "ringbuffer.go",
+        "traceevent.go",
+        "tracereader.go",
+    ],
+    deps = [
+        "//tracedata:schedviz_events_go_proto",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+    ],
+)
+
+go_test(
+    name = "formatparser_test",
+    size = "small",
+    srcs = ["formatparser_test.go"],
+    embed = [":traceparser"],
+    deps = ["@com_github_google_go-cmp//cmp:go_default_library"],
+)
+
+go_test(
+    name = "tracereader_test",
+    size = "small",
+    srcs = [
+        "tracereader_test.go",
+    ],
+    data = [
+        "testdata/input/cpu0",
+        "testdata/output/trace.gob",
+    ],
+    embed = [":traceparser"],
+    deps = [
+        "//testhelpers",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+    ],
+)
+
+go_test(
+    name = "protoconverter_test",
+    size = "small",
+    srcs = [
+        "protoconverter_test.go",
+    ],
+    embed = [":traceparser"],
+    deps = [
+        "//tracedata:schedviz_events_go_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+    ],
+)

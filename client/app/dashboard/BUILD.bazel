@@ -1,0 +1,56 @@
+load("@npm_bazel_typescript//:defs.bzl", "ts_library")
+load("@npm_angular_bazel//:index.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ng_module(
+    name = "dashboard",
+    srcs = [
+        "dashboard.ts",
+        "dashboard_module.ts",
+        "dashboard_toolbar.ts",
+    ],
+    assets = [
+        "dashboard.css",
+        "dashboard.ng.html",
+        "dashboard_toolbar.css",
+        "dashboard_toolbar.ng.html",
+    ],
+    deps = [
+        "//client/app/heatmap",
+        "//client/app/models",
+        "//client/app/services",
+        "//client/app/sidebar",
+        "//client/app/util",
+        "@npm//@angular/common",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser",
+        "@npm//@angular/router",
+        "@npm//@types/node",
+        "@npm//rxjs",
+    ],
+)
+
+ts_library(
+    name = "dashboard_tests",
+    testonly = True,
+    srcs = ["dashboard_test.ts"],
+    deps = [
+        ":dashboard",
+        "//client/app/heatmap",
+        "//client/app/models",
+        "//client/app/services",
+        "//client/app/sidebar",
+        "//client/app/util",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser",
+        "@npm//@types/jasmine",
+        "@npm//rxjs",
+    ],
+)

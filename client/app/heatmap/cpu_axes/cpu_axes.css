@@ -1,0 +1,10 @@
+.cpuLabel {
+  cursor: pointer;
+  fill: #eee;
+  font-family: Roboto;
+  font-size: 8px;
+}
+
+.cpuLabel:hover {
+  fill: #ffca28;
+}

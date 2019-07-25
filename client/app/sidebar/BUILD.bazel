@@ -1,0 +1,31 @@
+load("@npm_angular_bazel//:index.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache License 2.0
+
+ng_module(
+    name = "sidebar",
+    srcs = [
+        "sidebar.ts",
+        "sidebar_module.ts",
+    ],
+    assets = [
+        "sidebar.ng.html",
+        "sidebar.css",
+    ],
+    deps = [
+        "//client/app/models",
+        "//client/app/services",
+        "//client/app/sidebar/settings_menu",
+        "//client/app/sidebar/thread_table",
+        "//client/app/util",
+        "@npm//@angular/common",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser",
+        "@npm//@types/node",
+        "@npm//rxjs",
+    ],
+)

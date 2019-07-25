@@ -1,0 +1,6 @@
+bazel-bin
+bazel-genfiles
+bazel-out
+bazel-schedviz
+bazel-testlogs
+node_modules/

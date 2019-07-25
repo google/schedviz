@@ -1,0 +1,38 @@
+.toggle-root {
+  user-select: none;
+  cursor: pointer;
+  height: 20px;
+  width: 20px;
+  margin-top: -5px;
+  transition: rotate 0.5s ease-in-out;
+}
+
+.opened .vertical {
+  transform: rotate(-90deg);
+  opacity: 0;
+}
+
+.opened .horizontal {
+  transform: rotate(-180deg);
+  opacity: 1;
+}
+
+.closed .vertical {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+
+.closed .horizontal {
+  transform: rotate(180deg);
+  opacity: 0;
+}
+
+.horizontal {
+  position: relative;
+  margin-top: -30px;
+  top: -15px;
+}
+
+.vertical {
+  position: relative;
+}

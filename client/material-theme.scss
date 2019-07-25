@@ -1,0 +1,35 @@
+@import 'external/npm/node_modules/@angular/material/_theming.scss';
+
+
+
+// Angular Material theme definition.
+
+// Include non-theme styles for core.
+@include mat-core();
+
+$my-app-primary: mat-palette($mat-blue-grey, 600);
+$my-app-accent: mat-palette($mat-amber, 500);
+$my-app-warn: mat-palette($mat-deep-orange);
+$my-app-theme: mat-light-theme($my-app-primary, $my-app-accent, $my-app-warn);
+@include angular-material-theme($my-app-theme);
+
+// Workaround for sort arrows not showing up on initial load
+// Can remove when https://github.com/angular/material2/pull/13171 is merged
+.mat-header-cell .mat-sort-header-container.mat-sort-header-sorted .mat-sort-header-arrow {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
+// Stop cropping in Material select boxes
+.mat-select-panel {
+  max-width: unset !important;
+}
+
+.mat-tab-group,
+.mat-tab-body-wrapper {
+  height: 100%;
+}
+
+.mat-simple-snackbar {
+  white-space: pre-wrap;
+}
