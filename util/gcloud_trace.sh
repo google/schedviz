@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #
 # Copyright 2019 Google Inc. All Rights Reserved.
 #
@@ -14,7 +15,7 @@
 # limitations under the License.
 #
 #
-#!/usr/bin/env bash
+
 
 PROG=$0
 USAGE="Usage: ${PROG} -instance 'GCE Instance Name' \
