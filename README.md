@@ -49,12 +49,14 @@ To load SchedViz, go to http://localhost:7042/collections
 
 ## Manually collecting a scheduling trace
 
-1.  Run the [trace.sh](traceparser/trace.sh) as root on the machine that you
+1.  Run the [trace.sh](util/trace.sh) as root on the machine that you
     want to collect a trace from:
 
-    ```
-    OUTPUT_PATH=<path to trace output>
-    sudo ./trace.sh <seconds to capture> $OUTPUT_PATH <seconds to wait for copy to finish>? <buffer size>?
+    ```bash
+    sudo ./trace.sh -out 'Path to directory to save trace in' \
+                    -capture_seconds 'Number of seconds to record a trace' \
+                    [-buffer_size 'Size of the trace buffer in KB'] \
+                    [-copy_timeout 'Time to wait for copying to finish']
     ```
 
     Default number of seconds to wait for copy to finish is `5`.
@@ -79,25 +81,18 @@ To load SchedViz, go to http://localhost:7042/collections
 ## Collecting a scheduling trace on a GCE machine
 
 Using [gcloud](https://cloud.google.com/sdk/gcloud/) you can easily collect a
-trace on a remote GCE machine:
+trace on a remote GCE machine. We've written a
+[helper script](util/gcloud_trace.sh) to collect a trace on a GCE machine
+with a single command. This script is a wrapper around the manual
+[trace script](util/trace.sh).
 
+Usage:
 ```bash
-# Tell gcloud to connect to your project
-GCP_PROJECT_NAME=<Your Project Name>
-gcloud config set project $GCP_PROJECT_NAME
-# Store the name of the instance to collect a trace from
-GCE_INSTANCE=<Your Instance Name>
-# Copy the script to the remote machine
-LOCAL_PATH_TO_SCRIPT=traceparser/trace.sh # This is the path from the root of the repo
-gcloud compute scp $GCE_INSTANCE $LOCAL_PATH_TO_SCRIPT $GCE_INSTANCE:/tmp/trace.sh
-# Make the script executable
-gcloud compute ssh $GCE_INSTANCE --command="chmod +x /tmp/trace.sh"
-# Collect a trace on the remote machine
-gcloud compute ssh $GCE_INSTANCE --command="sudo /tmp/trace.sh 2 /tmp/trace/"
-# Download recorded trace to the current directory
-gcloud compute scp $GCE_INSTANCE:/tmp/trace/trace.tar.gz trace.tar.gz
-# Cleanup
-gcloud compute ssh $GCE_INSTANCE --command="sudo rm -rf /tmp/trace.sh /tmp/trace/"
+./gcloud_trace.sh -instance 'GCE Instance Name' \
+-trace_args 'Arguments to forward to trace script' \
+[-project 'GCP Project Name'] \
+[-zone 'GCP Project Zone'] \
+[-script 'Path to trace script']
 ```
 
 ## Analyzing a trace
@@ -108,10 +103,15 @@ Take a look at our [features and usage walkthrough](doc/walkthrough.md).
 
 ### Errors collecting traces
 
-When the trace takes longer to copy than the timeout passed to the trace
-collection script (default timeout is five seconds), traces will not be
-fully copied into the output file. To fix this, increase the copy timeout
-parameter to a larger and sufficient value.
+* When the trace takes longer to copy than the timeout passed to the trace
+  collection script (default timeout is five seconds), traces will not be
+  fully copied into the output file. To fix this, increase the copy timeout
+  parameter to a larger and sufficient value.
+
+* If a CPU's trace buffer fills up before the timeout is reached, recording
+  will be stopped for that CPU. Other CPUs may keep recording until their
+  buffers fill up, but only the events occurring up to the last event in the
+  first buffer to fill up will be used.
 
 ### Errors loading traces
 
@@ -134,4 +134,3 @@ In particular, two factors may increase the likelihood of inference failures:
   same timestamp when they shouldn't. This type of error occurs when recording
   high-frequency events such as the workqueue family, and it very rarely occurs
   when recording only scheduling events.
-

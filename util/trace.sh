@@ -14,12 +14,13 @@
 # limitations under the License.
 #
 #
-#!/bin/bash
+#!/usr/bin/env bash
 
-readonly capture_seconds="$1"
-readonly OUT="$2"
-COPYTIME=${3:-5}
-BUFSIZEK=${4:-4096}
+PROG=$0
+USAGE="Usage: ${PROG} -out 'Path to directory to save trace in' \
+-capture_seconds 'Number of seconds to record a trace' \
+[-buffer_size 'Size of the trace buffer in KB. Default 4096'] \
+[-copy_timeout 'Time to wait for copying to finish. Default 5.']"
 
 declare -a events=("sched:sched_switch" "sched:sched_wakeup" "sched:sched_wakeup_new" "sched:sched_migrate_task")
 
@@ -28,12 +29,53 @@ if [[ "$(whoami)" != "root" ]]; then
   exit 1
 fi
 
-if [[ "$(($1 + 0))" != "$1" || -z "$OUT" ]]; then
-  echo "Usage: $0 <seconds to capture> <path to output files> <copy timeout (sec)>? <buffer size>?"
+# Parse arguments
+while [[ "$#" -gt 0 ]]; do case $1 in
+  -o|-out) OUT="$2"; shift;;
+  -cs|-capture_seconds) capture_seconds="$2"; shift;;
+  -bs|-buffer_size) BUFSIZEK="$2"; shift;;
+  -ct|-copy_timeout) COPYTIME="$2"; shift;;
+  *) echo "Unknown parameter passed: $1"; echo ${USAGE}; exit 1;;
+esac; shift; done
+
+if [[ -z "${COPYTIME}" ]]; then
+  COPYTIME=5
+fi
+if [[ -z "${BUFSIZEK}" ]]; then
+  BUFSIZEK=4096
+fi
+
+if [[ "$((${capture_seconds} + 0))" != "${capture_seconds}" ]]; then
+  echo "capture_seconds must be a number"
   exit 1
 fi
+
+if [[ -z "${OUT}"  ]]; then
+  echo "out is required"
+  exit 1
+fi
+
+TMP="${OUT}/tmp"
+
 readonly date="$(date +%Y-%m-%d--%H:%M)"
 
+pids=()
+
+kill_spawned() {
+  for pid in "${pids[@]}"
+  do
+    kill -9 "${pid}" 2>/dev/null
+  done
+}
+
+kill_trap() {
+  exit_status=$?
+  kill_spawned
+  rm -rf "${TMP}"
+  exit "${exit_status}"
+}
+
+trap kill_trap SIGINT SIGTERM EXIT
 
 trace_set() {
   local on=/sys/kernel/debug/tracing/tracing_on
@@ -41,7 +83,6 @@ trace_set() {
 }
 
 trace_set 0
-echo "I am pid $$"
 echo "Trace date ${date}: capture for ${capture_seconds} seconds, send output to ${OUT}"
 
 echo nop > /sys/kernel/debug/tracing/current_tracer
@@ -60,8 +101,6 @@ trace_set 0
 
 # Make the output directories if needed, and clear it out.
 [[ ! -d "${OUT}" ]] && mkdir "${OUT}"
-rm -rf ${OUT}/*
-TMP="${OUT}/tmp"
 mkdir "${TMP}"
 mkdir "${TMP}/traces"
 mkdir "${TMP}/topology"
@@ -81,7 +120,6 @@ rm -rf sys/
 
 cat "/sys/kernel/debug/tracing/events/header_page" > "${TMP}/formats/header_page"
 
-pids=()
 for cf in /sys/kernel/debug/tracing/per_cpu/cpu*
 do
   cpuname="${cf##*/}"
@@ -97,10 +135,7 @@ done
 echo "Waiting ${COPYTIME} seconds for copies to complete"
 sleep "${COPYTIME}"
 
-for pid in "${pids[@]}"
-do
-  kill -9 "${pid}"
-done
+kill_spawned
 
 echo "Creating tar file"
 chmod -R a+rwX "${TMP}"
