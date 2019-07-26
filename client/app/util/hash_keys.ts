@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {CollectionsFilter} from '../models/collections_filter';
+import {CollectionFilterKeys} from '../models/collections_filter';
 
 /**
  * Key for the owner property in the URL hash on the collections page
@@ -44,7 +44,7 @@ export const TARGET_MACHINE_KEY: 'targetMachine' = 'targetMachine';
 /**
  * All the keys used for filtering on the collections page.
  */
-export const COLLECTIONS_FILTER_KEYS: Array<keyof CollectionsFilter> = [
+export const COLLECTIONS_FILTER_KEYS: CollectionFilterKeys[] = [
   CREATION_TIME_KEY, DESCRIPTION_KEY, NAME_KEY, TAGS_KEY, TARGET_MACHINE_KEY
 ];
 /**

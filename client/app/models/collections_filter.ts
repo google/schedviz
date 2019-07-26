@@ -28,12 +28,25 @@ export interface CollectionsFilterJSON {
 }
 
 /**
+ * Helper Type to get all keys of an object that have a given type.
+ */
+type KeysOfType<TObj, TProp, K extends keyof TObj = keyof TObj> = K extends K ?
+    TObj[K] extends TProp ? K : never :
+    never;
+
+/**
+ * CollectionFilterKeys is a type containing all the properties
+ * (i.e. not functions) of CollectionsFilter.
+ */
+export type CollectionFilterKeys = KeysOfType<CollectionsFilter, string>;
+
+/**
  * Collections filter is a model class that holds the filter state
  * of the collections_table.
  */
 export class CollectionsFilter {
   changes = new BehaviorSubject<{prop: string, newVal: string}|null>(null);
-  constructor(filter: {[k in keyof CollectionsFilter]?: string} = {}) {
+  constructor(filter: {[k in CollectionFilterKeys]?: string} = {}) {
     Object.assign(this, filter);
   }
 

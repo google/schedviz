@@ -52,8 +52,7 @@ export function compress(obj: object): string {
  *                    string to decompress.
  * @return The decompressed object or undefined if an error occurred.
  */
-export function decompress<T extends {[k: string]: unknown} = never>(
-    compressed: string): T|undefined {
+export function decompress<T = never>(compressed: string): T|undefined {
   // Call decodeURIComponent() until stable.
   let decoded = decodeURIComponent(compressed);
   while (decoded !== (decoded = decodeURIComponent(decoded))) {
