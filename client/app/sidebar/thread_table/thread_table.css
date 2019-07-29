@@ -203,3 +203,11 @@ mat-form-field {
 .mat-column-visibleThreadCount {
   flex: 0 0 60px;
 }
+
+.expandedControls {
+  float: right;
+}
+
+.expandedDetails {
+  float: left;
+}

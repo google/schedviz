@@ -16,13 +16,35 @@
 //
 import {animate, state, style, transition, trigger} from '@angular/animations';
 import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit} from '@angular/core';
-import {BehaviorSubject} from 'rxjs';
-
+import {FormControl} from '@angular/forms';
+import {ErrorStateMatcher} from '@angular/material/core';
+import {BehaviorSubject, Observable} from 'rxjs';
+import {debounceTime, map, filter} from 'rxjs/operators';
 import {Interval, Layer, Thread, ThreadEvent, ThreadInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
+import {getDurationInNsFromHumanReadableString} from '../../util/duration';
 import {SelectableTable} from './selectable_table';
 
 const EMBEDDED_PAGE_SIZE = 20;
+
+/**
+ * Matcher which enters an error state immediately, ignoring empty fields.
+ */
+class ImmediateErrorStateMatcher implements ErrorStateMatcher {
+  isErrorState(control: FormControl|null): boolean {
+    if (!control) {
+      return false;
+    }
+
+    return control.invalid && control.value !== '';
+  }
+}
+
+function timeInputToNs(timeInput: Observable<string>): Observable<number> {
+  return timeInput.pipe(
+      debounceTime(300), map(getDurationInNsFromHumanReadableString),
+      filter(val => !isNaN(val)));
+}
 
 /**
  * The ThreadTable displays thread metrics in a sortable, searchable,
@@ -58,6 +80,10 @@ export class ThreadTable extends SelectableTable implements OnInit,
   @Input() expandedThreadAntagonists!: BehaviorSubject<ThreadInterval[]>;
   @Input() filter!: BehaviorSubject<string>;
   @Input() tab!: BehaviorSubject<number>;
+  @Input() jumpToTimeInput = new BehaviorSubject<string>('');
+  @Input() antagonistJumpToTimeEnabled = new BehaviorSubject<boolean>(true);
+  jumpToTimeNs = new Observable<number>();
+  jumpToTimeMatcher = new ImmediateErrorStateMatcher();
   aggregateWakeups = 0;
   aggregateMigrations = 0;
   aggregateWaitTime = 0;
@@ -112,6 +138,8 @@ export class ThreadTable extends SelectableTable implements OnInit,
       this.dataSource.filter = filter;
       this.updateAggregateMetrics(this.dataSource.filteredData as Thread[]);
     });
+
+    this.jumpToTimeNs = this.jumpToTimeInput.pipe(timeInputToNs);
   }
 
   ngAfterViewInit() {

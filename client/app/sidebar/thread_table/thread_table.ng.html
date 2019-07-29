@@ -139,14 +139,44 @@
         <div class="thread-detail" *ngIf="!embedded"
              [@detailExpand]="thread === expandedThread.value ? 'expanded' : 'collapsed'">
           <div *ngIf="thread === expandedThread.value">
-            <event-table class="detail-table" [data]="expandedThreadEvents"
-                         [preview]="preview" [layers]="layers" [sort]="sort"
-                         [dataPending]="thread.eventsPending">
-            </event-table>
-            <antagonist-table class="detail-table" [data]="expandedThreadAntagonists"
-                         [preview]="preview" [layers]="layers" [sort]="sort"
-                         [dataPending]="thread.antagonistsPending">
-            </antagonist-table>
+            <div class="expandedControls">
+              <mat-form-field>
+                <input matInput
+                       matTooltip="Allowed units are nanoseconds, microseconds, milliseconds, seconds, minutes, and hours. The events table will be sorted by start time whenever the jump time is changed."
+                       isDuration
+                       [errorStateMatcher]="jumpToTimeMatcher"
+                       placeholder="Jump to time (e.g. '30 ms')"
+                       [ngModel]="jumpToTimeInput.value"
+                       (ngModelChange)="jumpToTimeInput.next($event)">
+                <mat-error>
+                  Invalid time format
+                </mat-error>
+              </mat-form-field>
+              <mat-slide-toggle [checked]="antagonistJumpToTimeEnabled.value"
+                                (change)="antagonistJumpToTimeEnabled.next($event.checked)"
+                                matTooltip="Enable advancing the antagonists table as well. This will sort the table by start time whenever the jump time is changed.">
+                Advance antagonists
+              </mat-slide-toggle>
+            </div>
+            <div class="expandedDetails">
+              <event-table class="detail-table"
+                           [data]="expandedThreadEvents"
+                           [preview]="preview"
+                           [layers]="layers"
+                           [sort]="sort"
+                           [jumpToTimeNs]="thread === expandedThread.value && jumpToTimeNs"
+                           [dataPending]="thread.eventsPending">
+              </event-table>
+              <antagonist-table class="detail-table"
+                                [data]="expandedThreadAntagonists"
+                                [preview]="preview"
+                                [layers]="layers"
+                                [sort]="sort"
+                                [jumpToTimeNs]="thread === expandedThread.value && jumpToTimeNs"
+                                [jumpToTimeEnabled]="antagonistJumpToTimeEnabled"
+                                [dataPending]="thread.antagonistsPending">
+              </antagonist-table>
+            </div>
           </div>
         </div>
       </mat-cell>

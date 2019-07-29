@@ -14,11 +14,14 @@
 // limitations under the License.
 //
 //
-import {ChangeDetectorRef, Component} from '@angular/core';
+import {ChangeDetectorRef, Component, Input, OnDestroy, OnInit} from '@angular/core';
+import {ReplaySubject, Subject} from 'rxjs';
+import {takeUntil} from 'rxjs/operators';
 
 import {ColorService} from '../../services/color_service';
 import * as Duration from '../../util/duration';
 
+import {jumpToTime} from './jump_to_time';
 import {SelectableTable} from './selectable_table';
 
 /**
@@ -29,11 +32,31 @@ import {SelectableTable} from './selectable_table';
   styleUrls: ['thread_table.css'],
   templateUrl: 'event_table.ng.html',
 })
-export class EventTable extends SelectableTable {
+export class EventTable extends SelectableTable implements OnInit, OnDestroy {
+  @Input() jumpToTimeNs!: ReplaySubject<number>;
+  private readonly unsub$ = new Subject<void>();
+
   constructor(
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {
     super(colorService, cdr);
     this.displayedColumns = ['startTimeNs', 'description'];
+  }
+
+  ngOnInit() {
+    super.ngOnInit();
+
+    if (!this.jumpToTimeNs) {
+      throw new Error('Missing Observable for jump to time');
+    }
+
+    this.jumpToTimeNs.pipe(takeUntil(this.unsub$)).subscribe((timeNs) => {
+      jumpToTime(this.dataSource, timeNs);
+    });
+  }
+
+  ngOnDestroy() {
+    this.unsub$.next();
+    this.unsub$.complete();
   }
 
   /**

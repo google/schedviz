@@ -9,7 +9,9 @@ ng_module(
     name = "thread_table",
     srcs = [
         "antagonist_table.ts",
+        "duration_validator.ts",
         "event_table.ts",
+        "jump_to_time.ts",
         "layer_toggle.ts",
         "sched_events_table.ts",
         "selectable_table.ts",
@@ -42,7 +44,12 @@ ng_module(
 ts_library(
     name = "thread_table_tests",
     testonly = True,
-    srcs = ["thread_table_test.ts"],
+    srcs = [
+        "antagonist_table_test.ts",
+        "event_table_test.ts",
+        "jump_to_time_test.ts",
+        "thread_table_test.ts",
+    ],
     deps = [
         ":thread_table",
         "//client/app/models",

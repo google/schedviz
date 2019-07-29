@@ -30,7 +30,10 @@ ng_module(
 ts_library(
     name = "util_tests",
     testonly = True,
-    srcs = ["hash_compressor_test.ts"],
+    srcs = [
+        "duration_test.ts",
+        "hash_compressor_test.ts",
+    ],
     deps = [
         ":util",
         "@npm//@types/jasmine",

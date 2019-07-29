@@ -25,6 +25,7 @@ import {MatInputModule} from '@angular/material/input';
 import {MatPaginatorModule} from '@angular/material/paginator';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {MatSelectModule} from '@angular/material/select';
+import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {MatSortModule} from '@angular/material/sort';
 import {MatTableModule} from '@angular/material/table';
 import {MatTooltipModule} from '@angular/material/tooltip';
@@ -32,6 +33,7 @@ import {BrowserModule} from '@angular/platform-browser';
 
 import {AntagonistTable} from './antagonist_table';
 import {EventTable} from './event_table';
+import {DurationValidator} from './duration_validator';
 import {LayerToggle} from './layer_toggle';
 import {SchedEventsTable} from './sched_events_table';
 import {SelectableTable} from './selectable_table';
@@ -40,11 +42,11 @@ import {ThreadTable} from './thread_table';
 @NgModule({
   declarations: [
     SchedEventsTable, ThreadTable, EventTable, AntagonistTable, SelectableTable,
-    LayerToggle
+    LayerToggle, DurationValidator
   ],
   exports: [
     SchedEventsTable, ThreadTable, EventTable, AntagonistTable, SelectableTable,
-    LayerToggle
+    LayerToggle, DurationValidator
   ],
   imports: [
     BrowserModule,
@@ -60,6 +62,7 @@ import {ThreadTable} from './thread_table';
     MatCardModule,
     MatProgressSpinnerModule,
     MatBadgeModule,
+    MatSlideToggleModule,
     MatTooltipModule,
   ],
 })

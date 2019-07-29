@@ -14,9 +14,13 @@
 // limitations under the License.
 //
 //
-import {ChangeDetectorRef, Component} from '@angular/core';
+import {ChangeDetectorRef, Component, Input, OnDestroy, OnInit} from '@angular/core';
+import {BehaviorSubject, combineLatest, ReplaySubject, Subject} from 'rxjs';
+import {filter, takeUntil} from 'rxjs/operators';
 
 import {ColorService} from '../../services/color_service';
+
+import {jumpToTime} from './jump_to_time';
 import {SelectableTable} from './selectable_table';
 
 /**
@@ -27,11 +31,38 @@ import {SelectableTable} from './selectable_table';
   styleUrls: ['./thread_table.css'],
   templateUrl: 'antagonist_table.ng.html',
 })
-export class AntagonistTable extends SelectableTable {
+export class AntagonistTable extends SelectableTable implements OnInit,
+                                                                OnDestroy {
+  @Input() jumpToTimeEnabled!: BehaviorSubject<boolean>;
+  @Input() jumpToTimeNs!: ReplaySubject<number>;
+  private readonly unsub$ = new Subject<void>();
+
   constructor(
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {
     super(colorService, cdr);
     this.displayedColumns = this.displayedColumns.concat(
         ['pid', 'startTimeNs', 'endTimeNs', 'duration']);
+  }
+
+  ngOnInit() {
+    super.ngOnInit();
+
+    if (!this.jumpToTimeEnabled) {
+      throw new Error('Missing Observable for jump to time enabled');
+    }
+    if (!this.jumpToTimeNs) {
+      throw new Error('Missing Observable for jump to time');
+    }
+
+    combineLatest(this.jumpToTimeEnabled, this.jumpToTimeNs)
+        .pipe(takeUntil(this.unsub$), filter(([enabled]) => enabled))
+        .subscribe(([_, timeNs]) => {
+          jumpToTime(this.dataSource, timeNs);
+        });
+  }
+
+  ngOnDestroy() {
+    this.unsub$.next();
+    this.unsub$.complete();
   }
 }

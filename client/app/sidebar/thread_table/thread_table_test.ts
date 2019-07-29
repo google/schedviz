@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {async, fakeAsync, TestBed, tick} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -36,6 +36,9 @@ try {
 } catch {
   // Ignore exceptions when calling it multiple times.
 }
+
+// Delay time which will guarantee flush of jump input
+const JUMP_INPUT_DEBOUNCE_MS = 1000;
 
 function setupThreadTable(component: ThreadTable) {
   component.data = new BehaviorSubject<Interval[]>([]);
@@ -194,4 +197,50 @@ describe('ThreadTable', () => {
     fixture.detectChanges();
     expect(layersAfter).toEqual(component.layers.value.length + 1);
   });
+
+  it('should debounce jump', fakeAsync(() => {
+       const fixture = TestBed.createComponent(ThreadTable);
+       const component = fixture.componentInstance;
+       setupThreadTable(component);
+       component.data.next(mockThreads());
+       fixture.detectChanges();
+
+       const jumpSpy = jasmine.createSpy('jumpSpy');
+       component.jumpToTimeNs.subscribe(jumpSpy);
+
+       component.jumpToTimeInput.next(`100 ns`);
+       component.jumpToTimeInput.next(`200 ns`);
+       component.jumpToTimeInput.next(`300 ns`);
+       component.jumpToTimeInput.next(`400 ns`);
+
+       tick(JUMP_INPUT_DEBOUNCE_MS);
+       expect(jumpSpy).toHaveBeenCalledTimes(1);
+       expect(jumpSpy).toHaveBeenCalledWith(400);
+
+       component.jumpToTimeInput.next(`500 ns`);
+       component.jumpToTimeInput.next(`600 ns`);
+       tick(JUMP_INPUT_DEBOUNCE_MS);
+
+       expect(jumpSpy).toHaveBeenCalledTimes(2);
+       expect(jumpSpy).toHaveBeenCalledWith(600);
+     }));
+
+  it('should not propagate invalid input', fakeAsync(() => {
+       const fixture = TestBed.createComponent(ThreadTable);
+       const component = fixture.componentInstance;
+       setupThreadTable(component);
+       component.data.next(mockThreads());
+       fixture.detectChanges();
+
+       const jumpSpy = jasmine.createSpy('jumpSpy');
+       component.jumpToTimeNs.subscribe(jumpSpy);
+
+       component.jumpToTimeInput.next('10 ms');
+       tick(JUMP_INPUT_DEBOUNCE_MS);
+       expect(jumpSpy).toHaveBeenCalledTimes(1);
+
+       component.jumpToTimeInput.next('invalid input');
+       tick(JUMP_INPUT_DEBOUNCE_MS);
+       expect(jumpSpy).toHaveBeenCalledTimes(1);
+     }));
 });
