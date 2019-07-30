@@ -20,7 +20,15 @@ To get started clone this repo:
 git clone https://github.com/google/schedviz.git
 ```
 
-Schedviz requires [yarn](https://www.yarnpkg.com).
+SchedViz requires *yarn*. Closely follow the installation instructions
+on the [yarn Website](https://www.yarnpkg.com).
+
+Building SchedViz also requires the GNU C++ compiler *g++*. On Debian, for
+example, the dependency can be installed by executing this command:
+
+```bash
+sudo apt-get update && sudo apt-get install build-essential
+```
 
 To run SchedViz, run the following commands:
 
