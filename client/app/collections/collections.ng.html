@@ -12,7 +12,7 @@
            style="display:none;"
            (change)="uploadFile()">
   </div>
-  <form #lookupForm="ngForm" (ngSubmit)="onLookupFormSubmit()">
+  <form #lookupForm="ngForm" name="lookupForm" (ngSubmit)="onLookupFormSubmit()">
     <span> or </span>
     <mat-form-field [hideRequiredMarker]="true">
       <input matInput type="text" placeholder="Look up trace by ID"

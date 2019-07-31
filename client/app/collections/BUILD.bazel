@@ -46,7 +46,7 @@ ts_library(
         ":collections",
         "//client/app:app_root",
         "//client/app/dashboard",
-        "//client/app/models:collections_filter",
+        "//client/app/models",
         "//client/app/services",
         "@npm//@angular/common",
         "@npm//@angular/core",

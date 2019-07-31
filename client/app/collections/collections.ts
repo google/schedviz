@@ -146,7 +146,7 @@ export class Collections implements OnInit, OnDestroy {
         .subscribe(
             (traceID: string) => {
               this.loading.next(false);
-              this.router.navigateByUrl(`/dashboard#collection=${traceID}`);
+              this.router.navigateByUrl(COLLECTION_URL + traceID);
             },
             (err: HttpErrorResponse) => {
               this.loading.next(false);
