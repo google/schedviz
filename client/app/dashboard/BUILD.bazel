@@ -46,6 +46,7 @@ ts_library(
         "//client/app/services",
         "//client/app/sidebar",
         "//client/app/util",
+        "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//@angular/forms",
         "@npm//@angular/material",

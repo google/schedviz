@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 //
+import {HttpErrorResponse} from '@angular/common/http';
 import {async, ComponentFixture, TestBed} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
@@ -22,16 +23,17 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {MatSidenavModule} from '@angular/material/sidenav';
-import {MatSnackBarModule} from '@angular/material/snack-bar';
+import {MatSnackBar, MatSnackBarModule} from '@angular/material/snack-bar';
 import {Sort} from '@angular/material/sort';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {BrowserModule} from '@angular/platform-browser';
-import {BehaviorSubject} from 'rxjs';
+import {BehaviorSubject, throwError} from 'rxjs';
 
 import {HeatmapModule} from '../heatmap/heatmap_module';
 import {Checkpoint, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../models';
-import {ColorService} from '../services/color_service';
+
 import {LocalCollectionDataService} from '../services/collection_data_service';
+import {ColorService} from '../services/color_service';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService} from '../services/render_data_service';
 import {SidebarModule} from '../sidebar/sidebar_module';
@@ -42,6 +44,7 @@ import {DashboardToolbar} from './dashboard_toolbar';
 
 describe('Dashboard', () => {
   let dashboard: Dashboard;
+  let mockDashboard: MockDashboard;
   let fixture: ComponentFixture<Dashboard>;
 
   // Use a mock class so that async requests are not made
@@ -59,7 +62,6 @@ describe('Dashboard', () => {
     showMigrations = new BehaviorSubject<boolean>(false);
     showSleeping = new BehaviorSubject<boolean>(false);
     maxIntervalCount = new BehaviorSubject<number>(5000);
-    constructor() {}
     getCollectionParameters(...args: unknown[]) {}
     checkpoint = {displayOptions: {}} as Checkpoint;
     colorService = new ColorService();
@@ -69,6 +71,7 @@ describe('Dashboard', () => {
       'history': jasmine.createSpyObj('history', ['replaceState']),
       'location': {'hash': '', 'pathname': '/dashboard'}
     };
+
   }
 
   beforeEach(() => {
@@ -103,6 +106,7 @@ describe('Dashboard', () => {
     TestBed.compileComponents().then(() => {
       fixture = TestBed.createComponent(Dashboard);
       dashboard = fixture.debugElement.componentInstance;
+      mockDashboard = new MockDashboard();
     });
   }));
 
@@ -111,23 +115,21 @@ describe('Dashboard', () => {
   });
 
   it('should parse and load data from the hash fragment in the URL', () => {
-    const mock = new MockDashboard();
-
     const hash =
         '#collection=abc&share=eJzFlEGPmzAQhf9K5F5aCalg2AC%252BVo1aqdVuu1vtocrB4AmM4mBkhqXbKP%252B9NolY0kpRL204AHp%252BY3%252FvCbFnCrtWy%252BfbltA0HRN7Vrb9CjWBZYKxgCkgiXolSzJOuQkD1qKaG0qz28nmTCJZMBEHrKvN8BkrK0%252Bbb6Tu4Cjfa4AWm2oSqbYg1Sfs6N5YWiFo5TYbJBLhDtjvhlur%252FGlRwJ4QhtYpnl3Dxj0dI5l2fFqsahpthSEyu%252FG1rKWlR1RU3%252F1gIs34SfoA3u21ZRoeAuZ6Aeuwv%252B9ZIx2DYA8jg4hivswjsT0iKd%252BSJPnw3L54nIbKzx69a9%252BT9g2yVznkiife0LjGnlx8Z1v7IB0W2m1BtofTamu0JJhKKoyP%252FVUq7N1Q7AIqK4f3qoLuZQwJpcafoE5jh%252BAPfs7DnIvtYOwW7NsbEV2OMNrnETabNEzia0bIltk8AL8YwJvn%252BGEoyzK6Jn6ap1k28fNEhBcDjPZ5AlkkaVFeJcG7u2%252BLj9OpZ9RuaUI%252B%252F1z8dYH2hPavcB%252FdX2TxpYce%252Fg7YVsXrPA4WPOHuFiVv%252FmPR68PhF6qM2gI%253D';
-    dashboard.initFromUrl.call(mock, hash);
-    expect(mock.collectionName).toBe('abc');
-    expect(mock.cpuFilter.value).toBe('');
-    expect(mock.sort.value).toEqual({
+    dashboard.initFromUrl.call(mockDashboard, hash);
+    expect(mockDashboard.collectionName).toBe('abc');
+    expect(mockDashboard.cpuFilter.value).toBe('');
+    expect(mockDashboard.sort.value).toEqual({
       active: 'waittime',
       direction: 'desc',
     });
-    expect(mock.tab.value).toBe(3);
-    expect(mock.showMigrations.value).toBe(false);
-    expect(mock.showSleeping.value).toBe(false);
-    expect(mock.maxIntervalCount.value).toBe(5000);
-    expect(mock.filter.value).toBe('');
-    expect(mock.layers.value.length).toBe(4);
+    expect(mockDashboard.tab.value).toBe(3);
+    expect(mockDashboard.showMigrations.value).toBe(false);
+    expect(mockDashboard.showSleeping.value).toBe(false);
+    expect(mockDashboard.maxIntervalCount.value).toBe(5000);
+    expect(mockDashboard.filter.value).toBe('');
+    expect(mockDashboard.layers.value.length).toBe(4);
     const viewport = new Viewport({
       bottom: 1,
       left: 0,
@@ -136,20 +138,38 @@ describe('Dashboard', () => {
       chartWidthPx: 782,
       chartHeightPx: 670,
     } as Viewport);
-    expect(mock.viewport.value).toEqual(viewport);
+    expect(mockDashboard.viewport.value).toEqual(viewport);
   });
 
   it('should update share URL', () => {
-    const mock = new MockDashboard();
+    dashboard.updateShareURL.call(mockDashboard, 'cpuFilter')('abc');
 
-    dashboard.updateShareURL.call(mock, 'cpuFilter')('abc');
-
-    expect(mock.global.history.replaceState)
+    expect(mockDashboard.global.history.replaceState)
         .toHaveBeenCalledWith(
             null, '',
             '/dashboard#share=eJyrVkrJLC7ISaz0LyjJzM8rVrKqVkouKHXLzClJLVKyUkpMSlaqrQUAFyIN5w%253D%253D');
   });
 
-  // TODO(sabarabc) Test that snack bar appears when errors occur.
+
+  it('should display snack bar on error', async () => {
+    const serviceSpy =
+        spyOn(dashboard.collectionDataService, 'getCollectionParameters')
+            .and.returnValue(throwError(new HttpErrorResponse({error: 'err'})));
+
+    const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
+    const snackSpy = spyOn(snackBar, 'open');
+
+    await fixture.whenStable();
+
+    dashboard.getCollectionParameters('abc');
+    expect(serviceSpy).toHaveBeenCalled();
+
+    expect(snackSpy).toHaveBeenCalledWith(
+        'Failed to get parameters for abc\n' +
+            'Reason:\n' +
+            ' err',
+        'Dismiss');
+  });
+
   // TODO(sainsley): Test headmap / sidebar presence / size?
 });
