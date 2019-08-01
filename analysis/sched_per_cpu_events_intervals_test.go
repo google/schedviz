@@ -23,8 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
 	"github.com/google/schedviz/tracedata/eventsetbuilder"
-	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -149,7 +149,13 @@ func typeFilteringCPULookupFunc(eventType string) CPULookupFunc {
 	}
 }
 
-func TestIntervalFormation(t *testing.T) {
+func perCPUEventsIntervalsCollection(t *testing.T, normalizeTimestamps bool) *Collection {
+	t.Helper()
+	evtLoaders := map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
+		intervalStartLabel: func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
+		intervalEndLabel:   func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
+	}
+
 	// An EventSet with two CPUs and two intervals on each:
 	//            0 1 2 3 4 5 6 7
 	//            0 0 0 0 0 0 0 0
@@ -160,7 +166,7 @@ func TestIntervalFormation(t *testing.T) {
 	// CPU 2:
 	//   ival 3:    *************
 	//   ival 4:        *****
-	defaultEventSet := eventsetbuilder.NewBuilder().
+	es := eventsetbuilder.NewBuilder().
 		WithEventDescriptor(intervalStartLabel, eventsetbuilder.Number(intervalIDLabel)).
 		WithEventDescriptor(intervalEndLabel, eventsetbuilder.Number(intervalIDLabel)).
 		WithEvent(intervalStartLabel, 1, 1000, false, 1).
@@ -173,9 +179,18 @@ func TestIntervalFormation(t *testing.T) {
 		WithEvent(intervalEndLabel, 2, 1070, false, 3).
 		TestProtobuf(t)
 
+	coll, err := NewCollection(es, evtLoaders, NormalizeTimestamps(normalizeTimestamps))
+	if err != nil {
+		t.Fatalf("NewCollection yielded unexpected error %s", err)
+	}
+	return coll
+}
+
+func TestIntervalFormation(t *testing.T) {
+
 	tests := []struct {
 		description    string
-		eventSet       *eventpb.EventSet
+		collection     *Collection
 		cpus           []CPUID
 		startTimestamp trace.Timestamp
 		endTimestamp   trace.Timestamp
@@ -183,7 +198,7 @@ func TestIntervalFormation(t *testing.T) {
 		wantIntervals  []*interval
 	}{{
 		description:    "default intervals, full duration",
-		eventSet:       defaultEventSet,
+		collection:     perCPUEventsIntervalsCollection(t, false /*normalizeTimestamps*/),
 		cpus:           []CPUID{1, 2},
 		startTimestamp: 1000,
 		endTimestamp:   1070,
@@ -195,7 +210,7 @@ func TestIntervalFormation(t *testing.T) {
 		},
 	}, {
 		description:    "default intervals, partial duration, truncating, missing long intervals",
-		eventSet:       defaultEventSet,
+		collection:     perCPUEventsIntervalsCollection(t, false /*normalizeTimestamps*/),
 		cpus:           []CPUID{1, 2},
 		startTimestamp: 1030,
 		endTimestamp:   1040,
@@ -206,7 +221,7 @@ func TestIntervalFormation(t *testing.T) {
 		},
 	}, {
 		description:    "default intervals, partial duration, not truncating",
-		eventSet:       defaultEventSet,
+		collection:     perCPUEventsIntervalsCollection(t, false /*normalizeTimestamps*/),
 		cpus:           []CPUID{1, 2},
 		startTimestamp: 1000,
 		endTimestamp:   1050,
@@ -217,11 +232,11 @@ func TestIntervalFormation(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			startColl, err := NewPerCPUCollection(test.eventSet, false, typeFilteringCPULookupFunc(intervalStartLabel))
+			startColl, err := NewPerCPUCollection(test.collection, typeFilteringCPULookupFunc(intervalStartLabel))
 			if err != nil {
 				t.Fatalf("Failed to create start intervals: %s", err)
 			}
-			endColl, err := NewPerCPUCollection(test.eventSet, false, typeFilteringCPULookupFunc(intervalEndLabel))
+			endColl, err := NewPerCPUCollection(test.collection, typeFilteringCPULookupFunc(intervalEndLabel))
 			if err != nil {
 				t.Fatalf("Failed to create end intervals: %s", err)
 			}

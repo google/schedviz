@@ -114,7 +114,6 @@ go_test(
     embed = [":sched"],
     deps = [
         "//tracedata:eventsetbuilder",
-        "//tracedata:schedviz_events_go_proto",
         "//tracedata:trace",
         "@com_github_google_go-cmp//cmp:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",

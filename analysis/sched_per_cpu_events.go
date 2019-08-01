@@ -21,10 +21,8 @@ package sched
 // and CPU.
 
 import (
-	"math"
 	"sort"
 
-	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -54,10 +52,7 @@ type eventStub struct {
 // PerCPUCollection extends trace.PerCPUCollection by associating events with one or more
 // CPUs, and providing accessors to find events by CPU set and time range.
 type PerCPUCollection struct {
-	*trace.Collection
-	normalizeTimestamps   bool
-	minUnclippedTimestamp trace.Timestamp
-	maxUnclippedTimestamp trace.Timestamp
+	schedCollection *Collection
 	// A mapping of CPU to time-ordered slices of eventStubs for each indexed
 	// Event.  Events without any stub in this map are not available for search.
 	perCPUEventStubs    map[CPUID][]*eventStub
@@ -87,22 +82,16 @@ type perCPUCollectionBuilder struct {
 //    that event out of the collection.
 //  * If cpuLookup is nil, all event types are handled using the default lookup
 //    function, UnclippedReportingCPU.
-func NewPerCPUCollection(es *eventpb.EventSet, normalizeTimestamps bool, cpuLookup CPULookupFunc) (*PerCPUCollection, error) {
-	var err error
+func NewPerCPUCollection(schedCollection *Collection, cpuLookup CPULookupFunc) (*PerCPUCollection, error) {
 	cb := &perCPUCollectionBuilder{
 		coll: &PerCPUCollection{
-			perCPUEventStubs:      make(map[CPUID][]*eventStub),
-			normalizeTimestamps:   normalizeTimestamps,
-			minUnclippedTimestamp: math.MaxInt64,
-			maxUnclippedTimestamp: math.MinInt64,
+			schedCollection:  schedCollection,
+			perCPUEventStubs: make(map[CPUID][]*eventStub),
 		},
 		eventTypesToIndices: make(map[string]int),
 		indicesToEventTypes: make(map[int]string),
 	}
-	cb.coll.Collection, err = trace.NewCollection(es)
-	if err != nil {
-		return nil, err
-	}
+
 	if err := cb.addEvents(cpuLookup); err != nil {
 		return nil, err
 	}
@@ -129,21 +118,16 @@ func (cb *perCPUCollectionBuilder) addEvents(cpuLookup CPULookupFunc) error {
 	if cpuLookup == nil {
 		cpuLookup = UnclippedReportingCPU
 	}
+
 	// Perform a first pass over all events to assemble all the eventStubs, and
 	// to find the unclipped timestamp range.
-	for index := 0; index < cb.coll.Collection.EventCount(); index++ {
-		event, err := cb.coll.Collection.EventByIndex(index)
+	for index := 0; index < cb.coll.schedCollection.TraceCollection.EventCount(); index++ {
+		event, err := cb.coll.schedCollection.TraceCollection.EventByIndex(index)
 		if err != nil {
 			return err
 		}
-		// Timestamp normalization is to the first unclipped event in the collection.
-		// This permits aligning these events with other event sources such as
-		// sched.PerCPUCollection.
-		if !event.Clipped && event.Timestamp < cb.coll.minUnclippedTimestamp {
-			cb.coll.minUnclippedTimestamp = event.Timestamp
-		}
-		if !event.Clipped && event.Timestamp > cb.coll.maxUnclippedTimestamp {
-			cb.coll.maxUnclippedTimestamp = event.Timestamp
+		if event.Clipped {
+			continue
 		}
 		cpus, err := cpuLookup(event)
 		if err != nil {
@@ -162,27 +146,23 @@ func (cb *perCPUCollectionBuilder) addEvents(cpuLookup CPULookupFunc) error {
 			}
 		}
 	}
-	if cb.coll.normalizeTimestamps {
-		for _, stubs := range cb.coll.perCPUEventStubs {
-			for _, stub := range stubs {
-				stub.timestamp = cb.coll.normalizeTimestamp(stub.timestamp)
-			}
+
+	for _, stubs := range cb.coll.perCPUEventStubs {
+		for _, stub := range stubs {
+			stub.timestamp = cb.coll.normalizeTimestamp(stub.timestamp)
 		}
 	}
 	return nil
 }
 
 func (c *PerCPUCollection) normalizeTimestamp(ts trace.Timestamp) trace.Timestamp {
-	if c.normalizeTimestamps {
-		return ts - c.minUnclippedTimestamp
-	}
-	return ts
+	return ts - c.schedCollection.NormalizationOffset()
 }
 
 // UnclippedInterval returns the minimal interval containing all unclipped
 // events.
 func (c *PerCPUCollection) UnclippedInterval() (startTimestamp, endTimestamp trace.Timestamp) {
-	return c.normalizeTimestamp(c.minUnclippedTimestamp), c.normalizeTimestamp(c.maxUnclippedTimestamp)
+	return c.schedCollection.Interval()
 }
 
 // CPUs returns a sorted list of CPUs which have Events in this PerCPUCollection.
@@ -283,7 +263,7 @@ func (c *PerCPUCollection) EventIndexOnCPUBefore(CPU CPUID, timestamp trace.Time
 // Event returns the event at the requested index, after normalizing its
 // timestamp.  The returned Event is not owned and may be altered.
 func (c *PerCPUCollection) Event(index int) (*trace.Event, error) {
-	ev, err := c.Collection.EventByIndex(index)
+	ev, err := c.schedCollection.TraceCollection.EventByIndex(index)
 	if err != nil {
 		return nil, err
 	}

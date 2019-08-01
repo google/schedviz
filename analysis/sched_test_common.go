@@ -150,6 +150,9 @@ const (
 //   PID     400 (Running, Process4, prio   50) on CPU   2 [0 - 101] (0)
 func TestTrace1(t *testing.T) *eventpb.EventSet {
 	return UnpopulatedBuilder().
+		// PID 600 wakes up on CPU 3 at time 500, but this is clipped.
+		WithEvent("sched_wakeup", 3, 500, true,
+			600, "Process6", 50, 1).
 		// PID 300 switches in on CPU 1 at time 1000, PID 200 switches out SLEEPING
 		WithEvent("sched_switch", 1, 1000, false,
 			200, "Process2", 50, Interruptible,

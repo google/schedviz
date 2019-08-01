@@ -122,7 +122,6 @@ func (c *Collection) buildSpansByPID(es *eventpb.EventSet, eventLoaders map[stri
 		// Adjust the event's timestamp.
 		ev.Timestamp = ev.Timestamp - c.normalizationOffset
 		c.endTimestamp = ev.Timestamp
-		//		fmt.Printf("%s\n", ev)
 		// Initialize the threadIntervalBuilder on first use.
 		if ts == nil {
 			c.startTimestamp = ev.Timestamp
@@ -207,7 +206,7 @@ func cpuLookupFunc(ev *trace.Event) ([]CPUID, error) {
 // GetRawEvents returns the raw events in this collection
 // Timestamps are normalized if timestamp normalization is enabled on the collection.
 func (c *Collection) GetRawEvents(filters ...Filter) ([]*trace.Event, error) {
-	perCPUColl, err := NewPerCPUCollection(c.TraceCollection.RawEventSet(), true /*normalizeTimestamps*/, cpuLookupFunc)
+	perCPUColl, err := NewPerCPUCollection(c, cpuLookupFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -239,11 +238,20 @@ func (c *Collection) setTimestampNormalize(coll *trace.Collection) error {
 		c.normalizationOffset = 0
 		return nil
 	}
-	ev, err := coll.EventByIndex(0)
-	if err != nil {
-		return err
+
+	for index := 0; index < coll.EventCount(); index++ {
+		ev, err := coll.EventByIndex(index)
+		if err != nil {
+			return err
+		}
+		// Timestamp normalization is to the first unclipped event in the collection.
+		if ev.Clipped {
+			continue
+		}
+
+		c.normalizationOffset = ev.Timestamp
+		return nil
 	}
-	c.normalizationOffset = ev.Timestamp
 	return nil
 }
 
@@ -251,6 +259,7 @@ func (c *Collection) setTimestampNormalize(coll *trace.Collection) error {
 // Only valid if tc.Valid() is true.
 func (c *Collection) Interval(filters ...Filter) (startTS, endTS trace.Timestamp) {
 	f := buildFilter(c, filters)
+
 	return f.startTimestamp, f.endTimestamp
 }
 

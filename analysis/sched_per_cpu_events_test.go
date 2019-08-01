@@ -23,8 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
 	"github.com/google/schedviz/tracedata/eventsetbuilder"
-	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -34,8 +34,14 @@ const (
 	indirectEventLabel      = "indirect_event"
 )
 
-func defaultEventSet(t *testing.T) *eventpb.EventSet {
-	return eventsetbuilder.NewBuilder().
+func perCPUEventsCollection(t *testing.T, normalizeTimestamps bool) *Collection {
+	evtLoaders := map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
+		simpleNumericEventLabel: func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
+		simpleTextualEventLabel: func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
+		indirectEventLabel:      func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
+	}
+
+	es := eventsetbuilder.NewBuilder().
 		WithEventDescriptor(
 			simpleNumericEventLabel,
 			eventsetbuilder.Number("value")).
@@ -57,6 +63,12 @@ func defaultEventSet(t *testing.T) *eventpb.EventSet {
 		WithEvent(simpleTextualEventLabel, 2, 1035, false, "d").
 		WithEvent(indirectEventLabel, 2, 1038, false, 1).
 		TestProtobuf(t)
+
+	coll, err := NewCollection(es, evtLoaders, NormalizeTimestamps(normalizeTimestamps))
+	if err != nil {
+		t.Fatalf("NewCollection yielded unexpected error %s", err)
+	}
+	return coll
 }
 
 // eventLimiter returns a CPULookupFunc that passes through
@@ -249,7 +261,7 @@ func TestPerCpuEventSetCreation(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			coll, err := NewPerCPUCollection(defaultEventSet(t), test.normalizeTimestamps, test.cpuLookup)
+			coll, err := NewPerCPUCollection(perCPUEventsCollection(t, test.normalizeTimestamps), test.cpuLookup)
 			if err == nil && test.wantError {
 				t.Errorf("NewPerCPUCollection yielded no error, but wanted one")
 			}
@@ -313,7 +325,7 @@ func TestFilter(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			coll, err := NewPerCPUCollection(defaultEventSet(t), true /*normalizeTimestamps*/, nil /*cpuLookup*/)
+			coll, err := NewPerCPUCollection(perCPUEventsCollection(t, true /*normalizeTimestamps*/), nil /*cpuLookup*/)
 			if err != nil {
 				t.Errorf("NewPerCPUCollection yielded unexpected error %s", err)
 			}
@@ -332,7 +344,7 @@ func TestSearchBeforeAndAfterTimestamp(t *testing.T) {
 	//   ev 5 @TS 1018, indirectEvent
 	//   ev 6 @TS 1020, simpleNumericEvent
 	//   ev 7 @ts 1025, simpleTextualEvent
-	coll, err := NewPerCPUCollection(defaultEventSet(t), false /* normalizeTimestamps */, nil /* cpuLookup */)
+	coll, err := NewPerCPUCollection(perCPUEventsCollection(t, false /* normalizeTimestamps */), nil /* cpuLookup */)
 	if err != nil {
 		t.Fatalf("Failed to build collection: %s", err)
 	}
