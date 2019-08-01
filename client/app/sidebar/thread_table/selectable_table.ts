@@ -178,4 +178,16 @@ export class SelectableTable implements OnInit {
   previewRow(row?: Interval) {
     this.preview.next(row);
   }
+
+  /**
+   * Returns a boolean indicating whether text is currently selected
+   */
+  isTextSelected() {
+    const selection = window.getSelection();
+    if (!selection) {
+      return false;
+    }
+
+    return selection.toString().length > 0;
+  }
 }

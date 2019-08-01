@@ -62,7 +62,6 @@
 }
 
 mat-cell:first-of-type {
-  pointer-events: auto;
   padding-left: 10px;
 }
 
@@ -79,7 +78,6 @@ mat-header-cell {
 }
 
 mat-cell {
-  pointer-events: none;
   font-size: 12px;
 }
 

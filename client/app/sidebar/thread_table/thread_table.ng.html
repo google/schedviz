@@ -189,7 +189,7 @@
              (mouseenter)="previewRow(thread)"
              (mouseout)="$event.stopPropagation();"
              [class.expanded-row]="expandedThread.value === thread"
-             (click)="expandThread(thread)">
+             (click)="!isTextSelected() && expandThread(thread)">
     </mat-row>
     <mat-row *matRowDef="let row; columns: ['expandedDetail']" class="detail-row">
     </mat-row>
