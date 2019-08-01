@@ -65,6 +65,10 @@ export class ThreadInterval extends Interval {
   get dataType() {
     return 'Thread';
   }
+
+  get label() {
+    return `${this.dataType}:${this.id}:${this.command}`;
+  }
 }
 
 /**
