@@ -25,6 +25,12 @@
       <mat-cell *matCellDef="let thread"> {{thread.pid}} </mat-cell>
     </ng-container>
 
+    <!-- Command Column -->
+    <ng-container matColumnDef="command">
+      <mat-header-cell *matHeaderCellDef mat-sort-header> Antagonist Command </mat-header-cell>
+      <mat-cell *matCellDef="let thread"> {{thread.command}} </mat-cell>
+    </ng-container>
+
     <!-- Start Time Column -->
     <ng-container matColumnDef="startTimeNs">
       <mat-header-cell *matHeaderCellDef mat-sort-header> Start Time </mat-header-cell>

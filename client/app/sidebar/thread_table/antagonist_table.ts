@@ -41,7 +41,7 @@ export class AntagonistTable extends SelectableTable implements OnInit,
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {
     super(colorService, cdr);
     this.displayedColumns = this.displayedColumns.concat(
-        ['pid', 'startTimeNs', 'endTimeNs', 'duration']);
+        ['pid', 'command', 'startTimeNs', 'endTimeNs', 'duration']);
   }
 
   ngOnInit() {
