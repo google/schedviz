@@ -25,10 +25,11 @@ import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angul
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {BehaviorSubject} from 'rxjs';
 
-import {CollectionParameters, Interval, Layer, Thread, ThreadEvent, ThreadInterval} from '../../models';
+import {Interval, Layer, Thread, ThreadEvent, ThreadInterval} from '../../models';
 
 import {ThreadTable} from './thread_table';
 import {ThreadTableModule} from './thread_table_module';
+import {verifySorting, mockThreads, getToggleButton} from './table_helpers_test';
 
 try {
   TestBed.initTestEnvironment(
@@ -51,54 +52,6 @@ function setupThreadTable(component: ThreadTable) {
   component.expandedThreadAntagonists =
       new BehaviorSubject<ThreadInterval[]>([]);
   component.tab = new BehaviorSubject<number>(0);
-}
-
-function mockParameters(): CollectionParameters {
-  const startTime = 1540768090000;
-  const endTime = 1540768139000;
-  const cpuCount = 72;
-  const cpus = [];
-  for (let i = 0; i < cpuCount; i++) {
-    cpus.push(i);
-  }
-  return new CollectionParameters('foo', cpus, startTime, endTime);
-}
-
-function getRandomInt(max: number) {
-  return Math.floor(Math.random() * Math.floor(max));
-}
-
-function getRandomFloat(max: number) {
-  return Math.random() * max;
-}
-
-function getRandomCommand() {
-  let text = '';
-  const possible = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  const commandLen = 5 + getRandomInt(8);
-  for (let i = 0; i < commandLen; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
-}
-
-function mockThreads(): Thread[] {
-  const parameters = mockParameters();
-  const threadCount = 500;
-  const threadData: Thread[] = [];
-  for (let i = 0; i < threadCount; i++) {
-    const cpus = [];
-    const cpuCount = parameters.size;
-    for (let ii = 0; ii < cpuCount; ii++) {
-      cpus.push(getRandomInt(cpuCount));
-    }
-    threadData.push(new Thread(
-        parameters, getRandomInt(10000), cpus, getRandomCommand(),
-        getRandomInt(100), getRandomInt(100), getRandomFloat(500000),
-        getRandomFloat(500000), getRandomFloat(500000),
-        getRandomFloat(500000)));
-  }
-  return threadData;
 }
 
 describe('ThreadTable', () => {
@@ -134,7 +87,6 @@ describe('ThreadTable', () => {
     fixture.detectChanges();
     component.data.next(mockThreads());
     fixture.detectChanges();
-    const columns = component.displayedColumns;
     const rowsDom = fixture.nativeElement.querySelectorAll('.thread-row');
     expect(rowsDom.length).toEqual(component.paginator.pageSize);
   });
@@ -186,8 +138,7 @@ describe('ThreadTable', () => {
     element.style.height = '500px';
     component.onResize();
     fixture.detectChanges();
-    const toggle =
-        element.querySelector('layer-toggle').querySelector('.toggle-root');
+    const toggle = getToggleButton(element);
     const layersBefore = component.layers.value.length;
     toggle.click();
     fixture.detectChanges();
@@ -242,5 +193,19 @@ describe('ThreadTable', () => {
        component.jumpToTimeInput.next('invalid input');
        tick(JUMP_INPUT_DEBOUNCE_MS);
        expect(jumpSpy).toHaveBeenCalledTimes(1);
-     }));
+  }));
+
+  it('should allow sorting', () => {
+    const fixture = TestBed.createComponent(ThreadTable);
+    const component = fixture.componentInstance;
+    setupThreadTable(component);
+    component.data.next(mockThreads());
+    fixture.detectChanges();
+
+    const expectedColumns = [
+      'selected', 'pid', 'command', 'wakeups', 'migrations', 'waittime',
+      'runtime', 'sleeptime', 'unknowntime'
+    ];
+    verifySorting(fixture.nativeElement, component.dataSource, expectedColumns);
+  });
 });

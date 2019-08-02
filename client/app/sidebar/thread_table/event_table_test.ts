@@ -30,6 +30,7 @@ import {Interval, Layer} from '../../models';
 import {EventTable} from './event_table';
 import * as jumpToTime from './jump_to_time';
 import {ThreadTableModule} from './thread_table_module';
+import {verifySorting} from './table_helpers_test';
 
 try {
   TestBed.initTestEnvironment(
@@ -85,5 +86,15 @@ describe('EventTable', () => {
     component.jumpToTimeNs.next(secondJumpNs);
     expect(jumpSpy).toHaveBeenCalledWith(component.dataSource, secondJumpNs);
     expect(jumpSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('should allow sorting', () => {
+    const fixture = TestBed.createComponent(EventTable);
+    const component = fixture.componentInstance;
+    setupTable(component);
+    fixture.detectChanges();
+
+    const expectedColumns = ['startTimeNs'];
+    verifySorting(fixture.nativeElement, component.dataSource, expectedColumns);
   });
 });

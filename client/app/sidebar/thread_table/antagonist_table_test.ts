@@ -29,6 +29,7 @@ import {Interval, Layer} from '../../models';
 
 import {AntagonistTable} from './antagonist_table';
 import * as jumpToTime from './jump_to_time';
+import {getToggleButton, mockThreads, verifySorting} from './table_helpers_test';
 import {ThreadTableModule} from './thread_table_module';
 
 try {
@@ -38,7 +39,12 @@ try {
   // Ignore exceptions when calling it multiple times.
 }
 
-function setupAntagonistTable(component: AntagonistTable) {
+/**
+ * Initializes the properties for a given AntagonistTable.
+ *
+ * @param component is the table component to initialize.
+ */
+export function setupAntagonistTable(component: AntagonistTable) {
   component.data = new BehaviorSubject<Interval[]>([]);
   component.preview = new BehaviorSubject<Interval|undefined>(undefined);
   component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
@@ -110,5 +116,83 @@ describe('AntagonistTable', () => {
     const secondJumpMs = 1000000000;
     component.jumpToTimeNs.next(secondJumpMs);
     expect(jumpSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should create layer on toggle click', () => {
+    const fixture = TestBed.createComponent(AntagonistTable);
+    const component = fixture.componentInstance;
+    setupAntagonistTable(component);
+
+    const threads = mockThreads();
+    component.data.next(threads);
+    fixture.detectChanges();
+
+    const toggleButton = getToggleButton(fixture.nativeElement);
+
+    const layerSpy = jasmine.createSpy('layerSpy');
+    component.layers.subscribe(layerSpy);
+
+    // component should be initialized to have no active layers
+    expect(layerSpy).toHaveBeenCalledTimes(1);
+    expect(layerSpy).toHaveBeenCalledWith([]);
+    const layerSubjects = layerSpy.calls.mostRecent().args[0];
+    expect(layerSubjects.length).toEqual(0);
+
+    // toggle the layer on
+    toggleButton.click();
+    expect(layerSpy).toHaveBeenCalledTimes(2);
+
+    // the only active layer should now contain the first thread of the table
+    const toggleOnLayerSubjects = layerSpy.calls.mostRecent().args[0];
+    expect(toggleOnLayerSubjects.length).toEqual(1);
+    const toggleOnLayerElementSpy =
+        jasmine.createSpy('toggleOnLayerElementSpy');
+    toggleOnLayerSubjects[0].subscribe(toggleOnLayerElementSpy);
+    expect(toggleOnLayerElementSpy).toHaveBeenCalledTimes(1);
+    expect(toggleOnLayerElementSpy.calls.mostRecent().args[0].intervals)
+        .toEqual(jasmine.arrayContaining([threads[0]]));
+
+    // toggle the layer off
+    toggleButton.click();
+    expect(layerSpy).toHaveBeenCalledTimes(3);
+
+    // there should be no active layers
+    const toggleOffLayerSubjects = layerSpy.calls.mostRecent().args[0];
+    expect(toggleOffLayerSubjects.length).toEqual(0);
+  });
+
+  it('should update preview on row hover', () => {
+    const fixture = TestBed.createComponent(AntagonistTable);
+    const component = fixture.componentInstance;
+    setupAntagonistTable(component);
+    const threads = mockThreads();
+    component.data.next(threads);
+    fixture.detectChanges();
+
+    const previewSpy = jasmine.createSpy('previewSpy');
+    component.preview.subscribe(previewSpy);
+
+    // component should be initialized to have no active preview
+    expect(previewSpy).toHaveBeenCalledTimes(1);
+    expect(previewSpy).toHaveBeenCalledWith(undefined);
+
+    // hover over the first thread of the table to preview it
+    const rowElement = fixture.nativeElement.querySelector('mat-row');
+    rowElement.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(previewSpy).toHaveBeenCalledTimes(2);
+    expect(previewSpy).toHaveBeenCalledWith(threads[0]);
+  });
+
+  it('should allow sorting', () => {
+    const fixture = TestBed.createComponent(AntagonistTable);
+    const component = fixture.componentInstance;
+    setupAntagonistTable(component);
+    const threads = mockThreads();
+    component.data.next(threads);
+    fixture.detectChanges();
+
+    const expectedColumns =
+        ['selected', 'pid', 'command', 'startTimeNs', 'endTimeNs', 'duration'];
+    verifySorting(fixture.nativeElement, component.dataSource, expectedColumns);
   });
 });

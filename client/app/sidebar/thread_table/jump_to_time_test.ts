@@ -20,16 +20,16 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatPaginator} from '@angular/material/paginator';
-import {Sort} from '@angular/material/sort';
 import {MatTableModule} from '@angular/material/table';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
-import {BehaviorSubject, ReplaySubject} from 'rxjs';
 
-import {CollectionParameters, Interval, Layer, Thread} from '../../models';
+import {Interval} from '../../models';
 
 import {AntagonistTable} from './antagonist_table';
+import {setupAntagonistTable} from './antagonist_table_test';
 import {jumpToTime} from './jump_to_time';
+import {mockThreads} from './table_helpers_test';
 import {ThreadTableModule} from './thread_table_module';
 
 try {
@@ -37,42 +37,6 @@ try {
       BrowserDynamicTestingModule, platformBrowserDynamicTesting());
 } catch {
   // Ignore exceptions when calling it multiple times.
-}
-
-function setupTable(component: AntagonistTable) {
-  component.data = new BehaviorSubject<Interval[]>([]);
-  component.preview = new BehaviorSubject<Interval|undefined>(undefined);
-  component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
-  component.sort = new BehaviorSubject<Sort>({active: '', direction: ''});
-  component.tab = new BehaviorSubject<number>(0);
-  component.jumpToTimeNs = new ReplaySubject<number>();
-  component.jumpToTimeEnabled = new BehaviorSubject<boolean>(true);
-}
-
-function mockThreads(): Thread[] {
-  const threadCount = 500;
-  const threadData: Thread[] = [];
-
-  const startTimeNs = 0;
-  const cpuCount = 72;
-  for (let i = 0; i < threadCount; i++) {
-    const collectionCpus = [];
-    for (let i = 0; i < cpuCount; i++) {
-      collectionCpus.push(i);
-    }
-    const startTime = startTimeNs + i * 100;
-    const endTime = startTime + 200;
-    const parameters =
-        new CollectionParameters('foo', collectionCpus, startTime, endTime);
-
-    const threadCpus = [];
-    for (let ii = 0; ii < cpuCount; ii++) {
-      threadCpus.push(ii);
-    }
-    threadData.push(
-        new Thread(parameters, i, threadCpus, i.toString(), i, i, i, i, i, i));
-  }
-  return threadData;
 }
 
 /**
@@ -115,7 +79,7 @@ describe('jumpToTime', () => {
   it('should jump to time', () => {
     const fixture = TestBed.createComponent(AntagonistTable);
     const component = fixture.componentInstance;
-    setupTable(component);
+    setupAntagonistTable(component);
     fixture.detectChanges();
 
     const threads = mockThreads();
@@ -143,7 +107,7 @@ describe('jumpToTime', () => {
   it('should enforce sorting', () => {
     const fixture = TestBed.createComponent(AntagonistTable);
     const component = fixture.componentInstance;
-    setupTable(component);
+    setupAntagonistTable(component);
     fixture.detectChanges();
 
     const threads = mockThreads();
