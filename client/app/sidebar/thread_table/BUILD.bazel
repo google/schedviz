@@ -48,6 +48,7 @@ ts_library(
         "antagonist_table_test.ts",
         "event_table_test.ts",
         "jump_to_time_test.ts",
+        "sched_events_table_test.ts",
         "table_helpers_test.ts",
         "thread_table_test.ts",
     ],

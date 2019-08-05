@@ -17,6 +17,7 @@
 import {MatTableDataSource} from '@angular/material/table';
 
 import {CollectionParameters, Interval, Thread} from '../../models';
+import {SelectableTable} from './selectable_table';
 
 /**
  * Verifies that a given root element contains the expected columns,
@@ -46,6 +47,73 @@ export function verifySorting(
     expect(table.sort!.active).toBe(expectedSortId);
     expect(table.sort!.direction).toBe('desc');
   }
+}
+
+/**
+ * Verifies that a preview action is generated when hovering over a row
+ * in the given table.
+ *
+ * @param root is an element which contains the table
+ * @param selectableTable is a table containing a row to preview
+ */
+export function verifyPreviewOnHover(
+    root: Element, selectableTable: SelectableTable) {
+  const previewSpy = jasmine.createSpy('previewSpy');
+  selectableTable.preview.subscribe(previewSpy);
+
+  // component should be initialized to have no active preview
+  expect(previewSpy).toHaveBeenCalledTimes(1);
+  expect(previewSpy).toHaveBeenCalledWith(undefined);
+
+  // hover over the first row of the table to preview it
+  const rowElement = root.querySelector('mat-row');
+  expect(rowElement).not.toBeNull();
+
+  rowElement!.dispatchEvent(new MouseEvent('mouseenter'));
+  expect(previewSpy).toHaveBeenCalledTimes(2);
+  expect(previewSpy).toHaveBeenCalledWith(selectableTable.data.value[0]);
+}
+
+/**
+ * Verifies that layer toggle events are generated upon clicking the toggle
+ * button for a row in the given table.
+ *
+ * @param root is an element which contains the table
+ * @param selectableTable is a table containing a row to toggle
+ */
+export function verifyLayerToggle(
+    root: Element, selectableTable: SelectableTable) {
+  const toggleButton = getToggleButton(root);
+
+  const layerSpy = jasmine.createSpy('layerSpy');
+  selectableTable.layers.subscribe(layerSpy);
+
+  // component should be initialized to have no active layers
+  expect(layerSpy).toHaveBeenCalledTimes(1);
+  expect(layerSpy).toHaveBeenCalledWith([]);
+  const layerSubjects = layerSpy.calls.mostRecent().args[0];
+  expect(layerSubjects.length).toEqual(0);
+
+  // toggle the layer on
+  toggleButton.click();
+  expect(layerSpy).toHaveBeenCalledTimes(2);
+
+  // the only active layer should now contain the first thread of the table
+  const toggleOnLayerSubjects = layerSpy.calls.mostRecent().args[0];
+  expect(toggleOnLayerSubjects.length).toEqual(1);
+  const toggleOnLayerElementSpy = jasmine.createSpy('toggleOnLayerElementSpy');
+  toggleOnLayerSubjects[0].subscribe(toggleOnLayerElementSpy);
+  expect(toggleOnLayerElementSpy).toHaveBeenCalledTimes(1);
+  expect(toggleOnLayerElementSpy.calls.mostRecent().args[0].intervals)
+      .toEqual(jasmine.arrayContaining([selectableTable.data.value[0]]));
+
+  // toggle the layer off
+  toggleButton.click();
+  expect(layerSpy).toHaveBeenCalledTimes(3);
+
+  // there should be no active layers
+  const toggleOffLayerSubjects = layerSpy.calls.mostRecent().args[0];
+  expect(toggleOffLayerSubjects.length).toEqual(0);
 }
 
 /**

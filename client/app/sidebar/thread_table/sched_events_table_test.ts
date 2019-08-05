@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, TestBed, ComponentFixture} from '@angular/core/testing';
+import {async, ComponentFixture, TestBed} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -23,13 +23,13 @@ import {Sort} from '@angular/material/sort';
 import {MatTableModule} from '@angular/material/table';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
-import {BehaviorSubject, ReplaySubject} from 'rxjs';
+import {BehaviorSubject} from 'rxjs';
 
 import {Interval, Layer} from '../../models';
 
-import {AntagonistTable} from './antagonist_table';
-import * as jumpToTime from './jump_to_time';
-import {mockThreads, verifySorting, verifyPreviewOnHover, verifyLayerToggle} from './table_helpers_test';
+import {SchedEventsTable} from './sched_events_table';
+import {mockThreads} from './table_helpers_test';
+import {verifyLayerToggle} from './table_helpers_test';
 import {ThreadTableModule} from './thread_table_module';
 
 try {
@@ -40,31 +40,29 @@ try {
 }
 
 /**
- * Initializes the properties for a given AntagonistTable.
+ * Initializes the properties for a given SchedEventsTable.
  *
  * @param component is the table component to initialize.
  */
-export function setupAntagonistTable(component: AntagonistTable) {
+export function setupSchedEventsTable(component: SchedEventsTable) {
   component.data = new BehaviorSubject<Interval[]>([]);
   component.preview = new BehaviorSubject<Interval|undefined>(undefined);
   component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
   component.sort = new BehaviorSubject<Sort>({active: '', direction: ''});
   component.tab = new BehaviorSubject<number>(0);
-  component.jumpToTimeNs = new ReplaySubject<number>();
-  component.jumpToTimeEnabled = new BehaviorSubject<boolean>(true);
 }
 
-function createTableWithMockData(): ComponentFixture<AntagonistTable> {
-  const fixture = TestBed.createComponent(AntagonistTable);
+function createTableWithMockData(): ComponentFixture<SchedEventsTable> {
+  const fixture = TestBed.createComponent(SchedEventsTable);
   const component = fixture.componentInstance;
-  setupAntagonistTable(component);
+  setupSchedEventsTable(component);
   component.data.next(mockThreads());
   fixture.detectChanges();
 
   return fixture;
 }
 
-describe('AntagonistTable', () => {
+describe('SchedEventsTable', () => {
   beforeEach(async(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
@@ -83,60 +81,8 @@ describe('AntagonistTable', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should jump to time', () => {
-    const fixture = createTableWithMockData();
-    const component = fixture.componentInstance;
-
-    component.jumpToTimeEnabled.next(true);
-    const jumpSpy = spyOn(jumpToTime, 'jumpToTime');
-
-    const firstJumpNs = 3000;
-    component.jumpToTimeNs.next(firstJumpNs);
-    expect(jumpSpy).toHaveBeenCalledWith(component.dataSource, firstJumpNs);
-    expect(jumpSpy).toHaveBeenCalledTimes(1);
-
-    const secondJumpNs = 5000;
-    component.jumpToTimeNs.next(secondJumpNs);
-    expect(jumpSpy).toHaveBeenCalledWith(component.dataSource, secondJumpNs);
-    expect(jumpSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it('should honor jump enabled flag', () => {
-    const fixture = createTableWithMockData();
-    const component = fixture.componentInstance;
-
-    component.jumpToTimeEnabled.next(true);
-    const jumpSpy = spyOn(jumpToTime, 'jumpToTime');
-
-    // jump forward
-    const firstJumpNs = 3000;
-    component.jumpToTimeNs.next(firstJumpNs);
-    expect(jumpSpy).toHaveBeenCalledWith(component.dataSource, firstJumpNs);
-    expect(jumpSpy).toHaveBeenCalledTimes(1);
-
-    component.jumpToTimeEnabled.next(false);
-
-    const secondJumpMs = 1000000000;
-    component.jumpToTimeNs.next(secondJumpMs);
-    expect(jumpSpy).toHaveBeenCalledTimes(1);
-  });
-
   it('should create layer on toggle click', () => {
     const fixture = createTableWithMockData();
     verifyLayerToggle(fixture.nativeElement, fixture.componentInstance);
-  });
-
-  it('should update preview on row hover', () => {
-    const fixture = createTableWithMockData();
-    verifyPreviewOnHover(fixture.nativeElement, fixture.componentInstance);
-  });
-
-  it('should allow sorting', () => {
-    const fixture = createTableWithMockData();
-    const expectedColumns =
-        ['selected', 'pid', 'command', 'startTimeNs', 'endTimeNs', 'duration'];
-    verifySorting(
-        fixture.nativeElement, fixture.componentInstance.dataSource,
-        expectedColumns);
   });
 });

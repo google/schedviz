@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, TestBed} from '@angular/core/testing';
+import {async, TestBed, ComponentFixture} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -29,6 +29,7 @@ import {Interval, Layer} from '../../models';
 
 import {EventTable} from './event_table';
 import * as jumpToTime from './jump_to_time';
+import {mockThreads, verifyPreviewOnHover} from './table_helpers_test';
 import {ThreadTableModule} from './thread_table_module';
 import {verifySorting} from './table_helpers_test';
 
@@ -48,6 +49,16 @@ function setupTable(component: EventTable) {
   component.jumpToTimeNs = new ReplaySubject<number>();
 }
 
+function createTableWithMockData(): ComponentFixture<EventTable> {
+  const fixture = TestBed.createComponent(EventTable);
+  const component = fixture.componentInstance;
+  setupTable(component);
+  component.data.next(mockThreads());
+  fixture.detectChanges();
+
+  return fixture;
+}
+
 describe('EventTable', () => {
   beforeEach(async(() => {
     document.body.style.width = '500px';
@@ -63,18 +74,13 @@ describe('EventTable', () => {
   }));
 
   it('should create', () => {
-    const fixture = TestBed.createComponent(EventTable);
-    const component = fixture.componentInstance;
-    setupTable(component);
-    fixture.detectChanges();
-    expect(component).toBeTruthy();
+    const fixture = createTableWithMockData();
+    expect(fixture.componentInstance).toBeTruthy();
   });
 
   it('should jump to time', () => {
-    const fixture = TestBed.createComponent(EventTable);
+    const fixture = createTableWithMockData();
     const component = fixture.componentInstance;
-    setupTable(component);
-    fixture.detectChanges();
     const jumpSpy = spyOn(jumpToTime, 'jumpToTime');
 
     const firstJumpNs = 3000;
@@ -89,12 +95,16 @@ describe('EventTable', () => {
   });
 
   it('should allow sorting', () => {
-    const fixture = TestBed.createComponent(EventTable);
-    const component = fixture.componentInstance;
-    setupTable(component);
-    fixture.detectChanges();
+    const fixture = createTableWithMockData();
 
     const expectedColumns = ['startTimeNs'];
-    verifySorting(fixture.nativeElement, component.dataSource, expectedColumns);
+    verifySorting(
+        fixture.nativeElement, fixture.componentInstance.dataSource,
+        expectedColumns);
+  });
+
+  it('should update preview on row hover', () => {
+    const fixture = createTableWithMockData();
+    verifyPreviewOnHover(fixture.nativeElement, fixture.componentInstance);
   });
 });
