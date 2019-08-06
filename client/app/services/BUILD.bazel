@@ -17,6 +17,7 @@ ng_module(
         "//client/app/models",
         "//client/app/models:service_models",
         "//client/app/util",
+        "//client/environments",
         "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//d3",

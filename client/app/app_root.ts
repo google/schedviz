@@ -14,10 +14,12 @@
 // limitations under the License.
 //
 //
-import {Component} from '@angular/core';
-import {Router} from '@angular/router';
+import {Component, Inject, OnDestroy} from '@angular/core';
+import {Router, NavigationEnd} from '@angular/router';
 import {parseHashFragment} from './util';
 import {COLLECTION_NAME_KEY} from './util/hash_keys';
+import {Subject} from 'rxjs';
+import {takeUntil} from 'rxjs/operators';
 
 /**
  * The SchedViz app point of entry.
@@ -27,9 +29,13 @@ import {COLLECTION_NAME_KEY} from './util/hash_keys';
   templateUrl: './app.ng.html',
   styleUrls: ['./app.css'],
 })
-export class AppRoot {
+export class AppRoot implements OnDestroy {
+  private readonly unsub$ = new Subject<void>();
 
-  constructor(private router: Router) {
+  constructor(
+      private readonly router: Router,
+  ) {
+
     let {hash} = window.location;
     const hashMap = parseHashFragment(hash);
     if (hashMap[COLLECTION_NAME_KEY]) {
@@ -38,5 +44,11 @@ export class AppRoot {
       hash = hash.substring(1);
       this.router.navigate(['/dashboard'], {fragment: hash});
     }
+  }
+
+
+  ngOnDestroy() {
+    this.unsub$.next();
+    this.unsub$.complete();
   }
 }

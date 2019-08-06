@@ -24,5 +24,19 @@ ng_module(
         "@npm//@angular/core",
         "@npm//@angular/material",
         "@npm//@angular/router",
+        "@npm//rxjs",
+    ],
+)
+
+ng_module(
+    name = "app_tests",
+    testonly = True,
+    srcs = ["app_root_test.ts"],
+    deps = [
+        ":app_root",
+        "//client/app/util",
+        "@npm//@angular/core",
+        "@npm//@angular/router",
+        "@npm//@types/jasmine",
     ],
 )
