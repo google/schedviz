@@ -104,6 +104,7 @@ func (fs *FsStorage) GetCollection(_ context.Context, collectionName string) (*C
 		Collection:     collection,
 		Metadata:       convertMetadataProtoToStruct(collectionProto.Metadata),
 		SystemTopology: convertTopologyProtoToStruct(collectionProto.Topology),
+		Payload:        map[string]interface{}{},
 	}
 	fs.lruCache.Add(filePath, cacheValue)
 	return cacheValue, nil

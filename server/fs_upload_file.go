@@ -146,6 +146,7 @@ func (fs *FsStorage) saveCollection(metadata *models.Metadata, eventSet *eventpb
 		Collection:     collection,
 		Metadata:       convertMetadataProtoToStruct(outProto.Metadata),
 		SystemTopology: convertTopologyProtoToStruct(outProto.Topology),
+		Payload:        map[string]interface{}{},
 	})
 
 	return nil

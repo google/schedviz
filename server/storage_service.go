@@ -31,6 +31,8 @@ type CachedCollection struct {
 	Collection     *sched.Collection
 	Metadata       models.Metadata
 	SystemTopology models.SystemTopology
+	// Payload stores arbitrary data by a string key.
+	Payload map[string]interface{}
 }
 
 // cache is an interface wrapping the lru cache
