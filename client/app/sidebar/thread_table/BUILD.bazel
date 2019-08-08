@@ -61,6 +61,7 @@ ts_library(
         "@npm//@angular/platform-browser",
         "@npm//@angular/platform-browser-dynamic",
         "@npm//@types/jasmine",
+        "@npm//d3",
         "@npm//rxjs",
     ],
 )

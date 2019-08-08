@@ -51,7 +51,6 @@ export class HttpMetricsService implements MetricsService {
   private readonly threadSummariesUrl = '/get_thread_summaries';
   private readonly perThreadEventsUrl = '/get_per_thread_event_series';
   private readonly threadAntagonistsUrl = '/get_antagonists';
-  private readonly borgTaskUrl = '/get_borg_task_info';
   private readonly utilizationMetricsUrl = '/get_utilization_metrics';
 
   constructor(private readonly http: HttpClient) {}
