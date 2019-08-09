@@ -37,6 +37,7 @@ const AXIS_MARGIN_Y = 40;
       <g #xAxis transform="translate(0, 20)"></g>
       <g #brush>
         <rect *ngFor="let bucket of get1DHeatmap(intervals); index as i"
+            class="brushCell"
             [attr.fill]="bucket"
             [attr.x]="bucketSizePx * i"
             [attr.width]="bucketSizePx"
@@ -140,11 +141,12 @@ export class TimelineZoomBrush implements OnInit {
    * @return the heatmap colors to render.
    */
   get1DHeatmap(intervals: CpuInterval[]) {
+    const collectionStart = this.collectionStart;
     const bucketSize = this.bucketSizeNs;
     const buckets: number[] = [];
     for (let i = 0; i < BIN_COUNT; i++) {
       buckets[i] = intervals.reduce((acc, interval) => {
-        const bucketStart = bucketSize * i;
+        const bucketStart = bucketSize * i + collectionStart;
         const bucketEnd = bucketStart + bucketSize;
         if (interval.startTimeNs > bucketEnd ||
             interval.endTimeNs < bucketStart) {
@@ -160,9 +162,17 @@ export class TimelineZoomBrush implements OnInit {
     }
     const max = buckets.reduce((a, b) => a > b ? a : b);
     return buckets.map((bucket) => {
-      const intensity = 255 * bucket / max;
+      const intensity = Math.round(255 * bucket / max);
       return `rgb(${intensity},${intensity},${intensity})`;
     });
+  }
+
+  get collectionStart() {
+    const parameters = this.parameters.value;
+    if (!parameters) {
+      return 0;
+    }
+    return parameters.startTimeNs;
   }
 
   get domainSize() {

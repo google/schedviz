@@ -33,7 +33,7 @@ const HEATMAP_PADDING_Y = 20;
 
 // Minimum permitted interval size, in pixels
 const MIN_INTERVAL_SIZE_PX = 2;
-const MIN_WIDTH_NS = 100000;
+const MIN_WIDTH_NS = 1E5;
 
 /**
  * An interactive heatmap that displays CPU state intervals, thread lifecycle
@@ -51,9 +51,11 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('svg', {static: true}) svg!: ElementRef;
   @ViewChild('tooltip', {static: true}) tooltip!: ElementRef;
   @ViewChild('clipRectAxes', {static: true}) clipRectAxes!: ElementRef;
+  @ViewChild('cpuAxisGroup', {static: true}) cpuAxisGroup!: ElementRef;
   @ViewChild('xAxisGroup', {static: true}) xAxisGroup!: ElementRef;
   @ViewChild('previewGroup', {static: true}) previewGroup!: ElementRef;
   @ViewChild('zoomGroup', {static: true}) zoomGroup!: ElementRef;
+  @ViewChild('zoomBrushGroup', {static: true}) zoomBrushGroup!: ElementRef;
 
   // Required inputs
   @Input() parameters!: BehaviorSubject<CollectionParameters|undefined>;
@@ -87,7 +89,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   constructor(
       @Inject('RenderDataService') public renderDataService: RenderDataService,
       private readonly snackBar: MatSnackBar,
-      private readonly cdr: ChangeDetectorRef) {}
+      readonly cdr: ChangeDetectorRef) {}
 
   onResize() {
     this.updateViewportSize();
@@ -163,7 +165,8 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
         .subscribe(size => {
           this.pendingLayerCount = 0;
           // Refresh layer data on viewport change
-          this.refreshLayers(this.viewport.value);
+          this.refreshLayers(this.viewport.value,
+                             /* Force refresh as base view is invalid */ true);
         });
     // Reset viewport height and force redraw on CPU filter change
     this.cpuFilter.pipe(pairwise()).subscribe(([oldFilter, newFilter]) => {
@@ -282,6 +285,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
         (symmetricZoom || (viewport.width === 1.0 && deltaK < 1.0)) &&
             zoomYPermitted ||
         isPanning;
+    if (!updateX && !updateY) {
+      return;
+    }
     const deltaXPx =
         updateX ? newTransform.x - this.lastTransform.x * deltaK : 0;
     const deltaYPx =
@@ -310,10 +316,10 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   /**
    * Refreshes layer data from SV backend on zoom debounce complete.
    */
-  refreshLayers(viewport: Viewport) {
+  refreshLayers(viewport: Viewport, forceRefresh = false) {
     const layers = this.layers.value;
     // Fetch CPU intervals on viewport change
-    this.fetchCpuIntervals(viewport);
+    this.fetchCpuIntervals(viewport, forceRefresh);
     const threadLayers =
         layers.filter(layer => layer.value.dataType === 'Thread');
     this.fetchPidIntervals(threadLayers, viewport);
@@ -353,11 +359,11 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   /**
    * Async callback for refreshing CPU intervals on viewport change.
    */
-  fetchCpuIntervals(viewport: Viewport) {
+  fetchCpuIntervals(viewport: Viewport, forceRefresh = false) {
     if (!this.parameters.value) {
       return;
     }
-    if (this.hasBasicView) {
+    if (this.hasBasicView && !forceRefresh) {
       this.setCpuIntervals(this.baseIntervals);
       return;
     }
@@ -373,6 +379,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                 params, viewport, minDuration, this.getVisibleCpus())
             .subscribe(
                 intervals => {
+                  if (this.hasBasicView) {
+                    this.baseIntervals = intervals;
+                  }
                   this.setCpuIntervals(intervals);
                   this.pendingLayerCount--;
                   if (!this.loading) {
@@ -535,7 +544,6 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
     for (const cpuIntervals of waitingIntervalsByCpu) {
       for (let i = 0; i < cpuIntervals.length; i++) {
         const intervalLeft = cpuIntervals[i];
-        intervalLeft.queueOffset = 0;
         // Check if any subsequent intervals overlap
         for (let j = i + 1; j < cpuIntervals.length; j++) {
           const intervalRight = cpuIntervals[j];

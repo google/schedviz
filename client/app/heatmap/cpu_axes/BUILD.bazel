@@ -24,3 +24,23 @@ ng_module(
         "@npm//rxjs",
     ],
 )
+
+ng_module(
+    name = "cpu_axes_tests",
+    testonly = True,
+    srcs = [
+        "cpu_axes_test.ts",
+    ],
+    deps = [
+        ":cpu_axes",
+        "//client/app/heatmap",
+        "//client/app/models",
+        "//client/app/services",
+        "//client/app/util",
+        "@npm//@angular/core",
+        "@npm//@angular/platform-browser-dynamic",
+        "@npm//@types/jasmine",
+        "@npm//d3",
+        "@npm//rxjs",
+    ],
+)

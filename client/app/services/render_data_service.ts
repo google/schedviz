@@ -228,21 +228,22 @@ export class LocalRenderDataService implements RenderDataService {
       parameters: CollectionParameters, viewport: Viewport,
       minIntervalDuration: number, cpus: number[]): Observable<CpuInterval[]> {
     const intervals = [];
+    const duration = parameters.endTimeNs - parameters.startTimeNs;
     for (let cpu = 0; cpu < parameters.size; cpu++) {
+      let index = 0;
       let timestamp = parameters.startTimeNs;
       let prevTimestamp = timestamp;
       while (timestamp < parameters.endTimeNs) {
         prevTimestamp = timestamp;
-        const delta = 2 * Math.random() *
-            (parameters.endTimeNs - parameters.startTimeNs) / parameters.size;
+        const delta = Math.max(minIntervalDuration, duration / 1000);
         timestamp += delta;
         timestamp = Math.min(timestamp, parameters.endTimeNs);
         const percentIdle = 0.5 * Math.random();
-        const waitingPidCount = Math.floor(3 * Math.random());
+        // For testing, increase wait count over time
         const idleTime = percentIdle * (timestamp - prevTimestamp);
         const interval = new CpuInterval(
-            parameters, cpu, prevTimestamp, timestamp, 'foo', idleTime,
-            waitingPidCount);
+            parameters, cpu, prevTimestamp, timestamp, 'foo', idleTime);
+        interval.waitingPidCount = index++ / 1000;
         intervals.push(interval);
       }
     }
@@ -256,7 +257,7 @@ export class LocalRenderDataService implements RenderDataService {
       parameters: CollectionParameters, layer: Layer, viewport: Viewport,
       minIntervalDuration: number): Observable<Layer> {
     const intervals = [];
-    const cpuCount = Math.floor(5 * Math.random()) + 1;
+    const cpuCount = parameters.size;
     for (let i = 0; i < cpuCount; i++) {
       const cpu = Math.floor(Math.random() * parameters.size);
       let timestamp = parameters.startTimeNs;
@@ -264,8 +265,7 @@ export class LocalRenderDataService implements RenderDataService {
       while (timestamp < parameters.endTimeNs) {
         const pid = Math.floor(Math.random() * 5000);
         prevTimestamp = timestamp;
-        const delta = 3 * Math.random() *
-            (parameters.endTimeNs - parameters.startTimeNs) / parameters.size;
+        const delta = minIntervalDuration;
         timestamp += delta;
         timestamp = Math.min(timestamp, parameters.endTimeNs);
         const interval = new ThreadInterval(
@@ -280,6 +280,22 @@ export class LocalRenderDataService implements RenderDataService {
   getSchedEvents(
       parameters: CollectionParameters, layer: Layer, viewport: Viewport,
       cpus: number[]): Observable<Layer> {
+    const intervals = [];
+    const cpuCount = parameters.size;
+    for (let i = 0; i < cpuCount; i++) {
+      const cpu = Math.floor(Math.random() * parameters.size);
+      let timestamp = parameters.startTimeNs;
+      while (timestamp < parameters.endTimeNs) {
+        const delta = 3 * Math.random() *
+            (parameters.endTimeNs - parameters.startTimeNs) / parameters.size;
+        timestamp += delta;
+        timestamp = Math.min(timestamp, parameters.endTimeNs);
+        const interval =
+            new SchedEvent(parameters, 1234, 'event_type', cpu, timestamp);
+        intervals.push(interval);
+      }
+    }
+    layer.intervals = intervals;
     return of(layer);
   }
 }

@@ -1,4 +1,3 @@
-load("@npm_bazel_typescript//:defs.bzl", "ts_library")
 load("@npm_angular_bazel//:index.bzl", "ng_module")
 
 package(default_visibility = ["//visibility:public"])
@@ -6,23 +5,18 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])  # Apache License 2.0
 
 ng_module(
-    name = "heatmap",
+    name = "metrics_overlay",
     srcs = [
-        "heatmap.ts",
-        "heatmap_module.ts",
         "index.ts",
-        "intervals_layer.ts",
-        "preview_layer.ts",
-        "timeline_zoom_brush.ts",
-        "x_axis_layer.ts",
+        "metrics_overlay.ts",
+        "metrics_overlay_module.ts",
     ],
     assets = [
-        "heatmap.css",
-        "heatmap.ng.html",
+        "metrics_overlay.css",
+        "metrics_overlay.ng.html",
+        "dialog_metrics_help.ng.html",
     ],
     deps = [
-        "//client/app/heatmap/cpu_axes",
-        "//client/app/heatmap/metrics_overlay",
         "//client/app/models",
         "//client/app/services",
         "//client/app/util",
@@ -36,16 +30,15 @@ ng_module(
     ],
 )
 
-ts_library(
-    name = "heatmap_tests",
+ng_module(
+    name = "metrics_overlay_tests",
     testonly = True,
     srcs = [
-        "heatmap_test.ts",
-        "preview_layer_test.ts",
-        "timeline_zoom_brush_test.ts",
+        "metrics_overlay_test.ts",
     ],
     deps = [
-        ":heatmap",
+        ":metrics_overlay",
+        "//client/app/heatmap",
         "//client/app/models",
         "//client/app/services",
         "//client/app/util",

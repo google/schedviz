@@ -14,46 +14,36 @@
 // limitations under the License.
 //
 //
-import {HttpClientModule} from '@angular/common/http';
-import {NgModule, NO_ERRORS_SCHEMA} from '@angular/core';
+import {NgModule} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatDialogModule} from '@angular/material/dialog';
 import {MatIconModule} from '@angular/material/icon';
-import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatSnackBarModule} from '@angular/material/snack-bar';
-import {MatTooltipModule} from '@angular/material/tooltip';
 import {BrowserModule} from '@angular/platform-browser';
 
-import {UtilModule} from '../util';
+import {UtilModule} from '../../util';
 
-import {CpuAxesModule} from './cpu_axes';
-import {DialogMetricsHelp, Heatmap, IntervalsLayer, MetricsOverlay, PreviewLayer, TimelineZoomBrush, XAxisLayer} from './index';
+import {DialogMetricsHelp, MetricsOverlay} from './metrics_overlay';
 
 
 @NgModule({
   declarations: [
-    Heatmap,
-    PreviewLayer,
-    XAxisLayer,
-    IntervalsLayer,
-    TimelineZoomBrush,
+    MetricsOverlay,
+    DialogMetricsHelp,
   ],
   imports: [
     BrowserModule,
-    CpuAxesModule,
-    HttpClientModule,
     MatButtonModule,
     MatDialogModule,
     MatIconModule,
-    MatProgressBarModule,
     MatSnackBarModule,
-    MatTooltipModule,
     UtilModule,
   ],
   exports: [
-    Heatmap,
+    MetricsOverlay,
+    DialogMetricsHelp,
   ],
-  schemas: [NO_ERRORS_SCHEMA],
+  entryComponents: [DialogMetricsHelp]
 })
-export class HeatmapModule {
+export class MetricsOverlayModule {
 }

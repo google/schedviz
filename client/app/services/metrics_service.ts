@@ -278,6 +278,8 @@ export class LocalMetricsService implements MetricsService {
   getUtilizationMetrics(
       collectionName: string, cpus: number[], startTimeNs: number,
       endTimeNs: number): Observable<UtilizationMetrics|{}> {
-    return of(new UtilizationMetrics(0, 0, 0, 0));
+    const mockValue = cpus.length;
+    return of(
+        new UtilizationMetrics(mockValue, mockValue, mockValue, mockValue));
   }
 }

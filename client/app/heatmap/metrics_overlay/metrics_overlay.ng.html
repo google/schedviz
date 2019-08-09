@@ -12,20 +12,28 @@
   <div class="metric">
     <span class="metric-name">Wall Time: </span>
     <span>{{metrics.wallTime | formatTime}} </span>
-    <span>{{metrics.wallTime/viewportDuration.value | percent:'1.3-3'}}</span>
+    <span class="metric-percent">
+      {{metrics.wallTime/viewportDuration.value | percent:'1.3-3'}}
+    </span>
   </div>
   <div class="metric">
     <span class="metric-name">Per CPU Time: </span>
     <span>{{metrics.perCpuTime | formatTime}} </span>
-    <span>{{metrics.perCpuTime/viewportDuration.value | percent:'1.3-3'}}</span>
+    <span class="metric-percent">
+      {{metrics.perCpuTime/viewportDuration.value | percent:'1.3-3'}}
+    </span>
   </div>
   <div class="metric">
     <span class="metric-name">Per Thread Time: </span>
     <span>{{metrics.perThreadTime | formatTime}} </span>
-    <span>{{metrics.perThreadTime/viewportDuration.value | percent:'1.3-3'}}</span>
+    <span class="metric-percent">
+      {{metrics.perThreadTime/viewportDuration.value | percent:'1.3-3'}}
+    </span>
   </div>
   <div class="metric">
     <span class="metric-name">CPU Utilization Fraction: </span>
-    <span>{{metrics.cpuUtilizationFraction | percent:'1.2-2'}}</span>
+    <span class="metric-percent">
+      {{metrics.cpuUtilizationFraction | percent:'1.2-2'}}
+    </span>
   </div>
 </div>

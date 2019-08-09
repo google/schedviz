@@ -21,9 +21,9 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {BehaviorSubject, combineLatest} from 'rxjs';
 import {debounceTime} from 'rxjs/operators';
 
-import {CollectionParameters, UtilizationMetrics} from '../models';
-import {MetricsService} from '../services/metrics_service';
-import {createHttpErrorMessage, Viewport} from '../util';
+import {CollectionParameters, UtilizationMetrics} from '../../models';
+import {MetricsService} from '../../services/metrics_service';
+import {createHttpErrorMessage, Viewport} from '../../util';
 
 /**
  * The MetricsOverlay shows various metrics about the current collection

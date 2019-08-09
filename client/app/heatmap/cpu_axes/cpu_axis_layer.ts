@@ -32,7 +32,7 @@ const FONT_SIZE = 8;
   selector: '[cpuAxis]',
   template: `
     <svg:g #cpuAxis>
-      <rect class="axisBase"
+      <rect class="yAxisBase"
         x="-50"
         y="-50"
         width="50"
@@ -51,7 +51,6 @@ const FONT_SIZE = 8;
   encapsulation: ViewEncapsulation.None,
 })
 export class CpuAxisLayer implements OnInit {
-  constructor() {}
   @ViewChild('cpuAxis', {static: true}) cpuAxis!: ElementRef;
   @Input() topology!: SystemTopology;
   @Input() cpuFilter!: BehaviorSubject<string>;
@@ -114,7 +113,7 @@ export class CpuAxisLayer implements OnInit {
    */
   scaleLabels(viewport: Viewport) {
     const view = d3.select(this.cpuAxis.nativeElement);
-    view.select('.axisBase').attr('height', viewport.chartHeightPx + 50);
+    view.select('.yAxisBase').attr('height', viewport.chartHeightPx + 50);
     view.select('.viewportMarker')
         .attr('y', viewport.chartHeightPx * viewport.top)
         .attr('height', viewport.chartHeightPx * viewport.height);
