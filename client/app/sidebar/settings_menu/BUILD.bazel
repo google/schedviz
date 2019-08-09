@@ -27,3 +27,21 @@ ng_module(
         "@npm//rxjs",
     ],
 )
+
+ng_module(
+    name = "settings_menu_tests",
+    testonly = True,
+    srcs = ["settings_menu_test.ts"],
+    deps = [
+        ":settings_menu",
+        "//client/app/models",
+        "@npm//@angular/cdk",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser-dynamic",
+        "@npm//@types/jasmine",
+        "@npm//d3",
+        "@npm//rxjs",
+    ],
+)
