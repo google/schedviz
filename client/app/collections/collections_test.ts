@@ -62,12 +62,14 @@ describe('Collections', () => {
 
   function getMockData() {
     return [
+      // The collections must have different collection dates to allow for
+      // deterministic sorting
       new CollectionMetadata(
-          'coll', 'joe', ['john'], ['abc'], 'def', new Date(), ['switch'],
-          'mach'),
+          'coll', 'joe', ['john'], ['abc'], 'def', new Date(2001, 1),
+          ['switch'], 'mach'),
       new CollectionMetadata(
-          'coll2', 'joe', ['john'], ['abc'], 'def', new Date(), ['switch'],
-          'mach'),
+          'coll2', 'joe', ['john'], ['abc'], 'def', new Date(2000, 1),
+          ['switch'], 'mach'),
     ];
   }
 
