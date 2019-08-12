@@ -21,7 +21,8 @@ import * as d3 from 'd3';
 import {BehaviorSubject, from, of, Subscription} from 'rxjs';
 import {debounceTime, mergeMap, pairwise} from 'rxjs/operators';
 
-import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, WaitingCpuInterval, WaitingThreadInterval} from '../models';
+import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
+import {ThreadState} from '../models/render_data_services';
 import {RenderDataService} from '../services/render_data_service';
 import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
 import {nearlyEquals} from '../util/helpers';
@@ -510,18 +511,17 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
     if (!this.parameters.value) {
       return;
     }
-    let waitQueue: WaitingThreadInterval[] = [];
+    let waitQueue: ThreadInterval[] = [];
     for (const layer of threadLayers) {
       // Consolodate waiting intervals from all layers
       // (except the base CPU layers)
       const waiting =
-          (layer.intervals)
-              .filter(interval => interval instanceof WaitingThreadInterval) as
-          WaitingThreadInterval[];
+          (layer.intervals as ThreadInterval[])
+              .filter(interval => interval.state === ThreadState.WAITING_STATE);
       waitQueue = waitQueue.concat(waiting);
     }
     // Organize waiting intervals by CPU to check for overlap
-    const waitingIntervalsByCpu: WaitingThreadInterval[][] = [];
+    const waitingIntervalsByCpu: ThreadInterval[][] = [];
     for (let i = 0; i < this.parameters.value.size; i++) {
       waitingIntervalsByCpu.push([]);
     }

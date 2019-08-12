@@ -22,7 +22,7 @@ import {Sort} from '@angular/material/sort';
 import {BehaviorSubject, Subscription} from 'rxjs';
 import {debounceTime} from 'rxjs/operators';
 
-import {CollectionParameters, Interval, Layer, SchedEvent, Thread, ThreadEvent, ThreadInterval} from '../models';
+import {CollectionParameters, FtraceInterval, Interval, Layer, SchedEvent, Thread, ThreadInterval} from '../models';
 import {MetricsService} from '../services/metrics_service';
 import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
 
@@ -51,7 +51,7 @@ export class Sidebar implements OnInit, OnDestroy {
   @Input() cpuFilter!: BehaviorSubject<string>;
 
   expandedThread = new BehaviorSubject<Thread|undefined>(undefined);
-  expandedThreadEvents = new BehaviorSubject<ThreadEvent[]>([]);
+  expandedFtraceIntervals = new BehaviorSubject<FtraceInterval[]>([]);
   expandedThreadAntagonists = new BehaviorSubject<ThreadInterval[]>([]);
   selectedSchedEvents = new BehaviorSubject<SchedEvent[]>([]);
   threads = new BehaviorSubject<Thread[]>([]);
@@ -124,7 +124,7 @@ export class Sidebar implements OnInit, OnDestroy {
     }
     this.threads.complete();
     this.expandedThread.complete();
-    this.expandedThreadEvents.complete();
+    this.expandedFtraceIntervals.complete();
     this.expandedThreadAntagonists.complete();
     this.selectedSchedEvents.complete();
   }
@@ -173,7 +173,7 @@ export class Sidebar implements OnInit, OnDestroy {
               events => {
                 thread.events = events;
                 thread.eventsPending = false;
-                this.expandedThreadEvents.next(events);
+                this.expandedFtraceIntervals.next(events);
               },
               (err: HttpErrorResponse) => {
                 const errMsg = createHttpErrorMessage(
@@ -181,7 +181,7 @@ export class Sidebar implements OnInit, OnDestroy {
                 this.snackBar.open(errMsg, 'Dismiss');
               });
     } else {
-      this.expandedThreadEvents.next(thread.events);
+      this.expandedFtraceIntervals.next(thread.events);
     }
     // Fetch antagonists, if missing
     if (!thread.antagonists.length) {

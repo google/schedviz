@@ -189,10 +189,10 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
     if (!intervals || !intervals.length) {
       return;
     }
-    let data = intervals;
+    let data = intervals.filter(interval => interval.shouldRender);
     // Hide sleeping intervals on request
     if (!this.showSleeping.value) {
-      data = intervals.filter(
+      data = data.filter(
           interval => !(interval instanceof ThreadInterval) ||
               interval.state !== ThreadState.SLEEPING_STATE);
     }

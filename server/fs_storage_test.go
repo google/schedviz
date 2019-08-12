@@ -29,7 +29,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/golang/groupcache/lru"
 
+	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
+	"github.com/google/schedviz/tracedata/trace"
 )
 
 var colRequest = &models.CreateCollectionRequest{
@@ -404,7 +406,7 @@ func TestFsStorage_GetFtraceEvents(t *testing.T) {
 
 	want := models.FtraceEventsResponse{
 		CollectionName: collectionName,
-		EventsByCPU: map[int64][]models.FtraceEvent{
+		EventsByCPU: map[sched.CPUID][]*trace.Event{
 			0: {{
 				Index:     2,
 				Name:      "sched_switch",

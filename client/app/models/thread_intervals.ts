@@ -16,19 +16,47 @@
 //
 import {CollectionParameters} from './collection';
 import {Interval} from './interval';
-import {ThreadState, threadStateToString} from './render_data_services';
+import {ThreadResidency, ThreadState, threadStateToString} from './render_data_services';
 
 /**
  * Interval subclass representing a thread state interval whose opacity is
  * determined by its state.
+ *
+ * If this represents a thread in a waiting state, then its height is
+ * determined by how many threads are simultaneously queued in the same CPU
+ * at the same time.
  */
 export class ThreadInterval extends Interval {
+  state: ThreadState;
+  duration: number;
+
   constructor(
-      public parameters: CollectionParameters, public cpu: number,
-      public startTimeNs: number, public endTimeNs: number, public pid: number,
-      public command: string, public state = ThreadState.RUNNING_STATE) {
+      public parameters: CollectionParameters,
+      public cpu: number,
+      public startTimeNs: number,
+      public endTimeNs: number,
+      public pid: number,
+      public command: string,
+      public threadResidencies: ThreadResidency[] = [],
+      public queueOffset = 0.0,
+      public queueCount = 1.0,
+  ) {
     super(parameters, pid, cpu, startTimeNs, endTimeNs);
-    switch (state) {
+    this.duration = endTimeNs - startTimeNs;
+
+    if (threadResidencies.length === 1) {
+      this.state = threadResidencies[0].state;
+    } else {
+      this.state = ThreadState.UNKNOWN_STATE;
+      const allStates = new Set(threadResidencies.map(tr => tr.state));
+      // Don't render intervals with no states or entirely unknown states.
+      if (!threadResidencies.length ||
+          allStates.has(ThreadState.UNKNOWN_STATE) && allStates.size === 1) {
+        this.shouldRender = false;
+      }
+    }
+
+    switch (this.state) {
       case ThreadState.SLEEPING_STATE:
         this.opacity = 0.1;
         break;
@@ -49,7 +77,7 @@ export class ThreadInterval extends Interval {
       'Start Time': this.formatTime(this.startTimeNs),
       'End Time': this.formatTime(this.endTimeNs),
       'Duration': this.formatTime(this.endTimeNs - this.startTimeNs),
-      'State': `${threadStateToString(this.state)}`,
+      'State': `${this.threadStatesToString()}`,
     };
   }
 
@@ -60,28 +88,43 @@ export class ThreadInterval extends Interval {
   get label() {
     return `${this.dataType}:${this.id}:${this.command}`;
   }
-}
-
-/**
- * Interval subclass representing a thread in a waiting state, whose height is
- * determined by how many threads are simultaneously queued in the same CPU
- * at the same time.
- */
-export class WaitingThreadInterval extends ThreadInterval {
-  constructor(
-      public parameters: CollectionParameters, public cpu: number,
-      public startTimeNs: number, public endTimeNs: number, public pid: number,
-      public command: string, public queueOffset = 0.0,
-      public queueCount = 1.0) {
-    super(
-        parameters, cpu, startTimeNs, endTimeNs, pid, command,
-        ThreadState.WAITING_STATE);
-  }
 
   /**
-   * y position in determined by the number of threads in the wait queue
+   * Get a string representation of the current thread state (if there's only
+   * one) or a distribution of thread states (if there's more than one).
    */
+  private threadStatesToString(): string {
+    if (this.threadResidencies.length === 1) {
+      return threadStateToString(this.state);
+    }
+
+    const stateTimes = this.threadResidencies.reduce((acc, tr) => {
+      const base = acc[tr.state] != null ? acc[tr.state] : 0;
+      acc[tr.state] = base + tr.duration;
+      return acc;
+    }, {} as {[k in ThreadState]: number});
+
+
+    return '\n' +
+        Object.keys(stateTimes)
+            .map(
+                (key):
+                    [ThreadState,
+                     number] => [+key, stateTimes[(+key) as ThreadState]])
+            .sort((a, b) => b[1] - a[1])
+            .map(([key, time]) => {
+              const percentageTime =
+                  ((time / this.duration) * 100).toPrecision(3);
+              return `\t(${percentageTime}%) ${threadStateToString(key)}`;
+            })
+            .join('\n');
+  }
+
   y(sortedFilteredCpus: number[]) {
+    if (this.state !== ThreadState.WAITING_STATE) {
+      return super.y(sortedFilteredCpus);
+    }
+    // y position in determined by the number of threads in the wait queue
     const row = sortedFilteredCpus.indexOf(this.cpu);
     const rowHeight = this.rowHeight(sortedFilteredCpus);
     const intervalHeight = 0.5 * rowHeight;
@@ -91,10 +134,11 @@ export class WaitingThreadInterval extends ThreadInterval {
                              defaultY;
   }
 
-  /**
-   * height position in determined by the number of threads in the wait queue
-   */
   height(sortedFilteredCpus: number[]) {
+    if (this.state !== ThreadState.WAITING_STATE) {
+      return super.height(sortedFilteredCpus);
+    }
+    // Height position in determined by the number of threads in the wait queue
     const rowHeight = this.rowHeight(sortedFilteredCpus);
     const intervalHeight = 0.5 * rowHeight;
     const queueHeight = rowHeight - intervalHeight;
@@ -104,17 +148,19 @@ export class WaitingThreadInterval extends ThreadInterval {
     return queueRowHeight;
   }
 
-  /**
-   * Waiting intervals have straight edges
-   */
   rx(sortedFilteredCpus: number[]) {
+    if (this.state !== ThreadState.WAITING_STATE) {
+      return super.rx(sortedFilteredCpus);
+    }
+    // Waiting intervals have straight edges
     return 0;
   }
 
-  /**
-   * Waiting intervals have straight edges
-   */
   ry(sortedFilteredCpus: number[]) {
+    if (this.state !== ThreadState.WAITING_STATE) {
+      return super.ry(sortedFilteredCpus);
+    }
+    // Waiting intervals have straight edges
     return 0;
   }
 }

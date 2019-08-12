@@ -288,3 +288,22 @@ func (c *Collection) DroppedEventIDs() []int {
 	})
 	return ret
 }
+
+// ExpandCPUs takes a slice of CPUs, and either returns that slice,
+// if it is not empty, or if it is empty, a slice of all CPUs in the
+// collection.
+func (c *Collection) ExpandCPUs(cpus []int64) []int64 {
+	if len(cpus) == 0 {
+		// Return a slice of CPUs observed in the collection, in increasing order.
+		var cpus = []int64{}
+		for cpu := range c.CPUs() {
+			cpus = append(cpus, int64(cpu))
+		}
+		sort.Slice(cpus, func(i, j int) bool {
+			return cpus[i] < cpus[j]
+		})
+
+		return cpus
+	}
+	return cpus
+}

@@ -16,7 +16,10 @@
 //
 package models
 
-import "github.com/google/schedviz/analysis/sched"
+import (
+	"github.com/google/schedviz/analysis/sched"
+	"github.com/google/schedviz/tracedata/trace"
+)
 
 // CPUIntervalsRequest is a request for CPU intervals for the specified collection.
 type CPUIntervalsRequest struct {
@@ -70,31 +73,7 @@ type FtraceEventsResponse struct {
 	// The name of the collection.
 	CollectionName string `json:"collectionName"`
 	// A map from CPU to lists of events that occurred on that CPU.
-	EventsByCPU map[int64][]FtraceEvent `json:"eventsByCpu"`
-}
-
-// FtraceEvent describes a single trace event.
-// A Collection stores its constituent events in a much more compact, but less
-// usable, format than this, so it is recommended to generate Events on demand
-// (via Collection::EventByIndex) rather than persisting more than a few Events.
-type FtraceEvent struct {
-	// An index uniquely identifying this Event within its Collection.
-	Index int64 `json:"index"`
-	// The name of the event's type.
-	Name string `json:"name"`
-	// The CPU that logged the event.  Note that the CPU that logs an event may be
-	// otherwise unrelated to the event.
-	CPU int64 `json:"cpu"`
-	// The event timestamp.
-	Timestamp int64 `json:"timestamp"`
-	// True if this Event fell outside of the known-valid range of a trace which
-	// experienced buffer overruns.  Some kinds of traces are only valid for
-	// unclipped events.
-	Clipped bool `json:"clipped"`
-	// A map of text properties, indexed by name.
-	TextProperties map[string]string `json:"textProperties"`
-	// A map of numeric properties, indexed by name.
-	NumberProperties map[string]int64 `json:"numberProperties"`
+	EventsByCPU map[sched.CPUID][]*trace.Event `json:"eventsByCpu"`
 }
 
 // PidIntervalsRequest is a request for PID intervals for the specified collection and PIDs.
@@ -118,35 +97,12 @@ type PidIntervalsRequest struct {
 	MinIntervalDurationNs int64 `json:"minIntervalDurationNs"`
 }
 
-// PIDInterval describes a maximal interval over a PID's lifetime during which
-// its command, priority, state, and CPU remain unchanged.
-type PIDInterval struct {
-	Pid      int64  `json:"pid"`
-	Command  string `json:"command"`
-	Priority int64  `json:"priority"`
-	// If this PIDInterval is the result of merging several intervals, state will
-	// be set to UNKNOWN.  This can be distinguished from actually unknown state
-	// by checking merged_interval_count; if it is == 1, the thread's state is
-	// actually unknown over the interval; if it is > 1, the thread had several
-	// states over the merged interval.
-	State sched.ThreadState `json:"state"`
-	// If state is WAITING, post_wakeup determines if the thread started waiting
-	// as the result of a wakeup (true) or as a result of round-robin descheduling
-	// (false).  post_wakeup is always false for merged intervals.
-	PostWakeup       bool  `json:"postWakeup"`
-	CPU              int64 `json:"cpu"`
-	StartTimestampNs int64 `json:"startTimestampNs"`
-	EndTimestampNs   int64 `json:"endTimestampNs"`
-	// How many PIDIntervals were merged to form this one.
-	MergedIntervalCount int64 `json:"mergedIntervalCount"`
-}
-
 // PIDIntervals is a tuple holding a PID and its intervals
 type PIDIntervals struct {
 	// The PID that these intervals correspond to
 	PID int64 `json:"pid"`
 	// A list of PID intervals
-	Intervals []PIDInterval `json:"intervals"`
+	Intervals []*sched.Interval `json:"intervals"`
 }
 
 // PIDntervalsResponse is a response for a PID intervals request. If no matching collection was

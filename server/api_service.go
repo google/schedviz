@@ -25,7 +25,6 @@ import (
 
 	"github.com/golang/sync/errgroup"
 
-	"github.com/google/schedviz/analysis/legacysched"
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/server/storageservice"
@@ -87,7 +86,6 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 	if err != nil {
 		return models.PIDntervalsResponse{}, err
 	}
-	ls := legacysched.WrapCollection(c.Collection)
 
 	res := models.PIDntervalsResponse{
 		CollectionName: req.CollectionName,
@@ -100,10 +98,11 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 		// Create a copy of pid
 		pid := pid
 		g.Go(func() error {
-			pidIntervals, err := ls.PIDIntervals(pid,
-				time.Duration(req.StartTimestampNs),
-				time.Duration(req.EndTimestampNs),
-				time.Duration(req.MinIntervalDurationNs))
+			pidIntervals, err := c.Collection.ThreadIntervals(
+				sched.PIDs(sched.PID(pid)),
+				sched.TimeRange(trace.Timestamp(req.StartTimestampNs), trace.Timestamp(req.EndTimestampNs)),
+				sched.MinIntervalDuration(sched.Duration(req.MinIntervalDurationNs)),
+				sched.TruncateToTimeRange(false))
 			if err != nil {
 				return fmt.Errorf("error occurred getting intervals for PID: %d, %v", pid, err)
 			}
@@ -162,7 +161,6 @@ func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.P
 	if err != nil {
 		return models.PerThreadEventSeriesResponse{}, err
 	}
-	ls := legacysched.WrapCollection(c.Collection)
 
 	var g errgroup.Group
 	ess := []models.PerThreadEventSeries{}
@@ -171,7 +169,7 @@ func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.P
 		// Create a copy of pid
 		pid := pid
 		g.Go(func() error {
-			events, err := ls.PerThreadEventSeries(pid, time.Duration(req.StartTimestampNs), time.Duration(req.EndTimestampNs))
+			events, err := c.Collection.PerThreadEventSeries(pid, time.Duration(req.StartTimestampNs), time.Duration(req.EndTimestampNs))
 			if err != nil {
 				return fmt.Errorf("error occurred getting thread events for PID: %d, %v", pid, err)
 			}
@@ -205,9 +203,8 @@ func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.Thread
 	if err != nil {
 		return models.ThreadSummariesResponse{}, err
 	}
-	ls := legacysched.WrapCollection(c.Collection)
 
-	threadSummaries, err := ls.ThreadSummaries(req.Cpus, time.Duration(req.StartTimestampNs), time.Duration(req.EndTimestampNs))
+	threadSummaries, err := c.Collection.ThreadSummaries(req.Cpus, time.Duration(req.StartTimestampNs), time.Duration(req.EndTimestampNs))
 	if err != nil {
 		return models.ThreadSummariesResponse{}, err
 	}
@@ -230,16 +227,15 @@ func (as *APIService) GetUtilizationMetrics(ctx context.Context, req *models.Uti
 	if err != nil {
 		return models.UtilizationMetricsResponse{}, err
 	}
-	ls := legacysched.WrapCollection(c.Collection)
 
-	um, err := ls.UtilizationMetrics(req.Cpus, time.Duration(req.StartTimestampNs), time.Duration(req.EndTimestampNs))
+	um, err := c.Collection.UtilizationMetrics(sched.CPUs(req.Cpus...), sched.TimeRange(req.StartTimestampNs, req.EndTimestampNs), sched.TruncateToTimeRange(true))
 	if err != nil {
 		return models.UtilizationMetricsResponse{}, err
 	}
 
 	return models.UtilizationMetricsResponse{
 		Request:            *req,
-		UtilizationMetrics: *um,
+		UtilizationMetrics: um,
 	}, nil
 }
 

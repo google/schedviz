@@ -19,6 +19,7 @@ importpath = "github.com/google/schedviz/analysis/sched",
         "sched_cpu_span_set.go",
         "sched_elementary_intervals.go",
         "sched_event_loader.go",
+        "sched_metrics.go",
         "sched_per_cpu_events.go",
         "sched_query_filter.go",
         "sched_thread_inferrer.go",
@@ -47,6 +48,7 @@ go_test(
         "sched_cpu_span_set_test.go",
         "sched_elementary_intervals_test.go",
         "sched_event_loader_test.go",
+        "sched_metrics_test.go",
         "sched_thread_inferrer_test.go",
         "sched_thread_span_set_test.go",
         "sched_thread_span_test.go",
@@ -72,34 +74,6 @@ importpath = "github.com/google/schedviz/analysis/schedtestcommon",
     deps = [
         "//tracedata:eventsetbuilder",
         "//tracedata:schedviz_events_go_proto",
-    ],
-)
-
-go_library(
-    name = "legacysched",
-importpath = "github.com/google/schedviz/analysis/legacysched",
-
-    srcs = ["legacy_sched.go"],
-    deps = [
-        ":sched",
-        "//server:models",
-        "//tracedata:schedviz_events_go_proto",
-        "//tracedata:trace",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
-    ],
-)
-
-go_test(
-    name = "legacysched_test",
-    size = "small",
-    srcs = ["legacy_sched_test.go"],
-    embed = [":legacysched"],
-    deps = [
-        ":sched",
-        ":schedtestcommon",
-        "//server:models",
-        "@com_github_google_go-cmp//cmp:go_default_library",
     ],
 )
 

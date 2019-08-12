@@ -25,11 +25,11 @@ import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angul
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {BehaviorSubject} from 'rxjs';
 
-import {Interval, Layer, Thread, ThreadEvent, ThreadInterval} from '../../models';
+import {FtraceInterval, Interval, Layer, Thread, ThreadInterval} from '../../models';
 
+import {getToggleButton, mockThreads, verifySorting} from './table_helpers_test';
 import {ThreadTable} from './thread_table';
 import {ThreadTableModule} from './thread_table_module';
-import {verifySorting, mockThreads, getToggleButton} from './table_helpers_test';
 
 try {
   TestBed.initTestEnvironment(
@@ -48,7 +48,7 @@ function setupThreadTable(component: ThreadTable) {
   component.sort = new BehaviorSubject<Sort>({active: '', direction: ''});
   component.filter = new BehaviorSubject<string>('');
   component.expandedThread = new BehaviorSubject<Thread|undefined>(undefined);
-  component.expandedThreadEvents = new BehaviorSubject<ThreadEvent[]>([]);
+  component.expandedFtraceIntervals = new BehaviorSubject<FtraceInterval[]>([]);
   component.expandedThreadAntagonists =
       new BehaviorSubject<ThreadInterval[]>([]);
   component.tab = new BehaviorSubject<number>(0);

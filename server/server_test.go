@@ -37,6 +37,7 @@ import (
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/testhelpers/testhelpers"
+	"github.com/google/schedviz/tracedata/trace"
 
 )
 
@@ -475,25 +476,34 @@ func TestGetPIDIntervals(t *testing.T) {
 		CollectionName: collectionName,
 		PIDIntervals: []models.PIDIntervals{{
 			PID: 17254,
-			Intervals: []models.PIDInterval{
+			Intervals: []*sched.Interval{
 				{
-					Pid:                 17254,
-					Command:             "trace.sh",
-					Priority:            120,
-					State:               sched.RunningState,
-					PostWakeup:          false,
-					CPU:                 0,
-					StartTimestampNs:    0,
-					EndTimestampNs:      21845,
+					CPU:            0,
+					StartTimestamp: 0,
+					Duration:       21845,
+					ThreadResidencies: []*sched.ThreadResidency{{
+						Thread: &sched.Thread{
+							PID:      17254,
+							Command:  "trace.sh",
+							Priority: 120,
+						},
+						Duration: 21845,
+						State:    sched.RunningState,
+					}},
 					MergedIntervalCount: 1,
 				},
 				{
-					Pid:                 17254,
-					Command:             "trace.sh",
-					Priority:            120,
-					State:               sched.SleepingState,
-					StartTimestampNs:    21845,
-					EndTimestampNs:      65705,
+					StartTimestamp: 21845,
+					Duration:       43860,
+					ThreadResidencies: []*sched.ThreadResidency{{
+						Thread: &sched.Thread{
+							PID:      17254,
+							Command:  "trace.sh",
+							Priority: 120,
+						},
+						Duration: 43860,
+						State:    sched.SleepingState,
+					}},
 					MergedIntervalCount: 1,
 				}},
 		}},
@@ -507,7 +517,7 @@ func TestGetPIDIntervals(t *testing.T) {
 func TestGetAntagonists(t *testing.T) {
 	requestJSON := encodeJSON(t, &models.AntagonistsRequest{
 		CollectionName:   collectionName,
-		Pids:             []int64{17254},
+		Pids:             []sched.PID{17254},
 		StartTimestampNs: 71540,
 		EndTimestampNs:   73790,
 	})
@@ -563,7 +573,7 @@ func TestGetAntagonists(t *testing.T) {
 func TestGetPerThreadEventSeries(t *testing.T) {
 	requestJSON := encodeJSON(t, &models.PerThreadEventSeriesRequest{
 		CollectionName:   collectionName,
-		Pids:             []int64{17254},
+		Pids:             []sched.PID{17254},
 		StartTimestampNs: 0,
 		EndTimestampNs:   72000,
 	})
@@ -584,41 +594,66 @@ func TestGetPerThreadEventSeries(t *testing.T) {
 		CollectionName: collectionName,
 		EventSeries: []models.PerThreadEventSeries{{
 			Pid: 17254,
-			Events: []models.Event{
+			Events: []*trace.Event{
 				{
-					UniqueID:      2,
-					EventType:     4,
-					TimestampNs:   21845,
-					Pid:           430,
-					Command:       "kauditd",
-					Priority:      120,
-					PrevPid:       17254,
-					PrevCommand:   "trace.sh",
-					PrevPriority:  120,
-					PrevTaskState: 4096,
+					Index:     2,
+					Name:      "sched_switch",
+					Timestamp: 21845,
+					TextProperties: map[string]string{
+						"common_flags":         "\x01",
+						"common_preempt_count": "",
+						"next_comm":            "kauditd",
+						"prev_comm":            "trace.sh",
+					},
+					NumberProperties: map[string]int64{
+						"common_pid":  17254,
+						"common_type": 0,
+						"next_pid":    430,
+						"next_prio":   120,
+						"prev_pid":    17254,
+						"prev_prio":   120,
+						"prev_state":  4096,
+					},
 				},
 				{
-					UniqueID:      5,
-					EventType:     4,
-					TimestampNs:   65705,
-					Pid:           17254,
-					Command:       "trace.sh",
-					Priority:      120,
-					PrevPid:       449,
-					PrevCommand:   "auditd",
-					PrevPriority:  116,
-					PrevTaskState: 1,
+					Index:     5,
+					Name:      "sched_switch",
+					Timestamp: 65705,
+					TextProperties: map[string]string{
+						"common_flags":         "\x01",
+						"common_preempt_count": "",
+						"next_comm":            "trace.sh",
+						"prev_comm":            "auditd",
+					},
+					NumberProperties: map[string]int64{
+						"common_pid":  449,
+						"common_type": 0,
+						"next_pid":    17254,
+						"next_prio":   120,
+						"prev_pid":    449,
+						"prev_prio":   116,
+						"prev_state":  1,
+					},
 				},
 				{
-					UniqueID:     7,
-					EventType:    4,
-					TimestampNs:  71547,
-					Pid:          430,
-					Command:      "kauditd",
-					Priority:     120,
-					PrevPid:      17254,
-					PrevCommand:  "trace.sh",
-					PrevPriority: 120,
+					Index:     7,
+					Name:      "sched_switch",
+					Timestamp: 71547,
+					TextProperties: map[string]string{
+						"common_flags":         "\x01",
+						"common_preempt_count": "",
+						"next_comm":            "kauditd",
+						"prev_comm":            "trace.sh",
+					},
+					NumberProperties: map[string]int64{
+						"common_pid":  17254,
+						"common_type": 0,
+						"next_pid":    430,
+						"next_prio":   120,
+						"prev_pid":    17254,
+						"prev_prio":   120,
+						"prev_state":  0,
+					},
 				},
 			}},
 		}}
@@ -631,7 +666,7 @@ func TestGetPerThreadEventSeries(t *testing.T) {
 func TestGetThreadSummaries(t *testing.T) {
 	requestJSON := encodeJSON(t, &models.ThreadSummariesRequest{
 		CollectionName:   collectionName,
-		Cpus:             []int64{0},
+		Cpus:             []sched.CPUID{0},
 		StartTimestampNs: 0,
 		EndTimestampNs:   2009150555,
 	})
@@ -654,16 +689,16 @@ func TestGetThreadSummaries(t *testing.T) {
 
 	want := &models.ThreadSummariesResponse{
 		CollectionName: collectionName,
-		Metrics: []models.Metrics{{
+		Metrics: []sched.Metrics{{
 			WakeupCount:      270,
 			UnknownTimeNs:    6269650,
 			RunTimeNs:        5680247,
 			WaitTimeNs:       2459979,
 			SleepTimeNs:      1994740679,
-			Pids:             []int64{3},
+			Pids:             []sched.PID{3},
 			Commands:         []string{"ksoftirqd/0"},
-			Priorities:       []int64{120},
-			Cpus:             []int64{0},
+			Priorities:       []sched.Priority{120},
+			Cpus:             []sched.CPUID{0},
 			StartTimestampNs: 0,
 			EndTimestampNs:   2009150555,
 		}},
@@ -697,7 +732,7 @@ func TestGetFtraceEvents(t *testing.T) {
 
 	want := &models.FtraceEventsResponse{
 		CollectionName: collectionName,
-		EventsByCPU: map[int64][]models.FtraceEvent{
+		EventsByCPU: map[sched.CPUID][]*trace.Event{
 			0: {{
 				Index:     2,
 				Name:      "sched_switch",
@@ -731,7 +766,7 @@ func TestGetFtraceEvents(t *testing.T) {
 func TestGetUtilizationMetrics(t *testing.T) {
 	requestJSON := encodeJSON(t, &models.UtilizationMetricsRequest{
 		CollectionName:   collectionName,
-		Cpus:             []int64{0},
+		Cpus:             []sched.CPUID{0},
 		StartTimestampNs: 0,
 		EndTimestampNs:   2009150555,
 	})
@@ -751,20 +786,20 @@ func TestGetUtilizationMetrics(t *testing.T) {
 	want := models.UtilizationMetricsResponse{
 		Request: models.UtilizationMetricsRequest{
 			CollectionName:   collectionName,
-			Cpus:             []int64{0},
+			Cpus:             []sched.CPUID{0},
 			StartTimestampNs: 0,
 			EndTimestampNs:   2009150555,
 		},
-		UtilizationMetrics: models.UtilizationMetrics{
-			WallTime:               0,
-			PerCPUTime:             0,
-			PerThreadTime:          0,
-			CPUUtilizationFraction: 1,
+		UtilizationMetrics: sched.Utilization{
+			WallTime:            0,
+			PerCPUTime:          0,
+			PerThreadTime:       0,
+			UtilizationFraction: 1,
 		},
 	}
 
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Fatalf("TestGetPerThreadEventSeries: Diff -want +got:\n%s", diff)
+		t.Fatalf("TestGetUtilizationMetrics: Diff -want +got:\n%s", diff)
 	}
 }
 

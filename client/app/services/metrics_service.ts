@@ -19,10 +19,10 @@ import {Injectable} from '@angular/core';
 import {Observable, of} from 'rxjs';
 import {flatMap, map} from 'rxjs/operators';
 
-import {CollectionParameters, Thread, ThreadEvent, ThreadEventType, ThreadInterval, UtilizationMetrics} from '../models';
-
+import {CollectionParameters, FtraceInterval, Thread, ThreadInterval, UtilizationMetrics} from '../models';
 
 import * as services from '../models/metrics_services';
+import {ThreadState} from '../models/render_data_services';
 import {Viewport} from '../util';
 
 /**
@@ -34,7 +34,7 @@ export interface MetricsService {
       cpus: number[]): Observable<Thread[]>;
   getPerThreadEvents(
       parameters: CollectionParameters, viewport: Viewport,
-      thread: Thread): Observable<ThreadEvent[]>;
+      thread: Thread): Observable<FtraceInterval[]>;
   getThreadAntagonists(
       parameters: CollectionParameters, viewport: Viewport,
       thread: Thread): Observable<ThreadInterval[]>;
@@ -90,7 +90,7 @@ export class HttpMetricsService implements MetricsService {
 
   getPerThreadEvents(
       parameters: CollectionParameters, viewport: Viewport,
-      thread: Thread): Observable<ThreadEvent[]> {
+      thread: Thread): Observable<FtraceInterval[]> {
     const leftNs = Math.floor(
         viewport.left * (parameters.endTimeNs - parameters.startTimeNs));
     const rightNs = Math.ceil(
@@ -108,13 +108,7 @@ export class HttpMetricsService implements MetricsService {
             // TODO(sainsley): generalize for multiple threads
             map(res => res.eventSeries[0].events),
             map(events => events.map(
-                    event => new ThreadEvent(
-                        parameters, event.uniqueID,
-                        HttpMetricsService.getEventState(event.eventType),
-                        event.timestampNs, event.pid, event.command,
-                        event.priority, event.cpu, event.state, event.prevPid,
-                        event.prevCommand, event.prevPriority, event.prevCpu,
-                        event.prevState))));
+                    event => new FtraceInterval(parameters, event))));
   }
 
   getThreadAntagonists(
@@ -139,13 +133,15 @@ export class HttpMetricsService implements MetricsService {
             map(threads => threads.map((thread) => {
               return thread.antagonisms.map(
                   ant => new ThreadInterval(
-                      parameters,
-                      ant.cpu,
-                      ant.startTimestamp,
-                      ant.endTimestamp,
-                      ant.runningThread.pid,
-                      ant.runningThread.command,
-                      ));
+                      parameters, ant.cpu, ant.startTimestamp, ant.endTimestamp,
+                      ant.runningThread.pid, ant.runningThread.command, [{
+                        thread: ant.runningThread,
+                        // Antagonists must be running to be antagonizing
+                        state: ThreadState.RUNNING_STATE,
+                        duration: ant.endTimestamp - ant.startTimestamp,
+                        includesSyntheticTransitions: false,
+                        droppedEventIDs: [],
+                      }]));
             })),
             map(nestedIntervals => {
               return new Array<ThreadInterval>().concat(...nestedIntervals);
@@ -166,30 +162,6 @@ export class HttpMetricsService implements MetricsService {
         .post<services.UtilizationMetricsResponse>(
             this.utilizationMetricsUrl, utilizationMetricsReq)
         .pipe(map(res => UtilizationMetrics.fromJSON(res)));
-  }
-
-  /**
-   * Translates the EventType proto to a local string state flag.
-   */
-  static getEventState(type: services.EventType) {
-    switch (type) {
-      case services.EventType.MIGRATE_TASK:
-        return ThreadEventType.MIGRATE_TASK;
-      case services.EventType.PROCESS_WAIT:
-        return ThreadEventType.PROCESS_WAIT;
-      case services.EventType.WAIT_TASK:
-        return ThreadEventType.WAIT_TASK;
-      case services.EventType.SWITCH:
-        return ThreadEventType.SWITCH;
-      case services.EventType.WAKEUP:
-        return ThreadEventType.WAKEUP;
-      case services.EventType.WAKEUP_NEW:
-        return ThreadEventType.WAKEUP_NEW;
-      case services.EventType.STAT_RUNTIME:
-        return ThreadEventType.STAT_RUNTIME;
-      default:
-        return ThreadEventType.UNKNOWN;
-    }
   }
 }
 // END-INTERNAL
@@ -244,8 +216,8 @@ export class LocalMetricsService implements MetricsService {
 
   getPerThreadEvents(
       parameters: CollectionParameters, viewport: Viewport,
-      thread: Thread): Observable<ThreadEvent[]> {
-    const foo: ThreadEvent[] = [];
+      thread: Thread): Observable<FtraceInterval[]> {
+    const foo: FtraceInterval[] = [];
     return of(foo);
   }
 

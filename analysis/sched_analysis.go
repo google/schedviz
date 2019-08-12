@@ -196,17 +196,17 @@ type Utilization struct {
 	// WallTime accumulates the duration of time over which *any* CPU in the set
 	// was idle (running swapper) while any other was overloaded (had waiting
 	// threads).
-	WallTime Duration
+	WallTime Duration `json:"wallTime"`
 	// PerCPUTime accumulates the total per-CPU time during which some CPUs lay
 	// idle while at least as many others were overloaded.
-	PerCPUTime Duration
+	PerCPUTime Duration `json:"perCpuTime"`
 	// PerThreadTime accumulates the total per-thread time during which some
 	// threads waited on overloaded CPUs while at least as many other CPUs lay
 	// idle.
-	PerThreadTime Duration
+	PerThreadTime Duration `json:"perThreadTime"`
 	// UtilizationFraction expresses the fraction of total requested CPU-time
 	// spent not idle; that is, doing useful work.
-	UtilizationFraction float64
+	UtilizationFraction float64 `json:"cpuUtilizationFraction"`
 }
 
 // UtilizationMetrics returns a Utilization for the requested set of CPUs and over the requested

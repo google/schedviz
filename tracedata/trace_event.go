@@ -49,22 +49,22 @@ const UnknownTimestamp Timestamp = -1
 // rather than persisting more than a few Events.
 type Event struct {
 	// An index uniquely identifying this Event within its Collection.
-	Index int
+	Index int `json:"index"`
 	// The name of the event's type.
-	Name string
+	Name string `json:"name"`
 	// The CPU that logged the event.  Note that the CPU that logs an event may be
 	// otherwise unrelated to the event.
-	CPU int64
+	CPU int64 `json:"cpu"`
 	// The event timestamp.
-	Timestamp Timestamp
+	Timestamp Timestamp `json:"timestamp"`
 	// True if this Event fell outside of the known-valid range of a trace which
 	// experienced buffer overruns.  Some kinds of traces are only valid for
 	// unclipped events.
-	Clipped bool
+	Clipped bool `json:"clipped"`
 	// A map of text properties, indexed by name.
-	TextProperties map[string]string
+	TextProperties map[string]string `json:"textProperties"`
 	// A map of numeric properties, indexed by name.
-	NumberProperties map[string]int64
+	NumberProperties map[string]int64 `json:"numberProperties"`
 }
 
 func isPrintable(data string) bool {

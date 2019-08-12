@@ -26,12 +26,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/google/schedviz/analysis/legacysched"
+	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+	"github.com/golang/groupcache/lru"
+
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
-	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 	"github.com/google/schedviz/tracedata/trace"
-	"github.com/golang/groupcache/lru"
 )
 
 // FsStorage is a storage service that saves collections as protos on local disk
@@ -232,7 +232,6 @@ func (fs *FsStorage) GetCollectionParameters(ctx context.Context, collectionName
 	if err != nil {
 		return models.CollectionParametersResponse{}, err
 	}
-	legacyCollection := legacysched.WrapCollection(collection.Collection)
 
 	startTimestamp, endTimestamp := collection.Collection.Interval()
 
@@ -240,7 +239,7 @@ func (fs *FsStorage) GetCollectionParameters(ctx context.Context, collectionName
 
 	ret := models.CollectionParametersResponse{
 		CollectionName:   collectionName,
-		CPUs:             legacyCollection.ExpandCPUList(nil),
+		CPUs:             collection.Collection.ExpandCPUs(nil),
 		StartTimestampNs: int64(startTimestamp),
 		EndTimestampNs:   int64(endTimestamp),
 		FtraceEvents:     ftraceEvents,
@@ -272,17 +271,10 @@ func (fs *FsStorage) GetFtraceEvents(ctx context.Context, req *models.FtraceEven
 		return models.FtraceEventsResponse{}, err
 	}
 
-	var fTraceEventsByCPU = make(map[int64][]models.FtraceEvent)
+	var fTraceEventsByCPU = make(map[sched.CPUID][]*trace.Event)
 	for _, ev := range events {
-		fTraceEventsByCPU[ev.CPU] = append(fTraceEventsByCPU[ev.CPU], models.FtraceEvent{
-			Timestamp:        int64(ev.Timestamp),
-			Name:             ev.Name,
-			CPU:              ev.CPU,
-			Clipped:          ev.Clipped,
-			TextProperties:   ev.TextProperties,
-			NumberProperties: ev.NumberProperties,
-			Index:            int64(ev.Index),
-		})
+		cpuID := sched.CPUID(ev.CPU)
+		fTraceEventsByCPU[cpuID] = append(fTraceEventsByCPU[cpuID], ev)
 	}
 
 	return models.FtraceEventsResponse{

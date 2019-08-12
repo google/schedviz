@@ -16,9 +16,9 @@
 //
 import {CollectionParameters} from './collection';
 import {CpuInterval} from './cpu_intervals';
+import {FtraceInterval} from './ftrace_interval';
 import {Interval} from './interval';
 import {ThreadState} from './render_data_services';
-import {ThreadEvent} from './thread_event';
 import {ThreadInterval} from './thread_intervals';
 
 /**
@@ -26,7 +26,7 @@ import {ThreadInterval} from './thread_intervals';
  * (represented as full collection-length intervals) for hover preview.
  */
 export class Thread extends Interval {
-  events: ThreadEvent[] = [];
+  events: FtraceInterval[] = [];
   antagonists: ThreadInterval[] = [];
   constructor(
       public parameters: CollectionParameters,

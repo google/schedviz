@@ -19,7 +19,7 @@ import {Injectable} from '@angular/core';
 import {Observable, of} from 'rxjs';
 import {map} from 'rxjs/operators';
 
-import {CollectionParameters, CpuInterval, CpuIntervalCollection, Layer, SchedEvent, ThreadInterval, WaitingCpuInterval, WaitingThreadInterval} from '../models';
+import {CollectionParameters, CpuInterval, CpuIntervalCollection, Layer, SchedEvent, ThreadInterval, WaitingCpuInterval} from '../models';
 import * as services from '../models/render_data_services';
 import {Viewport} from '../util';
 
@@ -107,27 +107,36 @@ export class HttpRenderDataService implements RenderDataService {
         .post<services.PidIntervalsResponse>(
             this.pidIntervalsUrl, pidIntervalsReq)
         .pipe(
-            map(res => res.pidIntervals.map(
-                    intervalsList => intervalsList.intervals)),
-            map(intervalsByCpu => intervalsByCpu.map(
-                    intervals => intervals.map(
-                        interval => interval.state ===
-                                services.ThreadState.WAITING_STATE ?
-                            new WaitingThreadInterval(
-                                parameters, interval.cpu,
-                                interval.startTimestampNs,
-                                interval.endTimestampNs, interval.pid,
-                                interval.command) :
-                            new ThreadInterval(
-                                parameters, interval.cpu,
-                                interval.startTimestampNs,
-                                interval.endTimestampNs, interval.pid,
-                                interval.command, interval.state)))),
-            map(nestedIntervals => {
-              layer.intervals =
-                  new Array<ThreadInterval>().concat(...nestedIntervals);
+            map(res => res.pidIntervals.map(intervalsList => {
+              const pid = intervalsList.pid;
+              return intervalsList.intervals
+                  .map(interval => {
+                    // Double check that there is only one command
+                    const commands =
+                        Array.from(new Set(interval.threadResidencies.map(
+                            tr => tr.thread.command)));
+                    if (commands.length !== 1) {
+                      return;
+                    }
+                    return new ThreadInterval(
+                        parameters,
+                        interval.cpu,
+                        interval.startTimestamp,
+                        interval.startTimestamp + interval.duration,
+                        pid,
+                        commands[0],
+                        interval.threadResidencies,
+                    );
+                  })
+                  .filter((i): i is ThreadInterval => i != null);
+            })),
+            map(nestedIntervals =>
+                    new Array<ThreadInterval>().concat(...nestedIntervals)),
+            map(intervals => {
+              layer.intervals = intervals;
               return layer;
-            }));
+            }),
+        );
   }
 
   getSchedEvents(
@@ -244,7 +253,13 @@ export class LocalRenderDataService implements RenderDataService {
         timestamp += delta;
         timestamp = Math.min(timestamp, parameters.endTimeNs);
         const interval = new ThreadInterval(
-            parameters, cpu, prevTimestamp, timestamp, pid, 'bar');
+            parameters, cpu, prevTimestamp, timestamp, pid, 'bar', [{
+              thread: {command: 'foo', pid: 0, priority: 100},
+              state: services.ThreadState.RUNNING_STATE,
+              duration: timestamp - prevTimestamp,
+              droppedEventIDs: [],
+              includesSyntheticTransitions: false,
+            }]);
         intervals.push(interval);
       }
     }

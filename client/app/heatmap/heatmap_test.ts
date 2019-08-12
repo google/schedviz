@@ -21,7 +21,7 @@ import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import * as d3 from 'd3';
 import {BehaviorSubject, of} from 'rxjs';
 
-import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, WaitingThreadInterval} from '../models';
+import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval} from '../models';
 import * as services from '../models/render_data_services';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService} from '../services/render_data_service';
@@ -735,9 +735,19 @@ describe('Heatmap', () => {
       for (let ii = 0; ii < durations[i].length; ii++) {
         const duration = durations[i][ii];
         const layer = layers[i];
-        layer.intervals.push(new WaitingThreadInterval(
+        layer.intervals.push(new ThreadInterval(
             mockParameters(), 0, duration.start, duration.end, layer.ids[0],
-            layer.name));
+            layer.name, [{
+              thread: {
+                pid: 2,
+                command: 'waiter',
+                priority: 120,
+              },
+              duration: duration.end - duration.start,
+              state: services.ThreadState.WAITING_STATE,
+              droppedEventIDs: [],
+              includesSyntheticTransitions: false
+            }]));
       }
     }
     component.arrangeWaitingPids(layers);
@@ -748,7 +758,7 @@ describe('Heatmap', () => {
     for (let i = 0; i < layers.length; i++) {
       for (let ii = 0; ii < expectations[i].length; ii++) {
         const expectation = expectations[i][ii];
-        const interval = layers[i].intervals[ii] as WaitingThreadInterval;
+        const interval = layers[i].intervals[ii] as ThreadInterval;
         expect(interval.queueOffset).toBe(expectation.offset);
         expect(interval.queueCount).toBe(expectation.count);
       }

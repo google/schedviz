@@ -19,10 +19,12 @@ import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, In
 import {FormControl} from '@angular/forms';
 import {ErrorStateMatcher} from '@angular/material/core';
 import {BehaviorSubject, Observable} from 'rxjs';
-import {debounceTime, map, filter} from 'rxjs/operators';
-import {Interval, Layer, Thread, ThreadEvent, ThreadInterval} from '../../models';
+import {debounceTime, filter, map} from 'rxjs/operators';
+
+import {FtraceInterval, Interval, Layer, Thread, ThreadInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
 import {getDurationInNsFromHumanReadableString} from '../../util/duration';
+
 import {SelectableTable} from './selectable_table';
 
 const EMBEDDED_PAGE_SIZE = 20;
@@ -76,7 +78,7 @@ export class ThreadTable extends SelectableTable implements OnInit,
   // True if this table is embedded within another table (some features limited)
   @Input() embedded = false;
   @Input() expandedThread!: BehaviorSubject<Thread|undefined>;
-  @Input() expandedThreadEvents!: BehaviorSubject<ThreadEvent[]>;
+  @Input() expandedFtraceIntervals!: BehaviorSubject<FtraceInterval[]>;
   @Input() expandedThreadAntagonists!: BehaviorSubject<ThreadInterval[]>;
   @Input() filter!: BehaviorSubject<string>;
   @Input() tab!: BehaviorSubject<number>;
@@ -126,7 +128,7 @@ export class ThreadTable extends SelectableTable implements OnInit,
     if (!this.expandedThread) {
       throw new Error('Missing Observable for expanded thread');
     }
-    if (!this.expandedThreadEvents) {
+    if (!this.expandedFtraceIntervals) {
       throw new Error('Missing Observable for expanded thread events');
     }
     if (!this.expandedThreadAntagonists) {

@@ -11,12 +11,12 @@ ts_library(
         "collection.ts",
         "cpu_intervals.ts",
         "cpu_layers.ts",
+        "ftrace_interval.ts",
         "index.ts",
         "interval.ts",
         "layer.ts",
         "sched_event.ts",
         "thread.ts",
-        "thread_event.ts",
         "thread_intervals.ts",
         "utilization_metrics.ts",
     ],
@@ -44,4 +44,15 @@ ts_library(
         "collections_filter.ts",
     ],
     deps = ["@npm//rxjs"],
+)
+
+ts_library(
+    name = "interval_tests",
+    testonly = True,
+    srcs = ["ftrace_interval_test.ts"],
+    deps = [
+        ":models",
+        ":service_models",
+        "@npm//@types/jasmine",
+    ],
 )

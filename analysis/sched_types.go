@@ -263,3 +263,34 @@ type Antagonists struct {
 	StartTimestamp trace.Timestamp `json:"startTimestamp"`
 	EndTimestamp   trace.Timestamp `json:"endTimestamp"`
 }
+
+// Metrics holds a set of aggregated metrics for some or all of the sched trace.
+type Metrics struct {
+	// The number of migrations observed in the aggregated trace.  If CPU
+	// filtering was used generating this Metric, only migrations inbound to a
+	// filtered-in CPU are aggregated.
+	MigrationCount int `json:"migrationCount"`
+	// The number of wakeups observed in the aggregated trace.
+	WakeupCount int `json:"wakeupCount"`
+	// Aggregated thread-state times over the aggregated trace.
+	UnknownTimeNs Duration `json:"unknownTimeNs"`
+	RunTimeNs     Duration `json:"runTimeNs"`
+	WaitTimeNs    Duration `json:"waitTimeNs"`
+	SleepTimeNs   Duration `json:"sleepTimeNs"`
+	// Unique PIDs, COMMs, priorities, and CPUs observed in the aggregated trace.
+	// Note that these fields are not correlated; if portions of trace containing
+	// execution from several different PIDs are aggregated together in a metric,
+	// all of their PIDs, commands, and priorities will be present here, and the
+	// Metrics can reveal which PIDs were present, but it will not be possible to
+	// tell from the Metrics which commands go with which PIDs, and so forth.
+	// TODO(sabarabc) Create maps from PID -> ([]command, []priority),
+	//  command -> ([]PID, []priority), and priority -> ([]PID, []command)
+	//  so that we can tell which of these are correlated.
+	Pids       []PID      `json:"pids"`
+	Commands   []string   `json:"commands"`
+	Priorities []Priority `json:"priorities"`
+	Cpus       []CPUID    `json:"cpus"`
+	// The time range over which these metrics were aggregated.
+	StartTimestampNs trace.Timestamp `json:"startTimestampNs"`
+	EndTimestampNs   trace.Timestamp `json:"endTimestampNs"`
+}

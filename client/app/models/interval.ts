@@ -30,6 +30,7 @@ export abstract class Interval {
   edges: Interval[][] = [];
   selected = false;
   duration: number;
+  shouldRender = true;
 
   constructor(
       public parameters: CollectionParameters, public id: number,

@@ -257,37 +257,6 @@ export function threadStateToString(state: ThreadState) {
 }
 
 /**
- * PidInterval describes a maximal interval over a PID's lifetime during which
- * its command, priority, state, and CPU remain unchanged.
- */
-export declare interface PidInterval {
-  pid: number;
-  command: string;
-  priority: number;
-  /**
-   * If this PidInterval is the result of merging several intervals, state will
-   * be set to UNKNOWN.  This can be distinguished from actually unknown state
-   * by checking merged_interval_count; if it is == 1, the thread's state is
-   * actually unknown over the interval; if it is > 1, the thread had several
-   * states over the merged interval.
-   */
-  state: ThreadState;
-  /**
-   * If state is WAITING, post_wakeup determines if the thread started waiting
-   * as the result of a wakeup (true) or as a result of round-robin descheduling
-   * (false).  post_wakeup is always false for merged intervals.
-   */
-  postWakeup: boolean;
-  cpu: number;
-  startTimestampNs: number;
-  endTimestampNs: number;
-  /**
-   * How many PidIntervals were merged to form this one.
-   */
-  mergedIntervalCount: number;
-}
-
-/**
  * PIDIntervals is a tuple holding a PID and its intervals
  */
 export declare interface PidIntervals {
@@ -298,7 +267,7 @@ export declare interface PidIntervals {
   /**
    * A list of PID intervals
    */
-  intervals: PidInterval[];
+  intervals: Interval[];
 }
 
 /**

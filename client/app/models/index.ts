@@ -23,7 +23,7 @@ export * from './interval';
 export * from './layer';
 export * from './sched_event';
 export * from './thread';
-export * from './thread_event';
+export * from './ftrace_interval';
 export * from './thread_intervals';
 export * from './utilization_metrics';
 

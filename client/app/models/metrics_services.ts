@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {Thread, ThreadState} from './render_data_services';
+import {FtraceEvent, Thread} from './render_data_services';
 
 /**
  * A request for thread summary information across a specified timespan for a
@@ -116,96 +116,6 @@ export declare interface AntagonistsResponse {
 }
 
 /**
- * EventType is an enum containing different types of events
- */
-export enum EventType {
-  UNKNOWN = 0,
-  // Regular sched: events.
-  MIGRATE_TASK = 1,
-  PROCESS_WAIT = 2,
-  WAIT_TASK = 3,
-  SWITCH = 4,
-  WAKEUP = 5,
-  WAKEUP_NEW = 6,
-  STAT_RUNTIME = 7,
-}
-
-
-/**
- * Event is a struct containing information from sched ftrace events
- */
-export declare interface Event {
-  // Fields used by all Events:
-
-  // A unique ID for this event, stable within a sched collection.  Can be used
-  // to associate Events gathered by different requests to the same collection:
-  // they are the same if they have the same unique_id.  E.g., we  could
-  // associate an event on a timeline with an event from a stall if their
-  // unique_ids match.
-  uniqueID: number;
-  eventType: EventType;
-  // The timestamp, in nanoseconds, at which the event occurs.  Events are
-  // instantaneous (or at least modeled as such).
-  timestampNs: number;
-  // The primary PID of this event.  For MIGRATE_TASK, PROCESS_WAIT, WAIT_TASK,
-  // WAKEUP, and WAKEUP_NEW, it is the affected PID.  For SWITCH, it is the PID
-  // active after the switch, 'next_pid'.
-  pid: number;
-  // The command associated with pid, if any.  Note that this field is likely
-  // truncated by the target OS.
-  command: string;
-  // The primary CPU of the event.  For MIGRATE_TASK, it is the CPU on which the
-  // task will be active after the migration, 'dest_cpu'.  For WAKEUP or
-  // WAKEUP_NEW, it is the CPU on which the wakeup will occur, 'target_cpu'.
-  // The remaining events: PROCESS_WAIT, WAIT_TASK, and SWITCH, do not
-  // explicitly record what CPU the event is occurring on; however, this CPU can
-  // frequently be inferred from other events on the affected process:
-  //  * The 'target_cpu' of WAKEUP or WAKEUP_NEW events, or the 'dest_cpu' of
-  //    MIGRATE events, fixes the CPU of the affected process for subsequent
-  //    events.
-  //  * The 'orig_cpu' of MIGRATE_TASK events fixes the CPU of the affected
-  //    process for previous events, if it is not known by other sources.
-  //  * If the CPU for one process in a SWITCH is known, but the CPU for the
-  //    other process is not known, the first process' CPU fixes the CPU of the
-  //    other process for previous events.
-  // If the CPU cannot be inferred, an empty Int64Value is returned.
-  cpu: number;
-  // The priority of the primary PID of this event.  May be inferred; unknown if
-  // empty.
-  priority: number;
-  // The CPU that reported the event.
-  reportingCpu: number;
-  // The state of the thread referenced by pid just after this event completed.
-  state: ThreadState;
-
-  // Fields only used for SWITCH events:
-
-  // The PID active prior to the switch
-  prevPid: number;
-  // The command associated with prev_pid, if any.  Note that this field is
-  // likely truncated by the target OS.
-  // BEGIn-INTERNAL
-  // 'prev_comm' from ktrace.
-  // END-INTERNAL
-  prevCommand: string;
-  // The priority of prev_pid.  Unused for other events.
-  prevPriority: number;
-  // The state of prev_pid immediately after the SWITCH.  These values are from
-  // the kernel's task state bitmap, for example at
-  // https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/include/linux/sched.h?h=v4.3.5#n197rm
-  // We assume that, at least, state == 0 iff the task is in the scheduler run
-  // queue.
-  prevTaskState: number;
-  // The state of the prev_pid.
-  prevState: ThreadState;
-
-  // Fields only used for MIGRATE_TASK events:
-
-  // The CPU from which the process is migrating
-  prevCpu: number;
-}
-
-/**
  * A request for all events on the specified threads across a specified
  * timestamp for a specified collection.  If start_timestamp_ns is -1, the first
  * timestamp in the collection is used instead.  If end_timestamp is -1, the
@@ -224,7 +134,7 @@ export declare interface PerThreadEventSeriesRequest {
  */
 export declare interface PerThreadEventSeries {
   pid: number;
-  events: Event[];
+  events: FtraceEvent[];
 }
 
 /**

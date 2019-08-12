@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {ChangeDetectionStrategy, Component, ElementRef, Input, OnInit, ViewChild} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, OnInit, ViewChild} from '@angular/core';
 import * as d3 from 'd3';
 import {BehaviorSubject} from 'rxjs';
 
@@ -61,6 +61,8 @@ export class TimelineZoomBrush implements OnInit {
   right = 1;
   chartHeightPx = 500;
   chartWidthPx = 500;
+
+  constructor(private readonly cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     // Check required inputs
@@ -134,6 +136,7 @@ export class TimelineZoomBrush implements OnInit {
     brushElement.select('.selection')
         .attr('fill', '#ffc107')
         .attr('stroke', '#ffc107');
+    this.cdr.detectChanges();
   }
 
   /**
