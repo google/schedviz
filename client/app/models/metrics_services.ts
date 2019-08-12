@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 //
+import {Thread, ThreadState} from './render_data_services';
+
 /**
  * A request for thread summary information across a specified timespan for a
  * specified collection, filtered to the requested CPU set.  If
@@ -90,27 +92,18 @@ export declare interface AntagonistsRequest {
  * single CPU antagonized the waiting victim.
  */
 declare interface Antagonism {
-  pid: number;
-  command: string;
+  runningThread: Thread;
   cpu: number;
-  startTimestampNs: number;
-  endTimestampNs: number;
+  startTimestamp: number;
+  endTimestamp: number;
 }
 
 declare interface Antagonists {
-  victimPid: number;
-  // If there is more than one victim command, the victim PID was reused over
-  // the requested interval. The times such reuse occurred can be determined by
-  // iterating through per-PID events for the requested duration and looking for
-  // where event.command (or prev_command) changes, but it is likely sufficient
-  // to flag replies with multiple victim_commands as unreliable.
-  // Thread reuse over the scale of a sched collection is very uncommon, except
-  // for a few special OS threads (with PID 0).
-  victimCommand: string;
+  victims: Thread[];
   antagonisms: Antagonism[];
   // The time range over which these antagonists were gathered.
-  startTimestampNs: number;
-  endTimestampNs: number;
+  startTimestamp: number;
+  endTimestamp: number;
 }
 
 /**
@@ -137,18 +130,6 @@ export enum EventType {
   STAT_RUNTIME = 7,
 }
 
-/**
- * ThreadState is an enum describing the state of a thread
- */
-export enum ThreadState {
-  UNKNOWN_STATE = 0,
-  // Scheduled and switched-in on a CPU.
-  RUNNING_STATE = 1,
-  // Not running but runnable.
-  WAITING_STATE = 2,
-  // Neither running nor on the run queue.
-  SLEEPING_STATE = 3,
-}
 
 /**
  * Event is a struct containing information from sched ftrace events

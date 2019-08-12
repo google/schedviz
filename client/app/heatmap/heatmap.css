@@ -26,7 +26,7 @@
 
 .tooltip {
   color: white;
-  font-family: Roboto;
+  font-family: Roboto, sans-serif;
   position: absolute;
   z-index: 1000;
   background: #546e7a;
@@ -35,6 +35,7 @@
   font-size: 14px;
   border: 2px solid #ffc107;
   opacity: 0;
+  white-space: pre-wrap;
   pointer-events: none;
 }
 

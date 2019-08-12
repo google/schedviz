@@ -171,9 +171,9 @@ func duration(startTimestamp, endTimestamp trace.Timestamp) Duration {
 
 // Thread describes a single thread's PID, command string, and priority.
 type Thread struct {
-	PID      PID
-	Command  string
-	Priority Priority
+	PID      PID      `json:"pid"`
+	Command  string   `json:"command"`
+	Priority Priority `json:"priority"`
 }
 
 func (t Thread) String() string {
@@ -182,13 +182,15 @@ func (t Thread) String() string {
 
 // ThreadResidency describes a duration of time a thread held a state on a CPU.
 type ThreadResidency struct {
-	Thread *Thread
-	// The duration of the residency.  If StartTimestamp is Unknown, reflects a
+	Thread *Thread `json:"thread"`
+	// The duration of the residency in ns. If StartTimestamp is Unknown, reflects a
 	// cumulative duration.
-	Duration                     Duration
-	State                        ThreadState
-	DroppedEventIDs              []int
-	IncludesSyntheticTransitions bool
+	Duration        Duration    `json:"duration"`
+	State           ThreadState `json:"state"`
+	DroppedEventIDs []int       `json:"droppedEventIDs"`
+	// Set to true if this was constructed from at least one synthetic transitions
+	// i.e. a transition that was not in the raw event set.
+	IncludesSyntheticTransitions bool `json:"includesSyntheticTransitions"`
 }
 
 func (tr *ThreadResidency) merge(other *ThreadResidency) error {
@@ -227,11 +229,11 @@ func (tr *ThreadResidency) String() string {
 // Interval represents a duration of time starting at a specific moment on a
 // CPU within a trace.
 type Interval struct {
-	StartTimestamp      trace.Timestamp
-	Duration            Duration
-	CPU                 CPUID
-	ThreadResidencies   []*ThreadResidency
-	MergedIntervalCount int
+	StartTimestamp      trace.Timestamp    `json:"startTimestamp"`
+	Duration            Duration           `json:"duration"`
+	CPU                 CPUID              `json:"cpu"`
+	ThreadResidencies   []*ThreadResidency `json:"threadResidencies"`
+	MergedIntervalCount int                `json:"mergedIntervalCount"`
 }
 
 func (ti *Interval) String() string {
@@ -242,4 +244,22 @@ func (ti *Interval) String() string {
 		ret = ret + fmt.Sprintf("  * %s\n", tr)
 	}
 	return ret
+}
+
+// Antagonism is an interval during which a single thread running on a
+// single CPU antagonized the waiting victim.
+type Antagonism struct {
+	RunningThread  Thread          `json:"runningThread"`
+	CPU            CPUID           `json:"cpu"`
+	StartTimestamp trace.Timestamp `json:"startTimestamp"`
+	EndTimestamp   trace.Timestamp `json:"endTimestamp"`
+}
+
+// Antagonists are threads that are running instead of the victim thread
+type Antagonists struct {
+	Victims     []Thread     `json:"victims"`
+	Antagonisms []Antagonism `json:"antagonisms"`
+	// The time range over which these antagonists were gathered.
+	StartTimestamp trace.Timestamp `json:"startTimestamp"`
+	EndTimestamp   trace.Timestamp `json:"endTimestamp"`
 }

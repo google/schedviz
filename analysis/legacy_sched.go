@@ -26,9 +26,11 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
-	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -49,14 +51,14 @@ func NewCollection(es *eventpb.EventSet, normalizeTimestamps bool) (*Collection,
 	}, nil
 }
 
-// WrapCollection creates a new Collection that wraps an existing sched.Collection
+// WrapCollection creates a new sched.Collection that wraps an existing Collection
 func WrapCollection(c *sched.Collection) *Collection {
 	return &Collection{c}
 }
 
 func mapTimestamp(timestamp time.Duration) trace.Timestamp {
 	if timestamp < 0 {
-		return sched.UnknownTimestamp
+		return trace.UnknownTimestamp
 	}
 	return trace.Timestamp(timestamp)
 }
@@ -93,11 +95,11 @@ func (c *Collection) CPUs() []int64 {
 // timestamp are left untrimmed; if using this data to aggregate metrics over
 // the interval, they should be trimmed before aggregating.
 // PIDIntervals maintains the legacy SchedViz interface.
-func (c *Collection) PIDIntervals(PID int64, startTimestamp, endTimestamp, minIntervalDuration time.Duration) ([]models.PIDInterval, error) {
+func (c *Collection) PIDIntervals(pid int64, startTimestamp, endTimestamp, minIntervalDuration time.Duration) ([]models.PIDInterval, error) {
 	ivals, err := c.c.ThreadIntervals(
 		sched.TimeRange(mapTimestamp(startTimestamp), mapTimestamp(endTimestamp)),
 		sched.MinIntervalDuration(sched.Duration(minIntervalDuration)),
-		sched.PIDs(sched.PID(PID)),
+		sched.PIDs(sched.PID(pid)),
 		sched.TruncateToTimeRange(false))
 	if err != nil {
 		return nil, err
@@ -117,87 +119,14 @@ func (c *Collection) PIDIntervals(PID int64, startTimestamp, endTimestamp, minIn
 		pi.PostWakeup = false
 		firstResidency := ival.ThreadResidencies[0]
 		if len(ival.ThreadResidencies) == 1 {
-			switch firstResidency.State {
-			case sched.RunningState:
-				pi.State = models.ThreadStateRunningState
-			case sched.SleepingState:
-				pi.State = models.ThreadStateSleepingState
-			case sched.WaitingState:
-				pi.State = models.ThreadStateWaitingState
-			default:
-				pi.State = models.ThreadStateUnknownState
-			}
+			pi.State = firstResidency.State
 		} else {
-			pi.State = models.ThreadStateUnknownState
+			pi.State = sched.UnknownState
 		}
 		pi.Pid = int64(firstResidency.Thread.PID)
 		pi.Command = firstResidency.Thread.Command
 		pi.Priority = int64(firstResidency.Thread.Priority)
 		ret = append(ret, pi)
-	}
-	return ret, nil
-}
-
-// CPUIntervals returns a slice of models.CPUIntervals reflecting, in increasing temporal order, the
-// running and waiting processes on the requested CPU over a specified range. Adjacent intervals
-// shorter than minIntervalDuration are merged together. New CPUIntervals being added when the
-// merged interval's duration exceeds the minIntervalDuration.
-func (c *Collection) CPUIntervals(CPU int64, startTimestamp, endTimestamp, minIntervalDuration time.Duration) ([]models.CPUInterval, error) {
-	ivals, err := c.c.CPUIntervals(
-		sched.TimeRange(mapTimestamp(startTimestamp), mapTimestamp(endTimestamp)),
-		sched.MinIntervalDuration(sched.Duration(minIntervalDuration)),
-		sched.CPUs(sched.CPUID(CPU)))
-	if err != nil {
-		return nil, err
-	}
-	var ret = []models.CPUInterval{}
-	for _, ival := range ivals {
-		ci := models.CPUInterval{
-			StartTimestampNs: int64(ival.StartTimestamp),
-			EndTimestampNs:   int64(ival.StartTimestamp) + int64(ival.Duration),
-			CPU:              int64(ival.CPU),
-		}
-		seenRunning := false
-		var runningThread *sched.Thread
-		var waitingPIDs = []int64{}
-		var waitingDuration sched.Duration
-		for _, tr := range ival.ThreadResidencies {
-			switch tr.State {
-			case sched.RunningState:
-				if seenRunning {
-					// If this CPU interval contains multiple running threads, we can't cite
-					// any single running thread.
-					runningThread = nil
-				} else {
-					runningThread = tr.Thread
-					seenRunning = true
-				}
-			case sched.WaitingState:
-				waitingPIDs = append(waitingPIDs, int64(tr.Thread.PID))
-				waitingDuration += tr.Duration
-			}
-		}
-		ci.WaitingPids = waitingPIDs
-		if runningThread != nil {
-			ci.RunningPid = int64(runningThread.PID)
-			ci.RunningCommand = runningThread.Command
-			ci.RunningPriority = int64(runningThread.Priority)
-		} else {
-			ci.RunningPid = -1
-		}
-		ci.MergedIntervalCount = int32(ival.MergedIntervalCount)
-		if !seenRunning {
-			ci.IdleNs = int64(ival.Duration)
-		}
-		if ival.Duration > 0 {
-			ci.WaitingPidCount = float32(waitingDuration) / float32(ival.Duration)
-		} else {
-			ci.WaitingPidCount = float32(len(waitingPIDs))
-		}
-		// Don't add running PID 0 (swapper)
-		if ci.RunningPid != 0 {
-			ret = append(ret, ci)
-		}
 	}
 	return ret, nil
 }

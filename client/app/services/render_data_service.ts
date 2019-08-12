@@ -14,12 +14,12 @@
 // limitations under the License.
 //
 //
-import {HttpClient, HttpErrorResponse} from '@angular/common/http';
+import {HttpClient} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {Observable, of} from 'rxjs';
-import {catchError, map} from 'rxjs/operators';
+import {map} from 'rxjs/operators';
 
-import {CollectionParameters, CpuInterval, Layer, SchedEvent, ThreadInterval, ThreadState, WaitingThreadInterval} from '../models';
+import {CollectionParameters, CpuInterval, CpuIntervalCollection, Layer, SchedEvent, ThreadInterval, WaitingCpuInterval, WaitingThreadInterval} from '../models';
 import * as services from '../models/render_data_services';
 import {Viewport} from '../util';
 
@@ -30,7 +30,8 @@ import {Viewport} from '../util';
 export interface RenderDataService {
   getCpuIntervals(
       parameters: CollectionParameters, viewport: Viewport,
-      minIntervalDuration: number, cpus: number[]): Observable<CpuInterval[]>;
+      minIntervalDuration: number,
+      cpus: number[]): Observable<CpuIntervalCollection[]>;
   getPidIntervals(
       parameters: CollectionParameters, layer: Layer, viewport: Viewport,
       minIntervalDuration: number): Observable<Layer>;
@@ -53,7 +54,8 @@ export class HttpRenderDataService implements RenderDataService {
   /** Get CPU intervals from the server via POST */
   getCpuIntervals(
       parameters: CollectionParameters, viewport: Viewport,
-      minIntervalDuration: number, cpus: number[]): Observable<CpuInterval[]> {
+      minIntervalDuration: number,
+      cpus: number[]): Observable<CpuIntervalCollection[]> {
     const cpuIntervalsReq: services.CpuIntervalsRequest = {
       collectionName: parameters.name,
       minIntervalDurationNs: minIntervalDuration,
@@ -65,28 +67,23 @@ export class HttpRenderDataService implements RenderDataService {
         viewport.right * (parameters.endTimeNs - parameters.startTimeNs));
     cpuIntervalsReq.startTimestampNs = parameters.startTimeNs + leftNs;
     cpuIntervalsReq.endTimestampNs = parameters.startTimeNs + rightNs;
+
     return this.http
         .post<services.CpuIntervalsResponse>(
             this.cpuIntervalsUrl, cpuIntervalsReq)
         .pipe(
-            map(res => res.cpuIntervals.map(
-                    intervalsList => intervalsList.intervals)),
+            map(res => res.intervals),
             map(intervalsByCpu => intervalsByCpu.map(
-                    intervals => intervals.map(
-                        interval => new CpuInterval(
-                            parameters,
-                            interval.cpu,
-                            interval.startTimestampNs,
-                            interval.endTimestampNs,
-                            interval.runningCommand,
-                            interval.runningPid,
-                            interval.idleNs,
-                            interval.waitingPidCount,
-                            interval.waitingPids,
-                            )))),
-            map(nestedIntervals => {
-              return new Array<CpuInterval>().concat(...nestedIntervals);
-            }));
+                    ({cpu, running, waiting}) => new CpuIntervalCollection(
+                        cpu,
+                        running.map(
+                            interval =>
+                                constructCpuInterval(parameters, interval)),
+                        waiting.map(
+                            interval => constructWaitingCpuInterval(
+                                parameters, interval)),
+                        ))),
+        );
   }
 
   /** Get PID intervals from the server via POST */
@@ -125,9 +122,7 @@ export class HttpRenderDataService implements RenderDataService {
                                 parameters, interval.cpu,
                                 interval.startTimestampNs,
                                 interval.endTimestampNs, interval.pid,
-                                interval.command,
-                                HttpRenderDataService.getThreadState(
-                                    interval.state))))),
+                                interval.command, interval.state)))),
             map(nestedIntervals => {
               layer.intervals =
                   new Array<ThreadInterval>().concat(...nestedIntervals);
@@ -180,41 +175,6 @@ export class HttpRenderDataService implements RenderDataService {
               return layer;
             }));
   }
-
-  /**
-   * Translates the ThreadState proto to a local string state flag.
-   */
-  static getThreadState(state: services.ThreadState) {
-    switch (state) {
-      case services.ThreadState.RUNNING_STATE:
-        return ThreadState.RUNNING;
-      case services.ThreadState.SLEEPING_STATE:
-        return ThreadState.SLEEPING;
-      case services.ThreadState.WAITING_STATE:
-        return ThreadState.WAITING;
-      default:
-        return ThreadState.UNKNOWN;
-    }
-  }
-
-  /**
-   * Handle Http operation that failed.
-   * Let the app continue.
-   * @param operation - name of the operation that failed
-   * @param result - optional value to return as the observable result
-   */
-  private handleError<T>(operation = 'operation', result?: T) {
-    return (error: HttpErrorResponse): Observable<T> => {
-      // TODO: send the error to remote logging infrastructure
-      console.error(error);  // log to console instead
-
-      // TODO: better job of transforming error for user consumption
-      console.log(`${operation} failed: ${error.message}`);
-
-      // Let the app keep running by returning an empty result.
-      return of(result as T);
-    };
-  }
 }
 // END-INTERNAL
 
@@ -226,30 +186,45 @@ export class LocalRenderDataService implements RenderDataService {
   /** Returns set of mock Intervals for all CPUs */
   getCpuIntervals(
       parameters: CollectionParameters, viewport: Viewport,
-      minIntervalDuration: number, cpus: number[]): Observable<CpuInterval[]> {
-    const intervals = [];
+      minIntervalDuration: number,
+      cpus: number[]): Observable<CpuIntervalCollection[]> {
+    const collection = [];
     const duration = parameters.endTimeNs - parameters.startTimeNs;
     for (let cpu = 0; cpu < parameters.size; cpu++) {
-      let index = 0;
+      const runningIntervals: CpuInterval[] = [];
+      const waitingIntervals: WaitingCpuInterval[] = [];
       let timestamp = parameters.startTimeNs;
       let prevTimestamp = timestamp;
       while (timestamp < parameters.endTimeNs) {
         prevTimestamp = timestamp;
-        const delta = Math.max(minIntervalDuration, duration / 1000);
+        const delta = Math.max(minIntervalDuration, duration / 100);
         timestamp += delta;
         timestamp = Math.min(timestamp, parameters.endTimeNs);
         const percentIdle = 0.5 * Math.random();
-        // For testing, increase wait count over time
-        const idleTime = percentIdle * (timestamp - prevTimestamp);
-        const interval = new CpuInterval(
-            parameters, cpu, prevTimestamp, timestamp, 'foo', idleTime);
-        interval.waitingPidCount = index++ / 1000;
-        intervals.push(interval);
+        const runningTime = (1 - percentIdle) * (timestamp - prevTimestamp);
+
+        const running = [{
+          thread: {command: 'foo', pid: 0, priority: 100},
+          state: services.ThreadState.RUNNING_STATE,
+          duration: runningTime,
+          droppedEventIDs: [],
+          includesSyntheticTransitions: false,
+        }];
+
+        const runningInterval = new CpuInterval(
+            parameters, cpu, prevTimestamp, timestamp, running, []);
+        runningIntervals.push(runningInterval);
+
+        const waitingInterval = new WaitingCpuInterval(
+            parameters, cpu, prevTimestamp, timestamp, running, []);
+        waitingIntervals.push(waitingInterval);
       }
+      collection.push(
+          new CpuIntervalCollection(cpu, runningIntervals, waitingIntervals));
     }
     // TODO(sainsley): Store visible CPUs on CPU Layers and return rendered
     // layer as in PidIntervals callback.
-    return of(intervals);
+    return of(collection);
   }
 
   /** Returns set of mock Intervals for a few CPUs */
@@ -298,4 +273,41 @@ export class LocalRenderDataService implements RenderDataService {
     layer.intervals = intervals;
     return of(layer);
   }
+}
+
+function getThreadResidenciesByType(
+    threadResidencies: services.ThreadResidency[]) {
+  return threadResidencies.reduce((acc, tr) => {
+    acc[tr.state] = acc[tr.state] || [];
+    acc[tr.state]!.push(tr);
+    return acc;
+  }, {} as {[k in services.ThreadState]?: services.ThreadResidency[]});
+}
+
+function constructCpuInterval(
+    parameters: CollectionParameters, interval: services.Interval) {
+  const threadResidenciesByType =
+      getThreadResidenciesByType(interval.threadResidencies);
+  return new CpuInterval(
+      parameters,
+      interval.cpu,
+      interval.startTimestamp,
+      interval.startTimestamp + interval.duration,
+      threadResidenciesByType[services.ThreadState.RUNNING_STATE] || [],
+      threadResidenciesByType[services.ThreadState.WAITING_STATE] || [],
+  );
+}
+
+function constructWaitingCpuInterval(
+    parameters: CollectionParameters, interval: services.Interval) {
+  const threadResidenciesByType =
+      getThreadResidenciesByType(interval.threadResidencies);
+  return new WaitingCpuInterval(
+      parameters,
+      interval.cpu,
+      interval.startTimestamp,
+      interval.startTimestamp + interval.duration,
+      threadResidenciesByType[services.ThreadState.RUNNING_STATE] || [],
+      threadResidenciesByType[services.ThreadState.WAITING_STATE] || [],
+  );
 }

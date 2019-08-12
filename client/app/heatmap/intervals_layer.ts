@@ -14,12 +14,15 @@
 // limitations under the License.
 //
 //
-import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, OnInit, SecurityContext, ViewChild} from '@angular/core';
+import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Inject, Input, OnInit, SecurityContext, ViewChild} from '@angular/core';
+import {MatDialog} from '@angular/material/dialog';
+import {MAT_DIALOG_DATA, MatDialogRef} from '@angular/material/dialog';
 import {DomSanitizer} from '@angular/platform-browser';
 import * as d3 from 'd3';
 import {BehaviorSubject} from 'rxjs';
 
-import {CpuInterval, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, ThreadState} from '../models';
+import {CpuInterval, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval} from '../models';
+import {ThreadResidency, ThreadState} from '../models/render_data_services';
 import {ColorService} from '../services/color_service';
 import {Viewport} from '../util';
 
@@ -56,7 +59,7 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
 
   constructor(
       private readonly colorService: ColorService,
-      private readonly cdr: ChangeDetectorRef,
+      private readonly cdr: ChangeDetectorRef, public dialog: MatDialog,
       private readonly sanitizer: DomSanitizer) {}
 
   ngOnInit() {
@@ -191,7 +194,7 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
     if (!this.showSleeping.value) {
       data = intervals.filter(
           interval => !(interval instanceof ThreadInterval) ||
-              (interval as ThreadInterval).state !== ThreadState.SLEEPING);
+              interval.state !== ThreadState.SLEEPING_STATE);
     }
     // Increase stroke weight with zoom
     const scaledWidthPx = this.scaledWidthPx(viewport);
@@ -251,6 +254,62 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
   }
 
   /**
+   * Creates a new Layer for the given thread, or returns (and makes visible)
+   * the layer for the given thread, if one already exists.
+   * @param threadResidency The thread to get or create a layer for.
+   */
+  getOrCreateLayer(threadResidency: ThreadResidency) {
+    const name = getThreadName(threadResidency);
+    const {pid} = threadResidency.thread;
+    if (pid < 0) {
+      return;
+    }
+
+    const layers = this.layers.value;
+    const pidLayer = layers.find(layer => layer.value.name === name);
+    if (!pidLayer) {
+      const color = this.colorService.getColorFor(name);
+      const newLayer = new Layer(name, 'Thread', [pid], color);
+      layers.unshift(new BehaviorSubject(newLayer));
+      this.layers.next(layers);
+    } else {
+      pidLayer.value.visible = true;
+      pidLayer.next(pidLayer.value);
+    }
+  }
+
+  /**
+   * Show a layer for a running thread when an interval is clicked.
+   * If there is more than one running thread in the interval, ask the user
+   * which one(s) they want to make layer(s) for.
+   * @param clickInterval The interval that was clicked.
+   */
+  showLayer(clickInterval: CpuInterval) {
+    const currentLayers = new Map<string, Layer>(
+        this.layers.value.map(ls => [ls.value.name, ls.value]));
+    // Get a list of layers that don't already exist or are invisible.
+    const runningThreads = clickInterval.running.filter(tr => {
+      const existingLayer = currentLayers.get(getThreadName(tr));
+      return !existingLayer || !existingLayer.visible;
+    });
+    if (runningThreads.length > 1) {
+      // Show dialog to ask the user which thread to make a layer for
+      const dialogRef =
+          this.dialog.open(DialogChooseThreadLayer, {data: runningThreads});
+      dialogRef.afterClosed().subscribe((trs: ThreadResidency[]|undefined) => {
+        if (!trs) {
+          return;
+        }
+        trs.forEach(tr => {
+          this.getOrCreateLayer(tr);
+        });
+      });
+    } else if (runningThreads.length === 1) {
+      this.getOrCreateLayer(runningThreads[0]);
+    }
+  }
+
+  /**
    * Toggle layer visibility on interval click.
    */
   toggleLayer() {
@@ -263,23 +322,7 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
       const data = d3.select(event.target).data();
       // TODO(sainsley): Traverse up from target until data is found.
       if (data.length && data[0] instanceof CpuInterval) {
-        const clickInterval = data[0] as CpuInterval;
-        const pid = clickInterval.runningPid;
-        const command = clickInterval.command;
-        const name = `Thread:${pid}:${command}`;
-        if (pid > -1) {
-          const layers = this.layers.value;
-          const pidLayer = layers.find(layer => layer.value.name === name);
-          if (!pidLayer) {
-            const color = this.colorService.getColorFor(name);
-            const newLayer = new Layer(name, 'Thread', [pid], color);
-            layers.unshift(new BehaviorSubject(newLayer));
-            this.layers.next(layers);
-          } else {
-            pidLayer.value.visible = true;
-            pidLayer.next(pidLayer.value);
-          }
-        }
+        this.showLayer(data[0] as CpuInterval);
       }
     } else {
       // Else, simply toggle layer visibility
@@ -379,4 +422,76 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
     }
     return Object.keys(this.hoverInterval.tooltipProps);
   }
+}
+
+/**
+ * A dialog to choose which thread layer to use to make a new layer.
+ */
+@Component({
+  selector: 'dialog-choose-thread-layer',
+  template: `
+  <h1 mat-dialog-title>
+    Which running threads do you want to show layers for?
+  </h1>
+  <form #form="ngForm" (ngSubmit)="onFormSubmit()">
+    <div mat-dialog-content>
+      <mat-form-field>
+        <mat-label>Choose threads</mat-label>
+        <mat-select [(ngModel)]="selectedThreads"
+                    multiple
+                    name="selectedThread"
+                    required>
+          <mat-select-trigger>
+            {{getLabel()}}
+          </mat-select-trigger>
+          <mat-option *ngFor="let thread of this.data" [value]="thread">
+            {{getThreadName(thread)}}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div mat-dialog-actions align="end">
+      <button type="button" mat-stroked-button [mat-dialog-close]="null">
+        Cancel
+      </button>
+      <button type="submit" mat-stroked-button>Submit</button>
+    </div>
+  </form>
+  `,
+  styles: [`
+    mat-form-field.mat-form-field {
+      display: block;
+    }
+    [mat-dialog-content] {
+      margin-bottom: 225px;
+    }
+    [mat-dialog-actions] button {
+      margin-left: 5px;
+    }
+  `]
+})
+export class DialogChooseThreadLayer {
+  selectedThreads: ThreadResidency[] = [];
+  // Make visible in the template
+  getThreadName = getThreadName;
+
+  constructor(
+      public dialogRef: MatDialogRef<DialogChooseThreadLayer>,
+      @Inject(MAT_DIALOG_DATA) public data: ThreadResidency[]) {}
+
+  onFormSubmit() {
+    this.dialogRef.close(this.selectedThreads);
+  }
+
+  getLabel() {
+    return this.selectedThreads.map(t => getThreadName(t)).join(', ');
+  }
+}
+
+function getThreadName(threadResidency?: ThreadResidency): string {
+  if (!threadResidency) {
+    return '';
+  }
+  return `Thread:${threadResidency.thread.pid}:${
+      threadResidency.thread.command}`;
 }

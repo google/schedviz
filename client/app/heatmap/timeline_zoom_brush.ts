@@ -18,7 +18,7 @@ import {ChangeDetectionStrategy, Component, ElementRef, Input, OnInit, ViewChild
 import * as d3 from 'd3';
 import {BehaviorSubject} from 'rxjs';
 
-import {CollectionParameters, CpuInterval} from '../models';
+import {CollectionParameters, CpuIntervalCollection, WaitingCpuInterval} from '../models';
 import {Viewport} from '../util';
 import * as Duration from '../util/duration';
 
@@ -55,7 +55,7 @@ export class TimelineZoomBrush implements OnInit {
   @ViewChild('brush', {static: true}) brush!: ElementRef;
   @ViewChild('xAxis', {static: true}) xAxis!: ElementRef;
   @Input() parameters!: BehaviorSubject<CollectionParameters|undefined>;
-  @Input() intervals: CpuInterval[] = [];
+  @Input() intervals: CpuIntervalCollection[] = [];
   @Input() viewport = new BehaviorSubject<Viewport>(new Viewport());
   left = 0;
   right = 1;
@@ -140,12 +140,14 @@ export class TimelineZoomBrush implements OnInit {
    * Collapses the heatmap interval set into a fixed-bucket 1D heatmap.
    * @return the heatmap colors to render.
    */
-  get1DHeatmap(intervals: CpuInterval[]) {
+  get1DHeatmap(intervals: CpuIntervalCollection[]) {
     const collectionStart = this.collectionStart;
     const bucketSize = this.bucketSizeNs;
     const buckets: number[] = [];
+    const waitingIntervals = intervals.reduce(
+        (acc, i) => [...acc, ...i.waiting], new Array<WaitingCpuInterval>());
     for (let i = 0; i < BIN_COUNT; i++) {
-      buckets[i] = intervals.reduce((acc, interval) => {
+      buckets[i] = waitingIntervals.reduce((acc, interval) => {
         const bucketStart = bucketSize * i + collectionStart;
         const bucketEnd = bucketStart + bucketSize;
         if (interval.startTimeNs > bucketEnd ||
@@ -157,12 +159,12 @@ export class TimelineZoomBrush implements OnInit {
             bucketSize;
         const right =
             (bucketEnd - Math.min(bucketEnd, interval.endTimeNs)) / bucketSize;
-        return acc + (1 - left - right) * interval.waitingPidCount;
+        return acc + (1 - left - right) * interval.waiting.length;
       }, 0);
     }
-    const max = buckets.reduce((a, b) => a > b ? a : b);
+    const max = buckets.reduce((a, b) => a > b ? a : b, 0);
     return buckets.map((bucket) => {
-      const intensity = Math.round(255 * bucket / max);
+      const intensity = max ? Math.round(255 * bucket / max) : 0;
       return `rgb(${intensity},${intensity},${intensity})`;
     });
   }

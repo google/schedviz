@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -38,8 +37,8 @@ type antagonistBuilder struct {
 	startTimestamp trace.Timestamp
 	endTimestamp   trace.Timestamp
 	stringTable    *stringTable
-	victimCommands map[stringID]struct{}
-	antagonisms    []models.Antagonism
+	victims        map[string]Thread
+	antagonisms    []Antagonism
 }
 
 func newAntagonistBuilder(pid PID, startTimestamp, endTimestamp trace.Timestamp, sTbl *stringTable) *antagonistBuilder {
@@ -48,16 +47,25 @@ func newAntagonistBuilder(pid PID, startTimestamp, endTimestamp trace.Timestamp,
 		startTimestamp: startTimestamp,
 		endTimestamp:   endTimestamp,
 		stringTable:    sTbl,
-		victimCommands: make(map[stringID]struct{}),
+		victims:        make(map[string]Thread),
+		antagonisms:    []Antagonism{},
 	}
 }
 
-// SetVictimCommand adds a victim thread's command to the list
-func (ab *antagonistBuilder) SetVictimCommand(span *threadSpan) error {
+// addVictim adds a victim thread to the builder's victims list.
+func (ab *antagonistBuilder) addVictim(span *threadSpan) error {
 	if span.pid != ab.pid {
 		return fmt.Errorf("'victim' span has wrong pid. want: %d, got: %d", ab.pid, span.pid)
 	}
-	ab.victimCommands[span.command] = struct{}{}
+	cmd, err := ab.stringTable.stringByID(span.command)
+	if err != nil {
+		return fmt.Errorf("could not get victim command with string ID %d", span.command)
+	}
+	ab.victims[fmt.Sprintf("%d:%s", span.pid, cmd)] = Thread{
+		Priority: span.priority,
+		Command:  cmd,
+		PID:      span.pid,
+	}
 	return nil
 }
 
@@ -71,54 +79,51 @@ func (ab *antagonistBuilder) RecordAntagonism(waiting, antagonist *threadSpan) e
 		return fmt.Errorf("could not find antagonist command: %s", err)
 	}
 
-	startTimestamp := int64(waiting.startTimestamp)
-	if startTimestamp < int64(antagonist.startTimestamp) {
-		startTimestamp = int64(antagonist.startTimestamp)
+	startTimestamp := waiting.startTimestamp
+	if startTimestamp < antagonist.startTimestamp {
+		startTimestamp = antagonist.startTimestamp
 	}
-	if startTimestamp < int64(ab.startTimestamp) {
-		startTimestamp = int64(ab.startTimestamp)
+	if startTimestamp < ab.startTimestamp {
+		startTimestamp = ab.startTimestamp
 	}
 
-	endTimestamp := int64(antagonist.endTimestamp)
-	if endTimestamp < int64(antagonist.endTimestamp) {
-		endTimestamp = int64(antagonist.endTimestamp)
+	endTimestamp := antagonist.endTimestamp
+	if endTimestamp < antagonist.endTimestamp {
+		endTimestamp = antagonist.endTimestamp
 	}
-	if endTimestamp > int64(ab.endTimestamp) {
-		endTimestamp = int64(ab.endTimestamp)
+	if endTimestamp > ab.endTimestamp {
+		endTimestamp = ab.endTimestamp
 	}
 	if startTimestamp >= endTimestamp {
 		// The requested interval is negative, empty, or lies entirely outside of ab's range; do nothing.
 		return nil
 	}
 
-	ab.antagonisms = append(ab.antagonisms, models.Antagonism{
-		Pid:              int64(antagonist.pid),
-		Command:          cmd,
-		CPU:              int64(antagonist.cpu),
-		StartTimestampNs: startTimestamp,
-		EndTimestampNs:   endTimestamp,
+	ab.antagonisms = append(ab.antagonisms, Antagonism{
+		RunningThread: Thread{
+			PID:      antagonist.pid,
+			Command:  cmd,
+			Priority: antagonist.priority,
+		},
+		CPU:            antagonist.cpu,
+		StartTimestamp: startTimestamp,
+		EndTimestamp:   endTimestamp,
 	})
 	return nil
 }
 
-// Antagonists returns a models.Antagonists that contains all of the recorded antagonists.
-func (ab *antagonistBuilder) Antagonists() (models.Antagonists, error) {
-	var victimCommands = []string{}
-	for vc := range ab.victimCommands {
-		cmd, err := ab.stringTable.stringByID(vc)
-		if err != nil {
-			return models.Antagonists{}, fmt.Errorf("could not get victim command with string ID %d", vc)
-		}
-		victimCommands = append(victimCommands, cmd)
+// Antagonists returns a Antagonists that contains all of the recorded antagonists.
+func (ab *antagonistBuilder) Antagonists() Antagonists {
+	var victims = []Thread{}
+	for _, v := range ab.victims {
+		victims = append(victims, v)
 	}
-
-	return models.Antagonists{
-		VictimCommands:   append([]string{}, victimCommands...),
-		VictimPid:        int64(ab.pid),
-		Antagonisms:      append([]models.Antagonism{}, ab.antagonisms...),
-		StartTimestampNs: int64(ab.startTimestamp),
-		EndTimestampNs:   int64(ab.endTimestamp),
-	}, nil
+	return Antagonists{
+		Victims:        victims,
+		Antagonisms:    ab.antagonisms,
+		StartTimestamp: ab.startTimestamp,
+		EndTimestamp:   ab.endTimestamp,
+	}
 }
 
 // Antagonists analyzes a single provided victim thread over a provided
@@ -127,15 +132,15 @@ func (ab *antagonistBuilder) Antagonists() (models.Antagonists, error) {
 // not running.)  Its complexity is O(N) on the total events in the collection,
 // as it looks at any given event at most twice -- once when iterating through
 // per-PID events, and once when iterating through per-CPU events.
-func (c *Collection) Antagonists(filters ...Filter) (models.Antagonists, error) {
+func (c *Collection) Antagonists(filters ...Filter) (Antagonists, error) {
 	f := buildFilter(c, filters)
 	pids := pidMapKeys(f.pids)
 	if len(pids) != 1 {
-		return models.Antagonists{}, errors.New("can only collect antagonists of a single PID")
+		return Antagonists{}, errors.New("can only collect antagonists of a single PID")
 	}
 	pid := pids[0]
 	if pid == 0 {
-		return models.Antagonists{}, errors.New("antagonist analysis not available for PID 0")
+		return Antagonists{}, errors.New("antagonist analysis not available for PID 0")
 	}
 
 	ab := newAntagonistBuilder(pid, f.startTimestamp, f.endTimestamp, c.stringTable)
@@ -149,9 +154,9 @@ func (c *Collection) Antagonists(filters ...Filter) (models.Antagonists, error) 
 		if pidSpan.startTimestamp > f.endTimestamp {
 			break
 		}
-		// Victim Command is set even if the thread is never victimized (i.e. had to wait)
-		if err := ab.SetVictimCommand(pidSpan); err != nil {
-			return models.Antagonists{}, err
+		// Victim Thread is recorded even if the thread is never victimized (i.e. had to wait)
+		if err := ab.addVictim(pidSpan); err != nil {
+			return Antagonists{}, err
 		}
 		// If this span is waiting, get a list of all running spans on the same cpu.
 		if pidSpan.state == WaitingState {
@@ -165,7 +170,7 @@ func (c *Collection) Antagonists(filters ...Filter) (models.Antagonists, error) 
 					break
 				}
 				if antagonist.state != RunningState {
-					return models.Antagonists{}, fmt.Errorf("antagonist %v was not running", antagonist)
+					return Antagonists{}, fmt.Errorf("antagonist %v was not running", antagonist)
 				}
 				if antagonist.pid == pid {
 					// a thread can not antagonize itself
@@ -173,13 +178,13 @@ func (c *Collection) Antagonists(filters ...Filter) (models.Antagonists, error) 
 				}
 
 				if err := ab.RecordAntagonism(pidSpan, antagonist); err != nil {
-					return models.Antagonists{}, err
+					return Antagonists{}, err
 				}
 			}
 		}
 	}
 
-	return ab.Antagonists()
+	return ab.Antagonists(), nil
 }
 
 // Utilization groups together several metrics describing the utilization or over-utilization of

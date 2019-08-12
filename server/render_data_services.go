@@ -16,6 +16,8 @@
 //
 package models
 
+import "github.com/google/schedviz/analysis/sched"
+
 // CPUIntervalsRequest is a request for CPU intervals for the specified collection.
 type CPUIntervalsRequest struct {
 	CollectionName string `json:"collectionName"`
@@ -36,46 +38,18 @@ type CPUIntervalsRequest struct {
 	EndTimestampNs   int64 `json:"endTimestampNs"`
 }
 
-// CPUInterval contains information about a what was running and waiting on a CPU during an interval
-type CPUInterval struct {
-	CPU int64 `json:"cpu"`
-	// If running_pid is not populated, the running thread is unknown or not
-	// provided, and the running_command and running_priority are not meaningful.
-	RunningPid      int64  `json:"runningPid"`
-	RunningCommand  string `json:"runningCommand"`
-	RunningPriority int64  `json:"runningPriority"`
-	// The set of PIDs that waited during this interval.  If intervals were split
-	// on a change in waiting PIDs, this is the set of PIDs that waited throughout
-	// the entire interval; otherwise it's the set of PIDs that waited for any
-	// time during this interval.
-	WaitingPids []int64 `json:"waitingPids"`
-	// The average number of known waiting PIDs.
-	WaitingPidCount  float32 `json:"waitingPidCount"`
-	StartTimestampNs int64   `json:"startTimestampNs"`
-	EndTimestampNs   int64   `json:"endTimestampNs"`
-	// How many CPUIntervals were merged to form this one.
-	MergedIntervalCount int32 `json:"mergedIntervalCount"`
-	// The amount of time, over this interval, that the CPU was idle.  A CPU is
-	// considered idle when it is running PID 0, the swapper.  If this interval is
-	// not merged, idle_ns will either be its entire duration (if the running PID
-	// was 0) or 0 (if the running PID was not 0).
-	IdleNs int64 `json:"idleNs"`
-	// TODO(ilhamster) Consider whether we should also include switch-out state
-	// (sleeping or round-robin) of the running PID here.  Note that this can be
-	// gathered from PID intervals, though.
-}
-
-// CPUIntervals is a tuple holding a CPU ID and its intervals
+// CPUIntervals is a tuple holding a CPU ID and its running and waiting intervals
 type CPUIntervals struct {
-	CPU       int64         `json:"cpu"`
-	Intervals []CPUInterval `json:"intervals"`
+	CPU     int64             `json:"cpu"`
+	Running []*sched.Interval `json:"running"`
+	Waiting []*sched.Interval `json:"waiting"`
 }
 
 // CPUIntervalsResponse is a response for a CPU intervals request.  If no matching collection
 // was found, cpu_intervals is empty.
 type CPUIntervalsResponse struct {
 	CollectionName string         `json:"collectionName"`
-	CPUIntervals   []CPUIntervals `json:"cpuIntervals"`
+	Intervals      []CPUIntervals `json:"intervals"`
 }
 
 // FtraceEventsRequest is a request for a view of ftrace events in the collection.
@@ -144,20 +118,6 @@ type PidIntervalsRequest struct {
 	MinIntervalDurationNs int64 `json:"minIntervalDurationNs"`
 }
 
-// ThreadState is an enum describing the state of a thread
-type ThreadState = int64
-
-const (
-	// ThreadStateUnknownState means unknown thread state
-	ThreadStateUnknownState ThreadState = iota
-	// ThreadStateRunningState means Scheduled and switched-in on a CPU.
-	ThreadStateRunningState
-	// ThreadStateWaitingState means Not running but runnable.
-	ThreadStateWaitingState
-	// ThreadStateSleepingState means neither running nor on the run queue.
-	ThreadStateSleepingState
-)
-
 // PIDInterval describes a maximal interval over a PID's lifetime during which
 // its command, priority, state, and CPU remain unchanged.
 type PIDInterval struct {
@@ -169,7 +129,7 @@ type PIDInterval struct {
 	// by checking merged_interval_count; if it is == 1, the thread's state is
 	// actually unknown over the interval; if it is > 1, the thread had several
 	// states over the merged interval.
-	State ThreadState `json:"state"`
+	State sched.ThreadState `json:"state"`
 	// If state is WAITING, post_wakeup determines if the thread started waiting
 	// as the result of a wakeup (true) or as a result of round-robin descheduling
 	// (false).  post_wakeup is always false for merged intervals.

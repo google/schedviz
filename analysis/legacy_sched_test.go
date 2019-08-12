@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/analysis/schedtestcommon"
 	"github.com/google/schedviz/server/models"
 )
@@ -49,7 +51,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateUnknownState,
+				State:               sched.UnknownState,
 				StartTimestampNs:    0,
 				EndTimestampNs:      0,
 				MergedIntervalCount: 1,
@@ -59,7 +61,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateWaitingState,
+				State:               sched.WaitingState,
 				StartTimestampNs:    0,
 				EndTimestampNs:      10,
 				MergedIntervalCount: 1,
@@ -69,7 +71,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateRunningState,
+				State:               sched.RunningState,
 				StartTimestampNs:    10,
 				EndTimestampNs:      100,
 				MergedIntervalCount: 1,
@@ -79,7 +81,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateWaitingState,
+				State:               sched.WaitingState,
 				StartTimestampNs:    100,
 				EndTimestampNs:      101,
 				MergedIntervalCount: 1,
@@ -97,7 +99,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateUnknownState,
+				State:               sched.UnknownState,
 				StartTimestampNs:    0,
 				EndTimestampNs:      10,
 				MergedIntervalCount: 2,
@@ -107,7 +109,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateRunningState,
+				State:               sched.RunningState,
 				StartTimestampNs:    10,
 				EndTimestampNs:      100,
 				MergedIntervalCount: 1,
@@ -117,7 +119,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateWaitingState,
+				State:               sched.WaitingState,
 				StartTimestampNs:    100,
 				EndTimestampNs:      101,
 				MergedIntervalCount: 1,
@@ -135,7 +137,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateWaitingState,
+				State:               sched.WaitingState,
 				StartTimestampNs:    0,
 				EndTimestampNs:      10,
 				MergedIntervalCount: 1,
@@ -145,7 +147,7 @@ func TestPIDIntervals(t *testing.T) {
 				Pid:                 100,
 				Command:             "Process1",
 				Priority:            50,
-				State:               models.ThreadStateRunningState,
+				State:               sched.RunningState,
 				StartTimestampNs:    10,
 				EndTimestampNs:      100,
 				MergedIntervalCount: 1,
@@ -162,174 +164,6 @@ func TestPIDIntervals(t *testing.T) {
 			}
 			if diff := cmp.Diff(test.wantIntervals, gotIntervals); diff != "" {
 				t.Errorf("PIDIntervals() == %v: diff -want +got %s", test.wantIntervals, diff)
-			}
-		})
-	}
-}
-
-func TestCPUIntervals(t *testing.T) {
-	coll, err := NewCollection(schedtestcommon.TestTrace1(t), true /*=normalizeTimestamps*/)
-	if err != nil {
-		t.Fatalf("Unexpected collection creation error %s", err)
-	}
-	tests := []struct {
-		description         string
-		cpu                 int64
-		startTimestamp      time.Duration
-		endTimestamp        time.Duration
-		minIntervalDuration time.Duration
-		wantIntervals       []models.CPUInterval
-	}{{
-		description:         "CPU 1, full range, unmerged",
-		cpu:                 1,
-		startTimestamp:      -1,
-		endTimestamp:        -1,
-		minIntervalDuration: 0,
-		wantIntervals: []models.CPUInterval{
-			{
-				CPU:                 1,
-				StartTimestampNs:    0,
-				EndTimestampNs:      10,
-				RunningPid:          300,
-				RunningCommand:      "Process3",
-				RunningPriority:     50,
-				WaitingPidCount:     1.0,
-				WaitingPids:         []int64{100},
-				MergedIntervalCount: 1,
-			},
-			{
-				CPU:                 1,
-				StartTimestampNs:    10,
-				EndTimestampNs:      40,
-				RunningPid:          100,
-				RunningCommand:      "Process1",
-				RunningPriority:     50,
-				WaitingPidCount:     0.0,
-				WaitingPids:         []int64{},
-				MergedIntervalCount: 1,
-			},
-			{
-				CPU:                 1,
-				StartTimestampNs:    40,
-				EndTimestampNs:      80,
-				RunningPid:          100,
-				RunningCommand:      "Process1",
-				RunningPriority:     50,
-				WaitingPidCount:     1.0,
-				WaitingPids:         []int64{200},
-				MergedIntervalCount: 1,
-			},
-			{
-				CPU:                 1,
-				StartTimestampNs:    80,
-				EndTimestampNs:      90,
-				RunningPid:          100,
-				RunningCommand:      "Process1",
-				RunningPriority:     50,
-				WaitingPidCount:     0.0,
-				WaitingPids:         []int64{},
-				MergedIntervalCount: 1,
-			},
-			{
-				CPU:                 1,
-				StartTimestampNs:    90,
-				EndTimestampNs:      100,
-				RunningPid:          100,
-				RunningCommand:      "Process1",
-				RunningPriority:     50,
-				WaitingPidCount:     1.0,
-				WaitingPids:         []int64{300},
-				MergedIntervalCount: 1,
-			},
-			{
-				CPU:                 1,
-				StartTimestampNs:    100,
-				EndTimestampNs:      100,
-				RunningPid:          300,
-				RunningCommand:      "Process3",
-				RunningPriority:     50,
-				WaitingPidCount:     1.0,
-				WaitingPids:         []int64{100},
-				MergedIntervalCount: 1,
-			},
-		},
-	}, {
-		description:         "CPU 1, full range, merged",
-		cpu:                 1,
-		startTimestamp:      -1,
-		endTimestamp:        -1,
-		minIntervalDuration: 40,
-		wantIntervals: []models.CPUInterval{
-			{
-				CPU:                 1,
-				RunningPid:          -1,
-				WaitingPids:         []int64{100},
-				WaitingPidCount:     0.25,
-				EndTimestampNs:      40,
-				MergedIntervalCount: 2,
-			},
-			{
-				CPU:                 1,
-				RunningPid:          100,
-				RunningCommand:      "Process1",
-				RunningPriority:     50,
-				WaitingPids:         []int64{200},
-				WaitingPidCount:     1,
-				StartTimestampNs:    40,
-				EndTimestampNs:      80,
-				MergedIntervalCount: 1,
-			},
-			{
-				CPU:                 1,
-				RunningPid:          -1,
-				WaitingPids:         []int64{100, 300},
-				WaitingPidCount:     0.5,
-				StartTimestampNs:    80,
-				EndTimestampNs:      100,
-				MergedIntervalCount: 3,
-			},
-		},
-	}, {
-		description:         "CPU 1, partial range, unmerged",
-		cpu:                 1,
-		startTimestamp:      15,
-		endTimestamp:        45,
-		minIntervalDuration: 0,
-		wantIntervals: []models.CPUInterval{
-			{
-				CPU:                 1,
-				StartTimestampNs:    10,
-				EndTimestampNs:      40,
-				RunningPid:          100,
-				RunningCommand:      "Process1",
-				RunningPriority:     50,
-				WaitingPidCount:     0.0,
-				WaitingPids:         []int64{},
-				MergedIntervalCount: 1,
-			},
-			{
-				CPU:                 1,
-				StartTimestampNs:    40,
-				EndTimestampNs:      80,
-				RunningPid:          100,
-				RunningCommand:      "Process1",
-				RunningPriority:     50,
-				WaitingPidCount:     1.0,
-				WaitingPids:         []int64{200},
-				MergedIntervalCount: 1,
-			},
-		},
-	}}
-	for _, test := range tests {
-		t.Run(test.description, func(t *testing.T) {
-			gotIntervals, err := coll.CPUIntervals(
-				test.cpu, test.startTimestamp, test.endTimestamp,
-				test.minIntervalDuration)
-			if err != nil {
-				t.Fatalf("Expected CPUIntervals to yield no errors but got %s", err)
-			}
-			if diff := cmp.Diff(test.wantIntervals, gotIntervals); diff != "" {
-				t.Errorf("CPUIntervals() == %v: diff -want +got %s", test.wantIntervals, diff)
 			}
 		})
 	}

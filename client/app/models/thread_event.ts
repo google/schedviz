@@ -16,7 +16,7 @@
 //
 import {CollectionParameters} from './collection';
 import {Interval} from './interval';
-import {ThreadState} from './thread_intervals';
+import {ThreadState} from './render_data_services';
 
 /**
  * Canonical trace event types.

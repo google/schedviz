@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/google/schedviz/analysis/schedtestcommon"
-	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -70,96 +70,126 @@ func TestAntagonists(t *testing.T) {
 		pid             PID
 		startTimestamp  trace.Timestamp
 		endTimestamp    trace.Timestamp
-		wantAntagonists models.Antagonists
+		wantAntagonists Antagonists
 	}{{
 		description:    "single antagonist",
 		pid:            300,
 		startTimestamp: 1000,
 		endTimestamp:   1100,
-		wantAntagonists: models.Antagonists{
-			VictimPid:      300,
-			VictimCommands: []string{"Process3"},
-			Antagonisms: []models.Antagonism{{
-				Pid:              100,
-				Command:          "Process1",
-				CPU:              1,
-				StartTimestampNs: 1090,
-				EndTimestampNs:   1100,
+		wantAntagonists: Antagonists{
+			Victims: []Thread{{
+				PID:      300,
+				Command:  "Process3",
+				Priority: 50,
 			}},
-			StartTimestampNs: 1000,
-			EndTimestampNs:   1100,
+			Antagonisms: []Antagonism{{
+				RunningThread: Thread{
+					PID:      100,
+					Command:  "Process1",
+					Priority: 50,
+				},
+				CPU:            1,
+				StartTimestamp: 1090,
+				EndTimestamp:   1100,
+			}},
+			StartTimestamp: 1000,
+			EndTimestamp:   1100,
 		},
 	}, {
 		description:    "partial wait (starting in wait)",
 		pid:            300,
 		startTimestamp: 1095,
 		endTimestamp:   1100,
-		wantAntagonists: models.Antagonists{
-			VictimPid:      300,
-			VictimCommands: []string{"Process3"},
-			Antagonisms: []models.Antagonism{{
-				Pid:              100,
-				Command:          "Process1",
-				CPU:              1,
-				StartTimestampNs: 1095,
-				EndTimestampNs:   1100,
+		wantAntagonists: Antagonists{
+			Victims: []Thread{{
+				PID:      300,
+				Command:  "Process3",
+				Priority: 50,
 			}},
-			StartTimestampNs: 1095,
-			EndTimestampNs:   1100,
+			Antagonisms: []Antagonism{{
+				RunningThread: Thread{
+					PID:      100,
+					Command:  "Process1",
+					Priority: 50,
+				},
+				CPU:            1,
+				StartTimestamp: 1095,
+				EndTimestamp:   1100,
+			}},
+			StartTimestamp: 1095,
+			EndTimestamp:   1100,
 		},
 	}, {
 		description:    "partial wait (starting and ending in wait)",
 		pid:            300,
 		startTimestamp: 1095,
 		endTimestamp:   1098,
-		wantAntagonists: models.Antagonists{
-			VictimPid:      300,
-			VictimCommands: []string{"Process3"},
-			Antagonisms: []models.Antagonism{{
-				Pid:              100,
-				Command:          "Process1",
-				CPU:              1,
-				StartTimestampNs: 1095,
-				EndTimestampNs:   1098,
+		wantAntagonists: Antagonists{
+			Victims: []Thread{{
+				PID:      300,
+				Command:  "Process3",
+				Priority: 50,
 			}},
-			StartTimestampNs: 1095,
-			EndTimestampNs:   1098,
+			Antagonisms: []Antagonism{{
+				RunningThread: Thread{
+					PID:      100,
+					Command:  "Process1",
+					Priority: 50,
+				},
+				CPU:            1,
+				StartTimestamp: 1095,
+				EndTimestamp:   1098,
+			}},
+			StartTimestamp: 1095,
+			EndTimestamp:   1098,
 		},
 	}, {
 		description:    "multiple antagonists",
 		pid:            200,
 		startTimestamp: 1000,
 		endTimestamp:   1100,
-		wantAntagonists: models.Antagonists{
-			VictimPid:      200,
-			VictimCommands: []string{"Process2"},
-			Antagonisms: []models.Antagonism{{
-				Pid:              100,
-				Command:          "Process1",
-				CPU:              1,
-				StartTimestampNs: 1040,
-				EndTimestampNs:   1100,
-			}, {
-				Pid:              400,
-				Command:          "Process4",
-				CPU:              2,
-				StartTimestampNs: 1080,
-				EndTimestampNs:   1100,
+		wantAntagonists: Antagonists{
+			Victims: []Thread{{
+				PID:      200,
+				Command:  "Process2",
+				Priority: 50,
 			}},
-			StartTimestampNs: 1000,
-			EndTimestampNs:   1100,
+			Antagonisms: []Antagonism{{
+				RunningThread: Thread{
+					PID:      100,
+					Command:  "Process1",
+					Priority: 50,
+				},
+				CPU:            1,
+				StartTimestamp: 1040,
+				EndTimestamp:   1100,
+			}, {
+				RunningThread: Thread{
+					PID:      400,
+					Command:  "Process4",
+					Priority: 50,
+				},
+				CPU:            2,
+				StartTimestamp: 1080,
+				EndTimestamp:   1100,
+			}},
+			StartTimestamp: 1000,
+			EndTimestamp:   1100,
 		},
 	}, {
 		description:    "sleeping threads aren't victims",
 		pid:            300,
 		startTimestamp: 1000,
 		endTimestamp:   1080,
-		wantAntagonists: models.Antagonists{
-			VictimPid:        300,
-			VictimCommands:   []string{"Process3"},
-			Antagonisms:      []models.Antagonism{},
-			StartTimestampNs: 1000,
-			EndTimestampNs:   1080,
+		wantAntagonists: Antagonists{
+			Victims: []Thread{{
+				PID:      300,
+				Command:  "Process3",
+				Priority: 50,
+			}},
+			Antagonisms:    []Antagonism{},
+			StartTimestamp: 1000,
+			EndTimestamp:   1080,
 		},
 	}}
 	for _, test := range tests {

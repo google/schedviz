@@ -19,7 +19,7 @@ import {Injectable} from '@angular/core';
 import {Observable, of} from 'rxjs';
 import {flatMap, map} from 'rxjs/operators';
 
-import {CollectionParameters, Thread, ThreadEvent, ThreadEventType, ThreadInterval, ThreadState, UtilizationMetrics} from '../models';
+import {CollectionParameters, Thread, ThreadEvent, ThreadEventType, ThreadInterval, UtilizationMetrics} from '../models';
 
 
 import * as services from '../models/metrics_services';
@@ -112,11 +112,9 @@ export class HttpMetricsService implements MetricsService {
                         parameters, event.uniqueID,
                         HttpMetricsService.getEventState(event.eventType),
                         event.timestampNs, event.pid, event.command,
-                        event.priority, event.cpu,
-                        HttpMetricsService.getThreadState(event.state),
-                        event.prevPid, event.prevCommand, event.prevPriority,
-                        event.prevCpu,
-                        HttpMetricsService.getThreadState(event.prevState)))));
+                        event.priority, event.cpu, event.state, event.prevPid,
+                        event.prevCommand, event.prevPriority, event.prevCpu,
+                        event.prevState))));
   }
 
   getThreadAntagonists(
@@ -143,10 +141,10 @@ export class HttpMetricsService implements MetricsService {
                   ant => new ThreadInterval(
                       parameters,
                       ant.cpu,
-                      ant.startTimestampNs,
-                      ant.endTimestampNs,
-                      ant.pid,
-                      ant.command,
+                      ant.startTimestamp,
+                      ant.endTimestamp,
+                      ant.runningThread.pid,
+                      ant.runningThread.command,
                       ));
             })),
             map(nestedIntervals => {
@@ -191,22 +189,6 @@ export class HttpMetricsService implements MetricsService {
         return ThreadEventType.STAT_RUNTIME;
       default:
         return ThreadEventType.UNKNOWN;
-    }
-  }
-
-  /**
-   * Translates the ThreadState proto to a local string state flag.
-   */
-  static getThreadState(state: services.ThreadState) {
-    switch (state) {
-      case services.ThreadState.RUNNING_STATE:
-        return ThreadState.RUNNING;
-      case services.ThreadState.SLEEPING_STATE:
-        return ThreadState.SLEEPING;
-      case services.ThreadState.WAITING_STATE:
-        return ThreadState.WAITING;
-      default:
-        return ThreadState.UNKNOWN;
     }
   }
 }

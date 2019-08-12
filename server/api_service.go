@@ -46,24 +46,32 @@ func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUInterv
 	if err != nil {
 		return models.CPUIntervalsResponse{}, err
 	}
-	ls := legacysched.WrapCollection(c.Collection)
 
 	res := models.CPUIntervalsResponse{
 		CollectionName: req.CollectionName,
-		CPUIntervals:   []models.CPUIntervals{},
+		Intervals:      []models.CPUIntervals{},
 	}
 
 	for _, cpu := range req.CPUs {
-		cpuIntervals, err := ls.CPUIntervals(cpu,
-			time.Duration(req.StartTimestampNs),
-			time.Duration(req.EndTimestampNs),
-			time.Duration(req.MinIntervalDurationNs))
+		filters := []sched.Filter{
+			sched.TimeRange(trace.Timestamp(req.StartTimestampNs), trace.Timestamp(req.EndTimestampNs)),
+			sched.MinIntervalDuration(sched.Duration(req.MinIntervalDurationNs)),
+			sched.CPUs(sched.CPUID(cpu)),
+		}
+		cpuIntervals, err := c.Collection.CPUIntervals(false /*=splitOnWaitingPIDChange*/, filters...)
 		if err != nil {
 			return models.CPUIntervalsResponse{}, err
 		}
-		res.CPUIntervals = append(res.CPUIntervals, models.CPUIntervals{
-			CPU:       cpu,
-			Intervals: cpuIntervals,
+
+		waitingIntervals, err := c.Collection.CPUIntervals(true /*=splitOnWaitingPIDChange*/, filters...)
+		if err != nil {
+			return models.CPUIntervalsResponse{}, err
+		}
+
+		res.Intervals = append(res.Intervals, models.CPUIntervals{
+			CPU:     cpu,
+			Running: cpuIntervals,
+			Waiting: waitingIntervals,
 		})
 	}
 

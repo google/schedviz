@@ -16,30 +16,79 @@
 //
 import {CollectionParameters} from './collection';
 import {Interval} from './interval';
+import {ThreadResidency} from './render_data_services';
+
+/**
+ * Collection of both running and waiting CPU Intervals
+ */
+export class CpuIntervalCollection {
+  constructor(
+      public cpu: number,
+      public running: CpuInterval[] = [],
+      public waiting: WaitingCpuInterval[] = [],
+  ) {}
+}
 
 /**
  * Client-side CPU interval representation, for rendering.
  */
 export class CpuInterval extends Interval {
+  runningNs: number;
+  waitingNs: number;
+  idleNs: number;
+
   constructor(
-      public parameters: CollectionParameters, public cpu: number,
-      public startTimeNs: number, public endTimeNs: number,
-      public command: string, public runningPid = -1, public idleNs = 0,
-      public waitingPidCount = 0, public waitingPidList:number[] = []) {
+      public parameters: CollectionParameters,
+      public cpu: number,
+      public startTimeNs: number,
+      public endTimeNs: number,
+      public running: ThreadResidency[] = [],
+      public waiting: ThreadResidency[] = [],
+  ) {
     super(parameters, cpu, cpu, startTimeNs, endTimeNs);
-    this.renderWeight = waitingPidCount;
+    this.renderWeight = waiting.length;
+
+    this.running = this.running.sort((a, b) => b.duration - a.duration);
+    this.waiting = this.waiting.sort((a, b) => b.duration - a.duration);
+
+    this.waitingNs = this.waiting.reduce((acc, r) => acc + r.duration, 0);
+    this.runningNs = this.running.reduce((acc, r) => acc + r.duration, 0);
+    this.idleNs = this.duration - this.runningNs;
+  }
+
+  private getPercentageTimeStr(duration: number): string {
+    return `${((duration / this.duration) * 100).toPrecision(3)}%`;
+  }
+
+  private getThreadName(threadResidency: ThreadResidency): string {
+    return `${threadResidency.thread.pid}:${threadResidency.thread.command}`;
   }
 
   get tooltipProps() {
     return {
-      'Command': this.command,
+      'Running': '\n' +
+          this.running
+              .map(
+                  r => `  (${this.getPercentageTimeStr(r.duration)}) ${
+                      this.getThreadName(r)}`)
+              .join('\n'),
       'CPU': `${this.cpu}`,
       'Start Time': this.formatTime(this.startTimeNs),
       'End Time': this.formatTime(this.endTimeNs),
-      'Duration': this.formatTime(this.endTimeNs - this.startTimeNs),
-      'Running PID': `${this.runningPid > -1 ? this.runningPid : 'Unknown'}`,
-      'Waiting PID Count': `${this.waitingPidCount}`,
-      'Waiting PID List': `${this.waitingPidList}`,
+      'Duration': this.formatTime(this.duration),
+      'Idle Time': `(${this.getPercentageTimeStr(this.idleNs)}) ${
+          this.formatTime(this.idleNs)}`,
+      'Running Time': `(${this.getPercentageTimeStr(this.runningNs)}) ${
+          this.formatTime(this.runningNs)}`,
+      'Waiting Time': ` (${this.getPercentageTimeStr(this.waitingNs)}) ${
+          this.formatTime(this.waitingNs)}`,
+      'Waiting PID Count': `${this.waiting.length}`,
+      'Waiting': '\n' +
+          this.waiting
+              .map(
+                  w => `  (${this.getPercentageTimeStr(w.duration)}) ${
+                      this.getThreadName(w)} `)
+              .join('\n'),
     };
   }
 
@@ -51,13 +100,12 @@ export class CpuInterval extends Interval {
    * @return relative render height, weighted by percent idle time
    */
   height(sortedFilteredCpus: number[]) {
-    const rowHeight = this.rowHeight(sortedFilteredCpus);
-    const intervalHeight = 0.5 * rowHeight;
-    const duration = this.endTimeNs - this.startTimeNs;
-    const percentIdle = this.idleNs / duration;
-    if (duration === 0) {
+    if (this.duration === 0) {
       return 0;
     }
+    const rowHeight = this.rowHeight(sortedFilteredCpus);
+    const intervalHeight = 0.5 * rowHeight;
+    const percentIdle = this.idleNs / this.duration;
     return (1.0 - percentIdle) * intervalHeight;
   }
 }
@@ -66,16 +114,6 @@ export class CpuInterval extends Interval {
  * Client-side CPU waiting interval representation, for rendering.
  */
 export class WaitingCpuInterval extends CpuInterval {
-  constructor(
-      public parameters: CollectionParameters, public cpu: number,
-      public startTimeNs: number, public endTimeNs: number,
-      public command: string, public waitingPidCount: number,
-      public runningPid = -1, public waitingPidList:number[] = []) {
-    super(
-        parameters, cpu, startTimeNs, endTimeNs, command, runningPid, 0,
-        waitingPidCount, waitingPidList);
-  }
-
   /**
    * @return y relative position, below CPU running intervals
    */
@@ -94,7 +132,8 @@ export class WaitingCpuInterval extends CpuInterval {
     const rowHeight = this.rowHeight(sortedFilteredCpus);
     const intervalHeight = 0.5 * rowHeight;
     const queueHeight = rowHeight - intervalHeight;
-    return Math.atan(this.waitingPidCount) / (Math.PI / 2) * queueHeight;
+    return Math.atan(this.waitingNs / this.duration) / (Math.PI / 2) *
+        queueHeight;
   }
 
   /**

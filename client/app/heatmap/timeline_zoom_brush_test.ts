@@ -18,8 +18,10 @@ import {async, TestBed} from '@angular/core/testing';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import * as d3 from 'd3';
 import {BehaviorSubject, Observable} from 'rxjs';
+import {map} from 'rxjs/operators';
 
-import {CollectionParameters, CpuInterval} from '../models';
+import {CollectionParameters, CpuIntervalCollection} from '../models';
+import {ThreadResidency, ThreadState} from '../models/render_data_services';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService} from '../services/render_data_service';
 import {Viewport} from '../util';
@@ -42,13 +44,40 @@ try {
 }
 
 function setupZoomBrush(component: TimelineZoomBrush):
-    Observable<CpuInterval[]> {
+    Observable<CpuIntervalCollection[]> {
   const parameters = mockParameters();
   const viewport = new Viewport();
   component.parameters =
       new BehaviorSubject<CollectionParameters|undefined>(parameters);
   component.viewport = new BehaviorSubject<Viewport>(viewport);
-  return renderService.getCpuIntervals(parameters, viewport, 0, CPUS);
+
+  const duration = parameters.endTimeNs - parameters.startTimeNs;
+
+  // For testing, increase wait count over time.
+  function getWaiting(i: number): ThreadResidency[] {
+    return new Array(i).fill(null).map(
+        () => ({
+          thread: {command: 'bar', pid: i, priority: 99},
+          state: ThreadState.WAITING_STATE,
+          duration,
+          droppedEventIDs: [],
+          includesSyntheticTransitions: false,
+        }));
+  }
+
+  return renderService.getCpuIntervals(parameters, viewport, 0, CPUS)
+      .pipe(
+          map((collections: CpuIntervalCollection[]) =>
+                  collections.map(collection => {
+                    collection.running.forEach((interval, i) => {
+                      interval.waiting = getWaiting(i);
+                    });
+                    collection.waiting.forEach((interval, i) => {
+                      interval.waiting = getWaiting(i);
+                    });
+                    return collection;
+                  })),
+      );
 }
 
 function mockParameters(): CollectionParameters {

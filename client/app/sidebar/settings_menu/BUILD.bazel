@@ -1,3 +1,4 @@
+load("@npm_bazel_typescript//:defs.bzl", "ts_library")
 load("@npm_angular_bazel//:index.bzl", "ng_module")
 
 package(default_visibility = ["//visibility:public"])
@@ -28,7 +29,7 @@ ng_module(
     ],
 )
 
-ng_module(
+ts_library(
     name = "settings_menu_tests",
     testonly = True,
     srcs = ["settings_menu_test.ts"],

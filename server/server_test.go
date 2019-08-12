@@ -34,6 +34,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/mux"
 
+	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/testhelpers/testhelpers"
 
@@ -370,7 +371,7 @@ func TestGetCPUIntervals(t *testing.T) {
 		CPUs:                  []int64{0},
 		MinIntervalDurationNs: 0,
 		StartTimestampNs:      0,
-		EndTimestampNs:        25000,
+		EndTimestampNs:        10000,
 	})
 	endpoint := fmt.Sprintf("get_cpu_intervals?request=%s", requestJSON)
 	res, err := http.Post(fullURL(endpoint), "application/json", strings.NewReader(requestJSON))
@@ -387,48 +388,61 @@ func TestGetCPUIntervals(t *testing.T) {
 
 	want := &models.CPUIntervalsResponse{
 		CollectionName: collectionName,
-		CPUIntervals: []models.CPUIntervals{{
+		Intervals: []models.CPUIntervals{{
 			CPU: 0,
-			Intervals: []models.CPUInterval{{
-				CPU:             0,
-				RunningPid:      17254,
-				RunningCommand:  "trace.sh",
-				RunningPriority: 120,
-				WaitingPids: []int64{
-					17287,
-				},
-				WaitingPidCount:     1,
-				StartTimestampNs:    0,
-				EndTimestampNs:      19728,
-				MergedIntervalCount: 1,
-				IdleNs:              0,
-			},
+			Running: []*sched.Interval{
 				{
-					CPU:             0,
-					RunningPid:      17254,
-					RunningCommand:  "trace.sh",
-					RunningPriority: 120,
-					WaitingPids: []int64{
-						430, 17287,
+					Duration: 21845,
+					ThreadResidencies: []*sched.ThreadResidency{
+						{
+							Thread: &sched.Thread{
+								PID:      17254,
+								Command:  "trace.sh",
+								Priority: 120,
+							},
+							Duration: 21845,
+							State:    sched.RunningState,
+						},
+						{
+							Thread: &sched.Thread{
+								PID:      17287,
+								Command:  "trace.sh",
+								Priority: 120,
+							},
+							Duration: 21845,
+							State:    sched.WaitingState,
+						},
 					},
-					WaitingPidCount:     2,
-					StartTimestampNs:    19728,
-					EndTimestampNs:      21845,
 					MergedIntervalCount: 1,
-					IdleNs:              0,
 				},
+			},
+			Waiting: []*sched.Interval{
 				{
-					RunningPid:          430,
-					RunningCommand:      "kauditd",
-					RunningPriority:     120,
-					WaitingPids:         []int64{17287},
-					WaitingPidCount:     1,
-					StartTimestampNs:    21845,
-					EndTimestampNs:      27003,
+					Duration: 21845,
+					ThreadResidencies: []*sched.ThreadResidency{
+						{
+							Thread: &sched.Thread{
+								PID:      17254,
+								Command:  "trace.sh",
+								Priority: 120,
+							},
+							Duration: 21845,
+							State:    sched.RunningState,
+						},
+						{
+							Thread: &sched.Thread{
+								PID:      17287,
+								Priority: 120,
+								Command:  "trace.sh",
+							},
+							Duration: 21845,
+							State:    sched.WaitingState,
+						},
+					},
 					MergedIntervalCount: 1,
 				},
-			}},
-		},
+			},
+		}},
 	}
 
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -466,7 +480,7 @@ func TestGetPIDIntervals(t *testing.T) {
 					Pid:                 17254,
 					Command:             "trace.sh",
 					Priority:            120,
-					State:               models.ThreadStateRunningState,
+					State:               sched.RunningState,
 					PostWakeup:          false,
 					CPU:                 0,
 					StartTimestampNs:    0,
@@ -477,7 +491,7 @@ func TestGetPIDIntervals(t *testing.T) {
 					Pid:                 17254,
 					Command:             "trace.sh",
 					Priority:            120,
-					State:               models.ThreadStateSleepingState,
+					State:               sched.SleepingState,
 					StartTimestampNs:    21845,
 					EndTimestampNs:      65705,
 					MergedIntervalCount: 1,
@@ -512,23 +526,32 @@ func TestGetAntagonists(t *testing.T) {
 
 	want := &models.AntagonistsResponse{
 		CollectionName: collectionName,
-		Antagonists: []models.Antagonists{{
-			VictimPid:      17254,
-			VictimCommands: []string{"trace.sh"},
-			Antagonisms: []models.Antagonism{{
-				Pid:              430,
-				Command:          "kauditd",
-				StartTimestampNs: 71547,
-				EndTimestampNs:   73788,
+		Antagonists: []sched.Antagonists{{
+			Victims: []sched.Thread{{
+				PID:      17254,
+				Command:  "trace.sh",
+				Priority: 120,
+			}},
+			Antagonisms: []sched.Antagonism{{
+				RunningThread: sched.Thread{
+					PID:      430,
+					Command:  "kauditd",
+					Priority: 120,
+				},
+				StartTimestamp: 71547,
+				EndTimestamp:   73788,
 			},
 				{
-					Pid:              449,
-					Command:          "auditd",
-					StartTimestampNs: 73788,
-					EndTimestampNs:   73790,
+					RunningThread: sched.Thread{
+						PID:      449,
+						Command:  "auditd",
+						Priority: 116,
+					},
+					StartTimestamp: 73788,
+					EndTimestamp:   73790,
 				}},
-			StartTimestampNs: 71540,
-			EndTimestampNs:   73790,
+			StartTimestamp: 71540,
+			EndTimestamp:   73790,
 		}},
 	}
 

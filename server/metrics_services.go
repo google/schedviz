@@ -16,6 +16,8 @@
 //
 package models
 
+import "github.com/google/schedviz/analysis/sched"
+
 // ThreadSummariesRequest is a request for thread summary information across a specified timespan
 // for a specified collection, filtered to the requested CPU set. If start_timestamp_ns is -1, the
 // first timestamp in the collection is used  instead. If end_timestamp_ns is -1, the last timestamp
@@ -76,38 +78,11 @@ type AntagonistsRequest struct {
 	EndTimestampNs   int64   `json:"endTimestampNs"`
 }
 
-// Antagonism is an interval during which a single thread running on a
-// single CPU antagonized the waiting victim.
-type Antagonism struct {
-	Pid              int64  `json:"pid"`
-	Command          string `json:"command"`
-	CPU              int64  `json:"cpu"`
-	StartTimestampNs int64  `json:"startTimestampNs"`
-	EndTimestampNs   int64  `json:"endTimestampNs"`
-}
-
-// Antagonists are threads that are running instead of the victim thread
-type Antagonists struct {
-	VictimPid int64 `json:"victimPid"`
-	// If there is more than one victim command, the victim PID was reused over
-	// the requested interval. The times such reuse occurred can be determined by
-	// iterating through per-PID events for the requested duration and looking for
-	// where event.command (or prev_command) changes, but it is likely sufficient
-	// to flag replies with multiple victim_commands as unreliable.
-	// Thread reuse over the scale of a sched collection is very uncommon, except
-	// for a few special OS threads (with PID 0).
-	VictimCommands []string     `json:"victimCommand"`
-	Antagonisms    []Antagonism `json:"antagonisms"`
-	// The time range over which these antagonists were gathered.
-	StartTimestampNs int64 `json:"startTimestampNs"`
-	EndTimestampNs   int64 `json:"endTimestampNs"`
-}
-
 // AntagonistsResponse is a response for an antagonist request.
 type AntagonistsResponse struct {
 	CollectionName string `json:"collectionName"`
 	// All matching stalls sorted in order of decreasing duration - longest first.
-	Antagonists []Antagonists `json:"antagonists"`
+	Antagonists []sched.Antagonists `json:"antagonists"`
 }
 
 // EventType is an enum containing different types of events
@@ -178,7 +153,7 @@ type Event struct {
 	// The CPU that reported the event.
 	ReportingCPU int64 `json:"reportingCpu"`
 	// The state of the thread referenced by pid just after this event completed.
-	State ThreadState `json:"state"`
+	State sched.ThreadState `json:"state"`
 	// Fields only used for SWITCH events:
 
 	// The PID active prior to the switch
@@ -197,7 +172,7 @@ type Event struct {
 	// We assume that, at least, state == 0 iff the task is in the scheduler run queue.
 	PrevTaskState int64 `json:"prevTaskState"`
 	// The state of the prev_pid.
-	PrevState ThreadState
+	PrevState sched.ThreadState
 	// Fields only used for MIGRATE_TASK events:
 
 	// The CPU from which the process is migrating

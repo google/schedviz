@@ -16,16 +16,7 @@
 //
 import {CollectionParameters} from './collection';
 import {Interval} from './interval';
-
-/**
- * Four cannonical states for a traced thread.
- */
-export enum ThreadState {
-  RUNNING = 'RUNNING',
-  SLEEPING = 'SLEEPING',
-  UNKNOWN = 'UNKNOWN',
-  WAITING = 'WAITING',
-}
+import {ThreadState, threadStateToString} from './render_data_services';
 
 /**
  * Interval subclass representing a thread state interval whose opacity is
@@ -35,13 +26,13 @@ export class ThreadInterval extends Interval {
   constructor(
       public parameters: CollectionParameters, public cpu: number,
       public startTimeNs: number, public endTimeNs: number, public pid: number,
-      public command: string, public state = ThreadState.RUNNING) {
+      public command: string, public state = ThreadState.RUNNING_STATE) {
     super(parameters, pid, cpu, startTimeNs, endTimeNs);
     switch (state) {
-      case ThreadState.SLEEPING:
+      case ThreadState.SLEEPING_STATE:
         this.opacity = 0.1;
         break;
-      case ThreadState.UNKNOWN:
+      case ThreadState.UNKNOWN_STATE:
         this.opacity = 0.5;
         break;
       default:
@@ -58,7 +49,7 @@ export class ThreadInterval extends Interval {
       'Start Time': this.formatTime(this.startTimeNs),
       'End Time': this.formatTime(this.endTimeNs),
       'Duration': this.formatTime(this.endTimeNs - this.startTimeNs),
-      'State': `${this.state}`,
+      'State': `${threadStateToString(this.state)}`,
     };
   }
 
@@ -84,7 +75,7 @@ export class WaitingThreadInterval extends ThreadInterval {
       public queueCount = 1.0) {
     super(
         parameters, cpu, startTimeNs, endTimeNs, pid, command,
-        ThreadState.WAITING);
+        ThreadState.WAITING_STATE);
   }
 
   /**

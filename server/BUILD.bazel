@@ -63,6 +63,7 @@ go_test(
     embed = [":server"],
     deps = [
         ":models",
+        "//analysis:sched",
         "//testhelpers",
         "@com_github_google_go-cmp//cmp:go_default_library",
         "@com_github_gorilla_mux//:go_default_library",
@@ -138,4 +139,5 @@ importpath = "github.com/google/schedviz/server/models",
         "metrics_services.go",
         "render_data_services.go",
     ],
+    deps = ["//analysis:sched"],
 )

@@ -14,18 +14,24 @@
 // limitations under the License.
 //
 //
-import {async, fakeAsync, TestBed, tick} from '@angular/core/testing';
+import {fakeAsync, TestBed, tick} from '@angular/core/testing';
+import {MatDialog} from '@angular/material/dialog';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
+import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import * as d3 from 'd3';
 import {BehaviorSubject, of} from 'rxjs';
 
-import {CollectionParameters, Interval, Layer, WaitingThreadInterval} from '../models';
+import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, WaitingThreadInterval} from '../models';
+import * as services from '../models/render_data_services';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService} from '../services/render_data_service';
 import {SystemTopology, Viewport} from '../util';
 
 import {Heatmap} from './heatmap';
 import {HeatmapModule} from './heatmap_module';
+import {DialogChooseThreadLayer} from './intervals_layer';
+
+const TICK_DURATION = 1000;
 
 const START_TIME = 5e8;
 const END_TIME = 2.5e+9;
@@ -47,12 +53,87 @@ function setupHeatmap(component: Heatmap) {
       new BehaviorSubject<CollectionParameters|undefined>(mockParameters());
   component.systemTopology = mockTopology();
   component.preview = new BehaviorSubject<Interval|undefined>(undefined);
-  component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
+  component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([
+    new BehaviorSubject(new CpuRunningLayer() as unknown as Layer),
+    new BehaviorSubject(new CpuWaitQueueLayer() as unknown as Layer),
+  ]);
   component.viewport = new BehaviorSubject<Viewport>(new Viewport());
   component.cpuFilter = new BehaviorSubject<string>('');
   component.maxIntervalCount = new BehaviorSubject<number>(5000);
   component.showMigrations = new BehaviorSubject<boolean>(true);
   component.showSleeping = new BehaviorSubject<boolean>(true);
+}
+
+function addMockIntervals(component: Heatmap): CpuIntervalCollection[] {
+  const params = mockParameters();
+  const runningThreads = [
+    {
+      thread: {
+        pid: 0,
+        command: 'test',
+        priority: 120,
+      },
+      duration: (params.endTimeNs - params.startTimeNs) / 2,
+      state: services.ThreadState.RUNNING_STATE,
+      droppedEventIDs: [],
+      includesSyntheticTransitions: false
+    },
+    {
+      thread: {
+        pid: 1,
+        command: 'test2',
+        priority: 120,
+      },
+      duration: (params.endTimeNs - params.startTimeNs) / 2,
+      state: services.ThreadState.RUNNING_STATE,
+      droppedEventIDs: [],
+      includesSyntheticTransitions: false
+    },
+  ];
+  const waitingThreads = [
+    {
+      thread: {
+        pid: 2,
+        command: 'test3',
+        priority: 120,
+      },
+      duration: (params.endTimeNs - params.startTimeNs),
+      state: services.ThreadState.WAITING_STATE,
+      droppedEventIDs: [],
+      includesSyntheticTransitions: false
+    },
+    {
+      thread: {
+        pid: 3,
+        command: 'test4',
+        priority: 120,
+      },
+      duration: (params.endTimeNs - params.startTimeNs),
+      state: services.ThreadState.WAITING_STATE,
+      droppedEventIDs: [],
+      includesSyntheticTransitions: false
+    },
+  ];
+
+  const cpuIntervalCollection = [
+    new CpuIntervalCollection(
+        0,
+        [
+          new CpuInterval(
+              params,
+              0,
+              params.startTimeNs,
+              params.endTimeNs,
+              runningThreads,
+              waitingThreads,
+              ),
+        ],
+        ),
+  ];
+
+  component.setCpuIntervals(cpuIntervalCollection);
+
+  return cpuIntervalCollection;
 }
 
 function mockParameters(): CollectionParameters {
@@ -64,19 +145,22 @@ function mockTopology(): SystemTopology {
 }
 
 describe('Heatmap', () => {
-  beforeEach(async(() => {
+  beforeEach(async () => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
-    TestBed
+    await TestBed
         .configureTestingModule({
-          imports: [HeatmapModule],
+          imports: [
+            HeatmapModule,
+            NoopAnimationsModule,
+          ],
           providers: [
             {provide: 'MetricsService', useClass: LocalMetricsService},
             {provide: 'RenderDataService', useClass: LocalRenderDataService},
-          ]
+          ],
         })
         .compileComponents();
-  }));
+  });
 
   it('should create', () => {
     const fixture = TestBed.createComponent(Heatmap);
@@ -103,6 +187,103 @@ describe('Heatmap', () => {
     intervalCount = renderedLayers[1].querySelectorAll('rect').length;
     expect(intervalCount).toEqual(layers[0].value.intervals.length);
     // TODO(sainsley): Check base intervals set
+  });
+
+  it('should open a dialog when clicking on a merged interval', async () => {
+    const fixture = TestBed.createComponent(Heatmap);
+    const component = fixture.componentInstance;
+    setupHeatmap(component);
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    await fixture.whenStable();
+
+    const mockIntervals = addMockIntervals(component);
+    const runningThreads = mockIntervals[0].running[0].running;
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const dialog = TestBed.get(MatDialog) as MatDialog;
+    const dialogSpy = spyOn(dialog, 'open').and.callThrough();
+
+    const event = document.createEvent('SVGEvents');
+    event.initEvent('click', true, true);
+    (document.querySelector('.interval') as SVGElement).dispatchEvent(event);
+
+    await fixture.whenStable();
+
+    expect(dialogSpy).toHaveBeenCalledTimes(1);
+    expect(dialogSpy).toHaveBeenCalledWith(
+        DialogChooseThreadLayer, {data: runningThreads});
+  });
+
+  it('should not open a dialog when clicking on a non-merged interval',
+     async () => {
+       const fixture = TestBed.createComponent(Heatmap);
+       const component = fixture.componentInstance;
+       setupHeatmap(component);
+       component.ngOnInit();
+       fixture.detectChanges();
+
+       await fixture.whenStable();
+
+       const mockIntervals = addMockIntervals(component);
+       const runningThreads = mockIntervals[0].running[0].running;
+       delete runningThreads[1];
+
+       fixture.detectChanges();
+       await fixture.whenStable();
+
+       const dialog = TestBed.get(MatDialog) as MatDialog;
+       const dialogSpy = spyOn(dialog, 'open').and.callThrough();
+
+       const event = document.createEvent('SVGEvents');
+       event.initEvent('click', true, true);
+       (document.querySelector('.interval') as SVGElement).dispatchEvent(event);
+
+       await fixture.whenStable();
+
+       expect(dialogSpy).not.toHaveBeenCalled();
+     });
+
+  it('should create a tooltip on hover', async () => {
+    const fixture = TestBed.createComponent(Heatmap);
+    const component = fixture.componentInstance;
+    setupHeatmap(component);
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    await fixture.whenStable();
+
+    addMockIntervals(component);
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const event = document.createEvent('SVGEvents');
+    event.initEvent('mouseover', true, true);
+    (document.querySelector('.interval') as SVGElement).dispatchEvent(event);
+
+    await fixture.whenStable();
+
+    const tooltip = document.querySelector('.tooltip') as HTMLElement;
+    expect(tooltip.innerText)
+        .toBe(
+            'Running: \n' +
+            '  (50.0%) 0:test\n' +
+            '  (50.0%) 1:test2\n' +
+            'CPU: 0\n' +
+            'Start Time: 500 msec\n' +
+            'End Time: 2500 msec\n' +
+            'Duration: 2000 msec\n' +
+            'Idle Time: (0.00%) 0.00 msec\n' +
+            'Running Time: (100%) 2000 msec\n' +
+            'Waiting Time:  (200%) 4000 msec\n' +
+            'Waiting PID Count: 2\n' +
+            'Waiting: \n' +
+            '  (100%) 2:test3 \n' +
+            '  (100%) 3:test4 ');
   });
 
   it('should fetch PID intervals on thread layer added', () => {
@@ -166,14 +347,14 @@ describe('Heatmap', () => {
        viewport.left = 0.25;
        viewport.right = 0.75;
        component.viewport.next(viewport);
-       tick(500);
+       tick(TICK_DURATION);
        // Should fetch new intervals on zoom in
        expect(viewport.width).toBe(0.5);
        expect(renderService.getCpuIntervals).toHaveBeenCalled();
        spy.calls.reset();
        component.viewport.next(new Viewport());
        // Should fetch new intervals on zoom out to default
-       tick(500);
+       tick(TICK_DURATION);
        expect(renderService.getCpuIntervals).not.toHaveBeenCalled();
      }));
 
@@ -184,7 +365,7 @@ describe('Heatmap', () => {
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
        setupHeatmap(component);
        fixture.detectChanges();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        const viewport = new Viewport();
        // First, zoom in
@@ -193,12 +374,12 @@ describe('Heatmap', () => {
        viewport.top = 0.25;
        viewport.bottom = 0.75;
        component.viewport.next(viewport);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        expect(viewport.width).toBe(0.5);
        // Then set a CPU filter
        component.cpuFilter.next('5-10');
-       tick(500);
+       tick(TICK_DURATION);
        // Expect viewport to reset
        expect(spy.calls.count()).toBe(2);
        const newViewport = component.viewport.value;
@@ -214,13 +395,13 @@ describe('Heatmap', () => {
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
        setupHeatmap(component);
        fixture.detectChanges();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        const viewport = new Viewport();
        viewport.left = 0.25;
        viewport.right = 0.75;
        component.viewport.next(viewport);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        expect(viewport.width).toBe(0.5);
        expect(d3.select(component.zoomGroup.nativeElement).attr('transform'))
@@ -236,11 +417,11 @@ describe('Heatmap', () => {
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
        setupHeatmap(component);
        fixture.detectChanges();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        // Update max interval count -- expect new intervals to be fetched
        component.maxIntervalCount.next(maxIntervalCount);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        // TODO(sainsley): Check that base intervals update
        const intervals = component.cpuRunLayer.value.intervals;
@@ -255,7 +436,7 @@ describe('Heatmap', () => {
        const transform = d3.zoomIdentity.scale(2);
        expect(transform.k).toBe(2);
        component.maybeUpdateViewport(transform, true);
-       tick(500);
+       tick(TICK_DURATION);
        const viewport = component.viewport.value;
        expect(viewport.height).toBe(0.5);
        expect(viewport.width).toBe(0.5);
@@ -268,13 +449,13 @@ describe('Heatmap', () => {
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
        fixture.detectChanges();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        let transform = d3.zoomIdentity.scale(2);
        expect(transform.k).toBe(2);
        // Zoom in just x
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        const viewport = component.viewport.value;
        expect(viewport.width).toBe(0.5);
@@ -282,7 +463,7 @@ describe('Heatmap', () => {
        transform = d3.zoomIdentity.scale(1.25);
        // Zoom out in just x
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(2);
        expect(viewport.width).toBe(0.8);
        expect(viewport.height).toBe(1.0);
@@ -296,12 +477,12 @@ describe('Heatmap', () => {
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
        fixture.detectChanges();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        let transform = d3.zoomIdentity.scale(2);
        expect(transform.k).toBe(2);
        component.maybeUpdateViewport(transform, true);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        const viewport = component.viewport.value;
        // Both should zoom in both axes on shift
@@ -309,14 +490,14 @@ describe('Heatmap', () => {
        expect(viewport.height).toBe(0.5);
        transform = d3.zoomIdentity.scale(1);
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(2);
        // Only x should zoom out w/o shift
        expect(viewport.width).toBe(1.0);
        expect(viewport.height).toBe(0.5);
        transform = d3.zoomIdentity.scale(0.5);
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        // Only y should zoom out with x maximized
        expect(spy.calls.count()).toBe(2);
        expect(viewport.width).toBe(1.0);
@@ -331,13 +512,13 @@ describe('Heatmap', () => {
        fixture.detectChanges();
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        // First zoom
        let transform = d3.zoomIdentity.scale(2);
        expect(transform.k).toBe(2);
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        const viewport = component.viewport.value;
        expect(viewport.height).toBe(1.0);
@@ -347,7 +528,7 @@ describe('Heatmap', () => {
        transform = d3.zoomIdentity.scale(2).translate(-200, 0);
        expect(transform.x).toBe(-400);
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(2);
        expect(viewport.height).toBe(1.0);
        expect(viewport.width).toBe(0.5);
@@ -362,13 +543,13 @@ describe('Heatmap', () => {
        fixture.detectChanges();
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        // First zoom
        let transform = d3.zoomIdentity.scale(2);
        expect(transform.k).toBe(2);
        component.maybeUpdateViewport(transform, true);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        const viewport = component.viewport.value;
        expect(viewport.height).toBe(0.5);
@@ -378,7 +559,7 @@ describe('Heatmap', () => {
        transform = d3.zoomIdentity.scale(2).translate(0, -200);
        expect(transform.y).toBe(-400);
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(2);
        expect(viewport.height).toBe(0.5);
        expect(viewport.width).toBe(0.5);
@@ -392,7 +573,7 @@ describe('Heatmap', () => {
        fixture.detectChanges();
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        const element = fixture.nativeElement;
        let renderedLayers = element.querySelectorAll('.layersGroup');
@@ -403,7 +584,7 @@ describe('Heatmap', () => {
        viewport.left = 0.25;
        viewport.right = 0.75;
        component.viewport.next(viewport);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        renderedLayers = element.querySelectorAll('.layersGroup');
        const zoomedIntervalCount =
@@ -419,12 +600,12 @@ describe('Heatmap', () => {
        fixture.detectChanges();
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        // Attempt zoom out
        const transform = d3.zoomIdentity.scale(0.5);
        component.maybeUpdateViewport(transform, true);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(0);
        const viewport = component.viewport.value;
        expect(viewport.height).toBe(1.0);
@@ -440,20 +621,20 @@ describe('Heatmap', () => {
        fixture.detectChanges();
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        const maxZoomX = component.domainSize / 1E5;
        // Initial zoom in
        let transform = d3.zoomIdentity.scale(maxZoomX);
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        const viewport = component.viewport.value;
        expect(viewport.width).toBe(0.00005);
        // Attempt zoom past min
        transform = d3.zoomIdentity.scale(2 * maxZoomX);
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        expect(viewport.width).toBe(0.00005);
      }));
@@ -466,13 +647,13 @@ describe('Heatmap', () => {
        fixture.detectChanges();
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        const maxZoomY = CPU_COUNT;
        // Initial zoom in
        let transform = d3.zoomIdentity.scale(maxZoomY);
        component.maybeUpdateViewport(transform, true);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        const viewport = component.viewport.value;
        expect(viewport.height).toBe(1 / maxZoomY);
@@ -480,7 +661,7 @@ describe('Heatmap', () => {
        // Attempt zoom past min
        transform = d3.zoomIdentity.scale(2 * maxZoomY);
        component.maybeUpdateViewport(transform, true);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(2);
        expect(viewport.height).toBe(1 / maxZoomY);
        expect(viewport.width).toBe(0.5 / maxZoomY);
@@ -505,7 +686,7 @@ describe('Heatmap', () => {
        viewport.top = 0.25;
        viewport.bottom = 0.75;
        component.viewport.next(viewport);
-       tick(500);
+       tick(TICK_DURATION);
        expect(element.querySelectorAll('.heatmap-loading').length).toBe(0);
      }));
 
@@ -516,13 +697,13 @@ describe('Heatmap', () => {
        fixture.detectChanges();
        const renderService = component.renderDataService;
        const spy = spyOn(renderService, 'getCpuIntervals').and.callThrough();
-       tick(500);
+       tick(TICK_DURATION);
        spy.calls.reset();
        const viewport = component.viewport.value;
        const transform =
            d3.zoomIdentity.scale(2).translate(-viewport.chartWidthPx / 4, 0);
        component.maybeUpdateViewport(transform, false);
-       tick(500);
+       tick(TICK_DURATION);
        expect(spy.calls.count()).toBe(1);
        expect(viewport.width).toBe(0.5);
        expect(viewport.left).toBe(0.25);

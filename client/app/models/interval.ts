@@ -29,12 +29,15 @@ export abstract class Interval {
   children: Interval[] = [];
   edges: Interval[][] = [];
   selected = false;
+  duration: number;
 
   constructor(
       public parameters: CollectionParameters, public id: number,
       public cpu = -1, public startTimeNs = parameters.startTimeNs,
       public endTimeNs = startTimeNs, public opacity = 0.9,
-      public minWidth = false) {}
+      public minWidth = false) {
+    this.duration = this.endTimeNs - this.startTimeNs;
+  }
 
   /**
    * Subclass-specific key-value set for tooltip rendering
@@ -48,10 +51,6 @@ export abstract class Interval {
 
   get label() {
     return `${this.dataType}:${this.id}`;
-  }
-
-  get duration() {
-    return this.endTimeNs - this.startTimeNs;
   }
 
   /**

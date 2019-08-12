@@ -92,6 +92,7 @@ func (tib *threadIntervalBuilder) fetchAndReset() *Interval {
 			Duration:            tib.duration,
 			CPU:                 tib.cpu,
 			MergedIntervalCount: tib.mergedIntervalCount,
+			ThreadResidencies:   []*ThreadResidency{},
 		}
 		// Add residencies in a fixed order.
 		for _, state := range []ThreadState{RunningState, SleepingState, UnknownState, WaitingState} {
@@ -99,6 +100,7 @@ func (tib *threadIntervalBuilder) fetchAndReset() *Interval {
 				ret.ThreadResidencies = append(ret.ThreadResidencies, tr)
 			}
 		}
+
 	}
 	tib.startTimestamp = UnknownTimestamp
 	tib.duration = UnknownDuration
@@ -218,19 +220,21 @@ func (c *Collection) ThreadIntervals(filters ...Filter) ([]*Interval, error) {
 }
 
 type cpuIntervalBuilder struct {
-	f                   *filter
-	startTimestamp      trace.Timestamp
-	duration            Duration
-	cpu                 CPUID
-	waitingPIDs         map[PID]struct{}
-	runningPID          PID
-	threadResidencies   map[ThreadState]map[PID]*ThreadResidency
-	mergedIntervalCount int
+	f                       *filter
+	splitOnWaitingPIDChange bool
+	startTimestamp          trace.Timestamp
+	duration                Duration
+	cpu                     CPUID
+	waitingPIDs             map[PID]struct{}
+	runningPID              PID
+	threadResidencies       map[ThreadState]map[PID]*ThreadResidency
+	mergedIntervalCount     int
 }
 
-func (c *Collection) newCPUIntervalBuilder(f *filter) *cpuIntervalBuilder {
+func (c *Collection) newCPUIntervalBuilder(splitOnWaitingPIDChange bool, f *filter) *cpuIntervalBuilder {
 	cib := &cpuIntervalBuilder{
-		f: f,
+		f:                       f,
+		splitOnWaitingPIDChange: splitOnWaitingPIDChange,
 	}
 	cib.fetchAndReset()
 	return cib
@@ -244,6 +248,7 @@ func (cib *cpuIntervalBuilder) fetchAndReset() *Interval {
 			Duration:            cib.duration,
 			CPU:                 cib.cpu,
 			MergedIntervalCount: cib.mergedIntervalCount,
+			ThreadResidencies:   []*ThreadResidency{},
 		}
 		// Add residencies in a fixed order.
 		for _, state := range []ThreadState{RunningState, SleepingState, UnknownState, WaitingState} {
@@ -299,10 +304,31 @@ func (cib *cpuIntervalBuilder) addElementaryInterval(eci *ElementaryCPUInterval)
 	}
 	var ret *Interval
 	cpuState := eci.CPUStates[0]
+	// The ongoing CPU interval may be split if the running PID changes
+	split := false
+	if (cpuState.Running != nil || cib.runningPID != UnknownPID) &&
+		((cpuState.Running == nil && cib.runningPID != UnknownPID) ||
+			(cpuState.Running != nil && cib.runningPID == UnknownPID) ||
+			(cpuState.Running.PID != cib.runningPID)) {
+		split = true
+	}
+	if cib.splitOnWaitingPIDChange {
+		if len(cpuState.Waiting) != len(cib.waitingPIDs) {
+			split = true
+		} else {
+			for _, t := range cpuState.Waiting {
+				if _, ok := cib.waitingPIDs[t.PID]; !ok {
+					split = true
+					break
+				}
+			}
+		}
+	}
 	// If the current interval is already long enough and a split is in order,
 	// emit it.
 	if cib.duration != UnknownDuration &&
-		cib.duration+eci.duration() > cib.f.minIntervalDuration {
+		cib.duration+eci.duration() > cib.f.minIntervalDuration &&
+		split {
 		ret = cib.fetchAndReset()
 	}
 	// If there's no interval currently being built, set one up.
@@ -341,7 +367,9 @@ func (cib *cpuIntervalBuilder) addElementaryInterval(eci *ElementaryCPUInterval)
 
 // CPUIntervals returns a slice of Intervals representing, in increasing
 // temporal order, the filtered-in scheduling intervals pertaining to a single
-// CPU.  Intervals are split on a change of running thread.
+// CPU.  Intervals are split on a change of running thread and, if
+// splitOnWaitingPIDChange is true, when a thread starts or stops waiting on
+// the CPU.
 // If the filter specifies to truncate to time range, intervals spanning one
 // or both extremities of the filtered-in time range will be truncated to the
 // extremities; otherwise they will be left whole.  The latter can be useful
@@ -353,10 +381,10 @@ func (cib *cpuIntervalBuilder) addElementaryInterval(eci *ElementaryCPUInterval)
 // Interval will reflect what PIDs held what states on the CPU, and for how
 // long, but not precisely when.
 // The filter must specify exactly one CPU.
-func (c *Collection) CPUIntervals(filters ...Filter) ([]*Interval, error) {
+func (c *Collection) CPUIntervals(splitOnWaitingPIDChange bool, filters ...Filter) ([]*Interval, error) {
 	f := buildFilter(c, filters)
 	if len(f.cpus) > 1 {
-		return nil, status.Errorf(codes.InvalidArgument, "exactly one CPU required for CPUIntervals")
+		return nil, status.Errorf(codes.InvalidArgument, "exactly one CPU required for Intervals")
 	}
 	provider, err := c.NewElementaryCPUIntervalProvider(false /*=diffOutput*/, filters...)
 	if err != nil {
@@ -366,7 +394,7 @@ func (c *Collection) CPUIntervals(filters ...Filter) ([]*Interval, error) {
 	if len(f.cpus) == 0 {
 		return ret, nil
 	}
-	cib := c.newCPUIntervalBuilder(f)
+	cib := c.newCPUIntervalBuilder(splitOnWaitingPIDChange, f)
 	for {
 		elemInterval, err := provider.NextInterval()
 		if err != nil {

@@ -17,6 +17,7 @@
 import {CollectionParameters} from './collection';
 import {CpuInterval} from './cpu_intervals';
 import {Interval} from './interval';
+import {ThreadState} from './render_data_services';
 import {ThreadEvent} from './thread_event';
 import {ThreadInterval} from './thread_intervals';
 
@@ -45,8 +46,17 @@ export class Thread extends Interval {
     // Add a full-width interval for each CPU, for preview rendering.
     for (const cpu of cpus) {
       this.addChild(new CpuInterval(
-          parameters, cpu, parameters.startTimeNs, parameters.endTimeNs,
-          command));
+          parameters, cpu, parameters.startTimeNs, parameters.endTimeNs, [{
+            thread: {
+              pid: this.pid,
+              command,
+              priority: 0,
+            },
+            duration: parameters.endTimeNs - parameters.startTimeNs,
+            state: ThreadState.RUNNING_STATE,
+            droppedEventIDs: [],
+            includesSyntheticTransitions: false,
+          }]));
     }
   }
 

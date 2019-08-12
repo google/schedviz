@@ -18,10 +18,10 @@ import {HttpErrorResponse} from '@angular/common/http';
 import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Inject, Input, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import * as d3 from 'd3';
-import {BehaviorSubject, from, of, Subject, Subscription} from 'rxjs';
+import {BehaviorSubject, from, of, Subscription} from 'rxjs';
 import {debounceTime, mergeMap, pairwise} from 'rxjs/operators';
 
-import {CollectionParameters, CpuInterval, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, WaitingCpuInterval, WaitingThreadInterval} from '../models';
+import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, WaitingCpuInterval, WaitingThreadInterval} from '../models';
 import {RenderDataService} from '../services/render_data_service';
 import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
 import {nearlyEquals} from '../util/helpers';
@@ -69,7 +69,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   @Input() showSleeping!: BehaviorSubject<boolean>;
 
   visibleCpus = new BehaviorSubject<number[]>([]);
-  baseIntervals: CpuInterval[] = [];
+  baseIntervals: CpuIntervalCollection[] = [];
 
   cpuRunLayer!: BehaviorSubject<CpuRunningLayer>;
   cpuWaitQueueLayer!: BehaviorSubject<CpuWaitQueueLayer>;
@@ -80,8 +80,6 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   pendingLayerCount = 0;
 
   // Zoom logic
-  /** Debounced observer notifies for interval fetch on zoom changes. */
-  zoomChanged = new Subject<Viewport>();
   /** Last seen zoom transform for computing viewport delta on zoom change. */
   lastTransform: d3.ZoomTransform = d3.zoomIdentity;
   /** TODO(sainsley): Hook up controls in thread list in follow-up CL */
@@ -162,7 +160,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
         });
     this.maxIntervalCount
         .pipe(debounceTime(300))  // wait at least 300ms between emits
-        .subscribe(size => {
+        .subscribe(() => {
           this.pendingLayerCount = 0;
           // Refresh layer data on viewport change
           this.refreshLayers(this.viewport.value,
@@ -383,7 +381,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                     this.baseIntervals = intervals;
                   }
                   this.setCpuIntervals(intervals);
-                  this.pendingLayerCount--;
+                  this.decrementPendingLayerCount();
                   if (!this.loading) {
                     // Update loading indicator
                     this.cdr.detectChanges();
@@ -399,22 +397,17 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   /**
    * Updates the interval set for the CPU run/wait layers
    */
-  setCpuIntervals(intervals: CpuInterval[]) {
+  setCpuIntervals(intervals: CpuIntervalCollection[]) {
     const cpuRunLayer = this.cpuRunLayer.value;
     const cpuWaitLayer = this.cpuWaitQueueLayer.value;
     cpuRunLayer.initialized = true;
     cpuWaitLayer.initialized = true;
     // Store new set of running CPU intervals
-    cpuRunLayer.intervals = intervals;
+    cpuRunLayer.intervals = intervals.reduce(
+        (acc, i) => [...acc, ...i.running], new Array<CpuInterval>());
     // Filter out and store new set of waiting CPU intervals
-    const waitIntervals =
-        intervals.filter(interval => interval.waitingPidCount).map(interval => {
-          return new WaitingCpuInterval(
-              interval.parameters, interval.cpu, interval.startTimeNs,
-              interval.endTimeNs, interval.command, interval.waitingPidCount,
-              interval.runningPid, interval.waitingPidList);
-        });
-    cpuWaitLayer.intervals = waitIntervals;
+    cpuWaitLayer.intervals = intervals.reduce(
+        (acc, i) => [...acc, ...i.waiting], new Array<WaitingCpuInterval>());
     // Mark layer as ready for redraw.
     this.cpuRunLayer.next(cpuRunLayer);
     this.cpuWaitQueueLayer.next(cpuWaitLayer);
@@ -447,7 +440,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
             }))
             .subscribe(
                 layer => {
-                  if (!layer || !(layer instanceof Layer)) {
+                  if (!layer) {
                     return;
                   }
                   this.onLayerDataReady(layers, layer);
@@ -503,7 +496,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
     if (layerSub) {
       layerSub.next(layer);
     }
-    this.pendingLayerCount--;
+    this.decrementPendingLayerCount();
   }
 
   /**
@@ -598,6 +591,10 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   get loading() {
     // TODO(sainsley): Just listen for loading subject
     return this.pendingLayerCount !== 0;
+  }
+
+  decrementPendingLayerCount() {
+    this.pendingLayerCount = Math.max(0, this.pendingLayerCount - 1);
   }
 
   // TODO(sainsley): Remove these in favor of subscribing to CPU filter

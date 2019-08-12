@@ -15,7 +15,6 @@
 //
 //
 import {CpuInterval} from './cpu_intervals';
-import {Interval} from './interval';
 import {Layer} from './layer';
 
 // White: Used for intervals with maximum number of waiting threads
@@ -43,15 +42,14 @@ export class CpuRunningLayer extends Layer {
     }
     // Compute the min and max waiting pid counts, set interval intensity
     // based on reweighted wait metric on a logarithmic scale
-    const minWaitMetric = cpuIntervals.reduce(
-        (min, interval) =>
-            interval.waitingPidCount !== 0 && interval.waitingPidCount < min ?
-            interval.waitingPidCount :
-            min,
-        Infinity);
+    const minWaitMetric = cpuIntervals.reduce((min, interval) => {
+      const waitingPidCount = interval.waiting.length;
+      return waitingPidCount !== 0 && waitingPidCount < min ? waitingPidCount :
+                                                              min;
+    }, Infinity);
     const maxWaitMetric = cpuIntervals.reduce(
-        (max, interval) => Math.max(max, interval.waitingPidCount),
-        cpuIntervals[0].waitingPidCount);
+        (max, interval) => Math.max(max, interval.waiting.length),
+        cpuIntervals[0].waiting.length);
     for (const interval of cpuIntervals) {
       if (minWaitMetric !== maxWaitMetric) {
         // Use a log scaling for the waiting pid count relative to the
@@ -60,7 +58,7 @@ export class CpuRunningLayer extends Layer {
         // approaching 1.0 as the interval's waiting pid count approaches min.
         // Interval's intensity is offset from white based on the interval's
         // relative (to max) waiting pid count.
-        const waitRatio = interval.waitingPidCount / maxWaitMetric;
+        const waitRatio = interval.waiting.length / maxWaitMetric;
         const logOffset = waitRatio ?
             Math.log(waitRatio) / Math.log(minWaitMetric / maxWaitMetric) :
             1;

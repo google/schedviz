@@ -20,8 +20,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/schedviz/analysis/schedtestcommon"
+	"github.com/google/go-cmp/cmp"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+
+	"github.com/google/schedviz/analysis/schedtestcommon"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -81,10 +83,6 @@ func TestPIDsAndComms(t *testing.T) {
 			}
 		})
 	}
-}
-
-func threadResidencies(tr ...*ThreadResidency) []*ThreadResidency {
-	return tr
 }
 
 func interval(mergedIntervalCount int, startTimestamp trace.Timestamp, duration Duration, cpu CPUID, threadResidencies ...*ThreadResidency) *Interval {
@@ -265,12 +263,14 @@ func TestCPUIntervals(t *testing.T) {
 		Priority: 50,
 	}
 	tests := []struct {
-		description   string
-		filters       []Filter
-		wantIntervals []*Interval
+		description             string
+		splitOnWaitingPIDChange bool
+		filters                 []Filter
+		wantIntervals           []*Interval
 	}{{
-		description: "cpu 1, whole time range, unmerged",
-		filters:     []Filter{CPUs(1)},
+		description:             "cpu 1, whole time range, unmerged, split on waits",
+		splitOnWaitingPIDChange: true,
+		filters:                 []Filter{CPUs(1)},
 		wantIntervals: []*Interval{
 			interval(
 				1, trace.Timestamp(1000), Duration(10), CPUID(1),
@@ -302,8 +302,31 @@ func TestCPUIntervals(t *testing.T) {
 			),
 		},
 	}, {
-		description: "cpu 2, whole time range, unmerged",
-		filters:     []Filter{CPUs(2)},
+		description:             "cpu 1, whole time range, unmerged, not split on waits",
+		splitOnWaitingPIDChange: false,
+		filters:                 []Filter{CPUs(1)},
+		wantIntervals: []*Interval{
+			interval(
+				1, trace.Timestamp(1000), Duration(10), CPUID(1),
+				threadResidency(thread3, Duration(10), RunningState),
+				threadResidency(thread1, Duration(10), WaitingState),
+			),
+			interval(
+				4, trace.Timestamp(1010), Duration(90), CPUID(1),
+				threadResidency(thread1, Duration(90), RunningState),
+				threadResidency(thread2, Duration(40), WaitingState),
+				threadResidency(thread3, Duration(10), WaitingState),
+			),
+			interval(
+				1, trace.Timestamp(1100), Duration(0), CPUID(1),
+				threadResidency(thread3, Duration(0), RunningState),
+				threadResidency(thread1, Duration(0), WaitingState),
+			),
+		},
+	}, {
+		description:             "cpu 2, whole time range, unmerged, split on waits",
+		splitOnWaitingPIDChange: true,
+		filters:                 []Filter{CPUs(2)},
 		wantIntervals: []*Interval{
 			interval(
 				1, trace.Timestamp(1000), Duration(80), CPUID(2),
@@ -321,8 +344,9 @@ func TestCPUIntervals(t *testing.T) {
 			),
 		},
 	}, {
-		description: "cpu 1, whole time range, merged at 40",
-		filters:     []Filter{CPUs(1), MinIntervalDuration(40)},
+		description:             "cpu 1, whole time range, merged at 40, split on waits",
+		splitOnWaitingPIDChange: true,
+		filters:                 []Filter{CPUs(1), MinIntervalDuration(40)},
 		wantIntervals: []*Interval{
 			interval(
 				2, trace.Timestamp(1000), Duration(40), CPUID(1),
@@ -346,20 +370,12 @@ func TestCPUIntervals(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			gotIntervals, err := coll.CPUIntervals(test.filters...)
+			gotIntervals, err := coll.CPUIntervals(test.splitOnWaitingPIDChange, test.filters...)
 			if err != nil {
 				t.Fatalf("CPUIntervals yielded unexpected error %s", err)
 			}
-			if !reflect.DeepEqual(gotIntervals, test.wantIntervals) {
-				t.Logf("Got:")
-				for _, ti := range gotIntervals {
-					t.Logf("  %s", ti)
-				}
-				t.Logf("Want:")
-				for _, ti := range test.wantIntervals {
-					t.Logf("   %s", ti)
-				}
-				t.Errorf("Unexpected ThreadIntervals output: got %#v, want %#v", gotIntervals, test.wantIntervals)
+			if diff := cmp.Diff(gotIntervals, test.wantIntervals); diff != "" {
+				t.Errorf("Unexpected ThreadIntervals output; Diff -want +got %v", diff)
 			}
 		})
 	}
