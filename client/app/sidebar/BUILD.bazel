@@ -1,3 +1,4 @@
+load("@npm_bazel_typescript//:defs.bzl", "ts_library")
 load("@npm_angular_bazel//:index.bzl", "ng_module")
 
 package(default_visibility = ["//visibility:public"])
@@ -26,6 +27,26 @@ ng_module(
         "@npm//@angular/material",
         "@npm//@angular/platform-browser",
         "@npm//@types/node",
+        "@npm//rxjs",
+    ],
+)
+
+ts_library(
+    name = "sidebar_tests",
+    testonly = True,
+    srcs = ["sidebar_test.ts"],
+    deps = [
+        ":sidebar",
+        "//client/app/models",
+        "//client/app/services",
+        "//client/app/sidebar/thread_table:thread_table_tests",
+        "//client/app/util",
+        "@npm//@angular/common",
+        "@npm//@angular/core",
+        "@npm//@angular/forms",
+        "@npm//@angular/material",
+        "@npm//@angular/platform-browser-dynamic",
+        "@npm//@types/jasmine",
         "@npm//rxjs",
     ],
 )
