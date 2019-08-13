@@ -48,30 +48,41 @@ func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUInterv
 
 	res := models.CPUIntervalsResponse{
 		CollectionName: req.CollectionName,
-		Intervals:      []models.CPUIntervals{},
+		Intervals:      make([]models.CPUIntervals, len(req.CPUs)),
 	}
 
-	for _, cpu := range req.CPUs {
+	var g errgroup.Group
+	for i, cpu := range req.CPUs {
+		i := i
 		filters := []sched.Filter{
 			sched.TimeRange(trace.Timestamp(req.StartTimestampNs), trace.Timestamp(req.EndTimestampNs)),
 			sched.MinIntervalDuration(sched.Duration(req.MinIntervalDurationNs)),
 			sched.CPUs(sched.CPUID(cpu)),
 		}
-		cpuIntervals, err := c.Collection.CPUIntervals(false /*=splitOnWaitingPIDChange*/, filters...)
-		if err != nil {
-			return models.CPUIntervalsResponse{}, err
-		}
 
-		waitingIntervals, err := c.Collection.CPUIntervals(true /*=splitOnWaitingPIDChange*/, filters...)
-		if err != nil {
-			return models.CPUIntervalsResponse{}, err
-		}
+		res.Intervals[i].CPU = cpu
 
-		res.Intervals = append(res.Intervals, models.CPUIntervals{
-			CPU:     cpu,
-			Running: cpuIntervals,
-			Waiting: waitingIntervals,
+		g.Go(func() error {
+			cpuIntervals, err := c.Collection.CPUIntervals(false /*=splitOnWaitingPIDChange*/, filters...)
+			if err != nil {
+				return err
+			}
+			res.Intervals[i].Running = cpuIntervals
+			return nil
 		})
+
+		g.Go(func() error {
+			waitingIntervals, err := c.Collection.CPUIntervals(true /*=splitOnWaitingPIDChange*/, filters...)
+			if err != nil {
+				return err
+			}
+			res.Intervals[i].Waiting = waitingIntervals
+			return nil
+		})
+
+	}
+	if err := g.Wait(); err != nil {
+		return models.CPUIntervalsResponse{}, err
 	}
 
 	return res, nil
@@ -89,14 +100,12 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 
 	res := models.PIDntervalsResponse{
 		CollectionName: req.CollectionName,
-		PIDIntervals:   []models.PIDIntervals{},
+		PIDIntervals:   make([]models.PIDIntervals, len(req.Pids)),
 	}
 
 	var g errgroup.Group
-	var m sync.Mutex
-	for _, pid := range req.Pids {
-		// Create a copy of pid
-		pid := pid
+	for i, pid := range req.Pids {
+		i, pid := i, pid
 		g.Go(func() error {
 			pidIntervals, err := c.Collection.ThreadIntervals(
 				sched.PIDs(sched.PID(pid)),
@@ -106,12 +115,10 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 			if err != nil {
 				return fmt.Errorf("error occurred getting intervals for PID: %d, %v", pid, err)
 			}
-			m.Lock()
-			defer m.Unlock()
-			res.PIDIntervals = append(res.PIDIntervals, models.PIDIntervals{
+			res.PIDIntervals[i] = models.PIDIntervals{
 				PID:       pid,
 				Intervals: pidIntervals,
-			})
+			}
 			return nil
 		})
 	}
