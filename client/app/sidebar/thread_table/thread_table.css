@@ -140,7 +140,7 @@ mat-cell:last-of-type {
   z-index: 10;
 }
 
-.embeddedTable {
+.embedded-table {
   overflow: hidden;
 }
 
@@ -202,10 +202,16 @@ mat-form-field {
   flex: 0 0 60px;
 }
 
-.expandedControls {
+.expanded-controls {
   float: right;
 }
 
-.expandedDetails {
+.expanded-details {
   float: left;
+}
+
+.trimmed-text {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }

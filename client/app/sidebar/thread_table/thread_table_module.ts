@@ -20,6 +20,7 @@ import {MatBadgeModule} from '@angular/material/badge';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCardModule} from '@angular/material/card';
 import {MatCheckboxModule} from '@angular/material/checkbox';
+import {MAT_HAMMER_OPTIONS} from '@angular/material/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -64,6 +65,13 @@ import {ThreadTable} from './thread_table';
     MatBadgeModule,
     MatSlideToggleModule,
     MatTooltipModule,
+  ],
+  providers: [
+    {
+      provide: MAT_HAMMER_OPTIONS,
+      // Allow for selection of items underneath tooltips
+      useValue: {cssProps: {userSelect: true}},
+    },
   ],
 })
 export class ThreadTableModule {

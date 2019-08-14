@@ -36,7 +36,7 @@
     </mat-icon>
   </button>
 
-  <mat-table [class.embeddedTable]="embedded"
+  <mat-table [class.embedded-table]="embedded"
              [dataSource]="dataSource"
              matSort (matSortChange)="this.sort.next($event)"
              [matSortActive]="sort.value.active"
@@ -139,7 +139,7 @@
         <div class="thread-detail" *ngIf="!embedded"
              [@detailExpand]="thread === expandedThread.value ? 'expanded' : 'collapsed'">
           <div *ngIf="thread === expandedThread.value">
-            <div class="expandedControls">
+            <div class="expanded-controls">
               <mat-form-field>
                 <input matInput
                        matTooltip="Allowed units are nanoseconds, microseconds, milliseconds, seconds, minutes, and hours. The events table will be sorted by start time whenever the jump time is changed."
@@ -158,7 +158,7 @@
                 Advance antagonists
               </mat-slide-toggle>
             </div>
-            <div class="expandedDetails">
+            <div class="expanded-details">
               <event-table class="detail-table"
                            [data]="expandedFtraceIntervals"
                            [preview]="preview"
