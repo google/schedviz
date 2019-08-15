@@ -54,6 +54,7 @@ export class Sidebar implements OnInit, OnDestroy {
   expandedFtraceIntervals = new BehaviorSubject<FtraceInterval[]>([]);
   expandedThreadAntagonists = new BehaviorSubject<ThreadInterval[]>([]);
   selectedSchedEvents = new BehaviorSubject<SchedEvent[]>([]);
+  eventTypesSubject = new BehaviorSubject<string[]>([]);
   threads = new BehaviorSubject<Thread[]>([]);
   threadsPending = true;
 
@@ -115,6 +116,12 @@ export class Sidebar implements OnInit, OnDestroy {
             this.getThreadSummaries(parameters, viewport);
           }
         });
+
+    const parameters = this.parameters.value;
+    if (parameters) {
+      this.eventTypesSubject.next(parameters.ftraceEventTypes);
+    }
+
   }
 
   ngOnDestroy() {

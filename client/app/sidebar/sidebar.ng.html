@@ -15,6 +15,15 @@
         [tab]="tab">
       </thread-table>
     </mat-tab>
+    <mat-tab label="Events">
+      <sched-events-table
+        [preview]="preview"
+        [layers]="layers"
+        [data]="eventTypesSubject"
+        [sort]="sort"
+        [tab]="tab">
+      </sched-events-table>
+    </mat-tab>
     <mat-tab>
       <ng-template mat-tab-label>
         <mat-icon class="layers-badge-icon"
