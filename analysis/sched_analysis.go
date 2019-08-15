@@ -87,8 +87,8 @@ func (ab *antagonistBuilder) RecordAntagonism(waiting, antagonist *threadSpan) e
 		startTimestamp = ab.startTimestamp
 	}
 
-	endTimestamp := antagonist.endTimestamp
-	if endTimestamp < antagonist.endTimestamp {
+	endTimestamp := waiting.endTimestamp
+	if endTimestamp > antagonist.endTimestamp {
 		endTimestamp = antagonist.endTimestamp
 	}
 	if endTimestamp > ab.endTimestamp {

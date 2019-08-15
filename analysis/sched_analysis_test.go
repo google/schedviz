@@ -162,7 +162,7 @@ func TestAntagonists(t *testing.T) {
 				},
 				CPU:            1,
 				StartTimestamp: 1040,
-				EndTimestamp:   1100,
+				EndTimestamp:   1080,
 			}, {
 				RunningThread: Thread{
 					PID:      400,
