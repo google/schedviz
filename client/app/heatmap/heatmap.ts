@@ -18,8 +18,8 @@ import {HttpErrorResponse} from '@angular/common/http';
 import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Inject, Input, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import * as d3 from 'd3';
-import {BehaviorSubject, from, of, Subscription} from 'rxjs';
-import {debounceTime, mergeMap, pairwise} from 'rxjs/operators';
+import {BehaviorSubject, from, merge, Subscription} from 'rxjs';
+import {buffer, debounceTime, mergeMap, pairwise, take} from 'rxjs/operators';
 
 import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
 import {ThreadState} from '../models/render_data_services';
@@ -417,7 +417,8 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   /**
    * Fetches PID intervals for visible thread layers on viewport change.
    */
-  fetchPidIntervals(layers: Array<BehaviorSubject<Layer>>, viewport: Viewport) {
+  fetchPidIntervals(
+      layerSubjs: Array<BehaviorSubject<Layer>>, viewport: Viewport) {
     if (this.pidIntervalSubscription) {
       this.pidIntervalSubscription.unsubscribe();
     }
@@ -425,28 +426,40 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
       return;
     }
     const params = this.parameters.value;
-    this.pendingLayerCount += layers.length;
+    this.pendingLayerCount += layerSubjs.length;
     this.pidIntervalSubscription =
-        from(layers)
-            .pipe(mergeMap(layerSubj => {
-              const layer = layerSubj.value;
-              // Filter out PID 0, which can't have pid intervals
-              layer.ids = layer.ids.filter(id => id !== 0);
-              if (!layer.ids.length) {
-                return of(null);
-              }
-              return this.renderDataService.getPidIntervals(
-                  params, layer, viewport,
-                  this.getMinIntervalWidthNs(viewport));
-            }))
+        merge(...layerSubjs)
+            .pipe(
+                buffer(merge(...layerSubjs).pipe(debounceTime(100))),
+                mergeMap(layers => {
+                  layers = layers
+                               .map(layer => {
+                                 // Filter out PID 0, which can't have pid
+                                 // intervals
+                                 layer.ids = layer.ids.filter(id => id !== 0);
+                                 if (!layer.ids.length) {
+                                   return null;
+                                 }
+                                 return layer;
+                               })
+                               .filter((x): x is Layer => x != null);
+                  return this.renderDataService.getPidIntervals(
+                      params, layers, viewport,
+                      this.getMinIntervalWidthNs(viewport));
+                }),
+                take(1),
+                )
             .subscribe(
-                layer => {
-                  if (!layer) {
+                layers => {
+                  if (!layers.length) {
                     return;
                   }
-                  this.onLayerDataReady(layers, layer);
+                  layers.forEach((layer) => {
+                    this.onLayerDataReady(layerSubjs, layer);
+                  });
                   if (!this.loading) {
-                    this.arrangeWaitingPids(layers.map(layer => layer.value));
+                    this.arrangeWaitingPids(
+                        layerSubjs.map(layer => layer.value));
                     // Force update of loading bar
                     // TODO(sainsley): Remove, if possible.
                     this.cdr.detectChanges();

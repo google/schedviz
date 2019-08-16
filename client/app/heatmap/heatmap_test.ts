@@ -24,7 +24,7 @@ import {BehaviorSubject, of} from 'rxjs';
 import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval} from '../models';
 import * as services from '../models/render_data_services';
 import {LocalMetricsService} from '../services/metrics_service';
-import {LocalRenderDataService} from '../services/render_data_service';
+import {LocalRenderDataService, RenderDataService} from '../services/render_data_service';
 import {SystemTopology, Viewport} from '../util';
 
 import {Heatmap} from './heatmap';
@@ -286,7 +286,7 @@ describe('Heatmap', () => {
             '  (100%) 3:test4 ');
   });
 
-  it('should fetch PID intervals on thread layer added', () => {
+  it('should fetch PID intervals on thread layer added', async () => {
     const fixture = TestBed.createComponent(Heatmap);
     const component = fixture.componentInstance;
     setupHeatmap(component);
@@ -298,6 +298,7 @@ describe('Heatmap', () => {
         new Layer('thread_foo', 'Thread', [1234], green));
     layers.push(newLayer);
     component.layers.next(layers);
+    await fixture.whenStable();
     const fetchedIntervalCount = newLayer.value.intervals.length;
     expect(fetchedIntervalCount).toBe(1728);
     const renderedLayers = element.querySelectorAll('.layersGroup');
@@ -310,6 +311,30 @@ describe('Heatmap', () => {
       expect(Number(d3.select(interval).attr('rx'))).toBeGreaterThan(0);
     }
   });
+
+  it('should make only one request when multiple PID layers are added at once',
+     async () => {
+       const fixture = TestBed.createComponent(Heatmap);
+       const component = fixture.componentInstance;
+       setupHeatmap(component);
+       fixture.detectChanges();
+
+       const renderDataService =
+           TestBed.get('RenderDataService') as RenderDataService;
+       const requestSpy =
+           spyOn(renderDataService, 'getPidIntervals').and.callThrough();
+
+       const layers = component.layers.value;
+       layers.push(new BehaviorSubject<Layer>(
+           new Layer('thread_foo', 'Thread', [1234], 'rgb(0, 255, 0)')));
+       layers.push(new BehaviorSubject<Layer>(
+           new Layer('thread_bar', 'Thread', [4321], 'rgb(255, 0, 0)')));
+       component.layers.next(layers);
+
+       await fixture.whenStable();
+
+       expect(requestSpy).toHaveBeenCalledTimes(1);
+     });
 
   it('should fetch sched events on event layer added', () => {
     const fixture = TestBed.createComponent(Heatmap);

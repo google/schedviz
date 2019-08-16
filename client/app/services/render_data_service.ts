@@ -33,8 +33,8 @@ export interface RenderDataService {
       minIntervalDuration: number,
       cpus: number[]): Observable<CpuIntervalCollection[]>;
   getPidIntervals(
-      parameters: CollectionParameters, layer: Layer, viewport: Viewport,
-      minIntervalDuration: number): Observable<Layer>;
+      parameters: CollectionParameters, layers: Layer[], viewport: Viewport,
+      minIntervalDuration: number): Observable<Layer[]>;
   getSchedEvents(
       parameters: CollectionParameters, layer: Layer, viewport: Viewport,
       cpus: number[]): Observable<Layer>;
@@ -88,9 +88,10 @@ export class HttpRenderDataService implements RenderDataService {
 
   /** Get PID intervals from the server via POST */
   getPidIntervals(
-      parameters: CollectionParameters, layer: Layer, viewport: Viewport,
-      minIntervalDuration: number): Observable<Layer> {
-    const pidList = layer.ids;
+      parameters: CollectionParameters, layers: Layer[], viewport: Viewport,
+      minIntervalDuration: number): Observable<Layer[]> {
+    const pidList = layers.map(layer => layer.ids)
+                        .reduce((acc, curr) => [...acc, ...curr], []);
     const leftNs = Math.floor(
         viewport.left * (parameters.endTimeNs - parameters.startTimeNs));
     const rightNs = Math.ceil(
@@ -133,8 +134,21 @@ export class HttpRenderDataService implements RenderDataService {
             map(nestedIntervals =>
                     new Array<ThreadInterval>().concat(...nestedIntervals)),
             map(intervals => {
-              layer.intervals = intervals;
-              return layer;
+              const intervalMap: {[k: number]: ThreadInterval[]} = {};
+              intervals.forEach(ival => {
+                intervalMap[ival.pid] =
+                    [...(intervalMap[ival.pid] || []), ival];
+              });
+              return intervalMap;
+            }),
+            map(intervalMap => {
+              for (const layer of layers) {
+                layer.intervals = [];
+                for (const pid of layer.ids) {
+                  layer.intervals = [...layer.intervals, ...intervalMap[pid]];
+                }
+              }
+              return layers;
             }),
         );
   }
@@ -238,33 +252,35 @@ export class LocalRenderDataService implements RenderDataService {
 
   /** Returns set of mock Intervals for a few CPUs */
   getPidIntervals(
-      parameters: CollectionParameters, layer: Layer, viewport: Viewport,
-      minIntervalDuration: number): Observable<Layer> {
+      parameters: CollectionParameters, layers: Layer[], viewport: Viewport,
+      minIntervalDuration: number): Observable<Layer[]> {
     const intervals = [];
     const cpuCount = parameters.size;
-    for (let i = 0; i < cpuCount; i++) {
-      const cpu = Math.floor(Math.random() * parameters.size);
-      let timestamp = parameters.startTimeNs;
-      let prevTimestamp = timestamp;
-      while (timestamp < parameters.endTimeNs) {
-        const pid = Math.floor(Math.random() * 5000);
-        prevTimestamp = timestamp;
-        const delta = minIntervalDuration;
-        timestamp += delta;
-        timestamp = Math.min(timestamp, parameters.endTimeNs);
-        const interval = new ThreadInterval(
-            parameters, cpu, prevTimestamp, timestamp, pid, 'bar', [{
-              thread: {command: 'foo', pid: 0, priority: 100},
-              state: services.ThreadState.RUNNING_STATE,
-              duration: timestamp - prevTimestamp,
-              droppedEventIDs: [],
-              includesSyntheticTransitions: false,
-            }]);
-        intervals.push(interval);
+    for (const layer of layers) {
+      for (let i = 0; i < cpuCount; i++) {
+        const cpu = Math.floor(Math.random() * parameters.size);
+        let timestamp = parameters.startTimeNs;
+        let prevTimestamp = timestamp;
+        while (timestamp < parameters.endTimeNs) {
+          const pid = Math.floor(Math.random() * 5000);
+          prevTimestamp = timestamp;
+          const delta = minIntervalDuration;
+          timestamp += delta;
+          timestamp = Math.min(timestamp, parameters.endTimeNs);
+          const interval = new ThreadInterval(
+              parameters, cpu, prevTimestamp, timestamp, pid, 'bar', [{
+                thread: {command: 'foo', pid: 0, priority: 100},
+                state: services.ThreadState.RUNNING_STATE,
+                duration: timestamp - prevTimestamp,
+                droppedEventIDs: [],
+                includesSyntheticTransitions: false,
+              }]);
+          intervals.push(interval);
+        }
       }
+      layer.intervals = intervals;
     }
-    layer.intervals = intervals;
-    return of(layer);
+    return of(layers);
   }
 
   getSchedEvents(
