@@ -28,7 +28,7 @@ import {Interval} from '../../models';
 
 import {AntagonistTable} from './antagonist_table';
 import {setupAntagonistTable} from './antagonist_table_test';
-import {jumpToTime} from './jump_to_time';
+import {jumpToRow, jumpToTime} from './jump_to_time';
 import {mockThreads} from './table_helpers_test';
 import {ThreadTableModule} from './thread_table_module';
 
@@ -43,7 +43,7 @@ try {
  * Asserts that given table has been jumped to the proper page, such that there
  * is an element with a start time after the targeted jump time.
  */
-function expectIntervalOnPage(
+function expectIntervalOnPageByTimestamp(
     inputIntervals: Interval[], tableData: Interval[], paginator: MatPaginator,
     timeNs: number) {
   const expectedInterval =
@@ -60,6 +60,23 @@ function expectIntervalOnPage(
   const pageData = tableData.slice(pageStartIndex, pageEndIndex);
 
   expect(pageData).toContain(expectedInterval!);
+}
+
+/**
+ * Asserts that given table has been jumped to the proper page, such that there
+ * is an element with the same row number as the targeted jump row.
+ */
+function expectIntervalOnPageByRow(
+    tableData: Interval[], paginator: MatPaginator, rowNumber: number) {
+  const expectedInterval = tableData[rowNumber];
+
+  expect(expectedInterval).toBeDefined();
+
+  const pageStartIndex = paginator.pageIndex * paginator.pageSize;
+  const pageEndIndex = pageStartIndex + paginator.pageSize;
+
+  expect(rowNumber).toBeGreaterThanOrEqual(pageStartIndex);
+  expect(rowNumber).toBeLessThanOrEqual(pageEndIndex);
 }
 
 describe('jumpToTime', () => {
@@ -89,19 +106,49 @@ describe('jumpToTime', () => {
     // jump forward
     const firstJumpNs = 3000;
     jumpToTime(table, firstJumpNs);
-    expectIntervalOnPage(
+    expectIntervalOnPageByTimestamp(
         threads, table.filteredData, table.paginator!, firstJumpNs);
 
     // jump to end
-    const secondJumpMs = 1000000000;
-    jumpToTime(table, secondJumpMs);
+    const secondJumpNs = 1000000000;
+    jumpToTime(table, secondJumpNs);
     expect(table.paginator!.hasNextPage()).toBeFalsy();
 
     // jump back to start
-    const thirdJumpMs = 0;
-    jumpToTime(table, thirdJumpMs);
-    expectIntervalOnPage(
-        threads, table.filteredData, table.paginator!, thirdJumpMs);
+    const thirdJumpNs = 0;
+    jumpToTime(table, thirdJumpNs);
+    expectIntervalOnPageByTimestamp(
+        threads, table.filteredData, table.paginator!, thirdJumpNs);
+  });
+
+  it('should jump to row', async () => {
+    const fixture = TestBed.createComponent(AntagonistTable);
+    const component = fixture.componentInstance;
+    setupAntagonistTable(component);
+    fixture.detectChanges();
+
+    const threads = mockThreads();
+    component.data.next(threads);
+    const table = component.dataSource;
+    await fixture.whenStable();
+    await fixture.whenRenderingDone();
+
+    // jump forward
+    const firstJumpRow = 250;
+    jumpToRow(table, firstJumpRow);
+    expectIntervalOnPageByRow(
+        table.filteredData, table.paginator!, firstJumpRow);
+
+    // jump to end
+    const secondJumpRow = 500;
+    jumpToRow(table, secondJumpRow);
+    expect(table.paginator!.hasNextPage()).toBeFalsy();
+
+    // jump back to start
+    const thirdJumpRow = 0;
+    jumpToRow(table, thirdJumpRow);
+    expectIntervalOnPageByRow(
+        table.filteredData, table.paginator!, thirdJumpRow);
   });
 
   it('should enforce sorting', () => {

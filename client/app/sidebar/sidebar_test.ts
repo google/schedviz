@@ -46,13 +46,14 @@ const VIEWPORT_UPDATE_DEBOUNCE_MS = 1000;
 function setupSidebar(component: Sidebar) {
   component.parameters = new BehaviorSubject<CollectionParameters|undefined>(
       new CollectionParameters('collection_params', [], 0, 100));
+  component.expandedThread = new BehaviorSubject<string|undefined>(undefined);
   component.systemTopology = new SystemTopology([]);
   component.preview = new BehaviorSubject<Interval|undefined>(undefined);
   component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
   component.viewport = new BehaviorSubject<Viewport>(new Viewport());
   component.viewport.value.updateSize(50, 50);
   component.tab = new BehaviorSubject<number>(0);
-  component.sort = new BehaviorSubject<Sort>({active: '', direction: ''});
+  component.threadSort = new BehaviorSubject<Sort>({active: '', direction: ''});
   component.filter = new BehaviorSubject<string>('');
   component.showMigrations = new BehaviorSubject<boolean>(true);
   component.showSleeping = new BehaviorSubject<boolean>(true);
@@ -139,7 +140,7 @@ describe('Sidebar', () => {
         jasmine.createSpy('expandedFtraceIntervalsSpy');
     component.expandedFtraceIntervals.subscribe(expandedFtraceIntervalsSpy);
     const threadToExpand = component.threads.value[3];
-    component.expandedThread.next(threadToExpand);
+    component.expandedThread.next(threadToExpand.label);
 
     expect(expandedFtraceIntervalsSpy).toHaveBeenCalled();
     expect(expandedFtraceIntervalsSpy)
@@ -185,7 +186,7 @@ describe('Sidebar', () => {
 
        // Failed request should occur during thread expansion
        const threadToExpand = component.threads.value[0];
-       component.expandedThread.next(threadToExpand);
+       component.expandedThread.next(threadToExpand.label);
 
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
        const actualError = snackBarSpy.calls.mostRecent().args[0];
@@ -208,7 +209,7 @@ describe('Sidebar', () => {
 
        // Failed request should occur during thread expansion
        const threadToExpand = component.threads.value[2];
-       component.expandedThread.next(threadToExpand);
+       component.expandedThread.next(threadToExpand.label);
 
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
        const actualError = snackBarSpy.calls.mostRecent().args[0];

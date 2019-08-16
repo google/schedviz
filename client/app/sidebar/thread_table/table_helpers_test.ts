@@ -154,6 +154,7 @@ export function mockThreads(): Thread[] {
   return threadData;
 }
 
+
 function mockParameters(): CollectionParameters {
   const startTime = 1540768090000;
   const endTime = 1540768139000;

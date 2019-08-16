@@ -43,14 +43,14 @@ export class Sidebar implements OnInit, OnDestroy {
   @Input() layers!: BehaviorSubject<Array<BehaviorSubject<Layer>>>;
   @Input() viewport!: BehaviorSubject<Viewport>;
   @Input() tab!: BehaviorSubject<number>;
-  @Input() sort!: BehaviorSubject<Sort>;
   @Input() filter!: BehaviorSubject<string>;
+  @Input() threadSort!: BehaviorSubject<Sort>;
   @Input() showMigrations!: BehaviorSubject<boolean>;
   @Input() showSleeping!: BehaviorSubject<boolean>;
   @Input() maxIntervalCount!: BehaviorSubject<number>;
   @Input() cpuFilter!: BehaviorSubject<string>;
+  @Input() expandedThread!: BehaviorSubject<string|undefined>;
 
-  expandedThread = new BehaviorSubject<Thread|undefined>(undefined);
   expandedFtraceIntervals = new BehaviorSubject<FtraceInterval[]>([]);
   expandedThreadAntagonists = new BehaviorSubject<ThreadInterval[]>([]);
   selectedSchedEvents = new BehaviorSubject<SchedEvent[]>([]);
@@ -99,8 +99,11 @@ export class Sidebar implements OnInit, OnDestroy {
     if (!this.cpuFilter) {
       throw new Error('Missing Observable for cpu filter');
     }
-    if (!this.sort) {
-      throw new Error('Missing Observable for table sort');
+    if (!this.threadSort) {
+      throw new Error('Missing Observable for thread table sort');
+    }
+    if (!this.expandedThread) {
+      throw new Error('Missing Observable for expandedThread');
     }
     // Fetch expanded thread data (if missing) on expanded thread change
     this.expandedThread.subscribe((thread) => {
@@ -153,6 +156,13 @@ export class Sidebar implements OnInit, OnDestroy {
             .subscribe(
                 threads => {
                   this.threads.next(threads);
+                  // Recompute expanded threads if the currently expanded thread
+                  // is also in the new thread list.
+                  if (threads.find(
+                          t => t.label &&
+                              t.label === this.expandedThread.value)) {
+                    this.expandedThread.next(this.expandedThread.value);
+                  }
                   this.threadsPending = false;
                 },
                 (err: HttpErrorResponse) => {
@@ -166,9 +176,14 @@ export class Sidebar implements OnInit, OnDestroy {
   /**
    * Fetches any missing thread data info on expanded thread change.
    */
-  getExpandedThreadData(thread: Thread|undefined) {
+  getExpandedThreadData(threadLabel: string|undefined) {
     const parameters = this.parameters.value;
-    if (!thread || !parameters) {
+    const threads = this.threads.value;
+    if (!threadLabel || !parameters || !threads) {
+      return;
+    }
+    const thread = threads.find(t => t.label === threadLabel);
+    if (!thread) {
       return;
     }
     // Fetch events, if missing

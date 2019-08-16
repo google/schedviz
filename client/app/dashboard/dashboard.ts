@@ -17,11 +17,11 @@
 import {HttpErrorResponse} from '@angular/common/http';
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Inject, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
-import {Sort} from '@angular/material/sort';
+import {Sort, SortDirection} from '@angular/material/sort';
 import {BehaviorSubject, merge} from 'rxjs';
 import {switchMap} from 'rxjs/operators';
 
-import {Checkpoint, CollectionParameters, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer} from '../models';
+import {Checkpoint, CheckpointValue, CollectionParameters, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer} from '../models';
 import {CollectionDataService} from '../services/collection_data_service';
 import {ColorService} from '../services/color_service';
 import {compress, createHttpErrorMessage, decompress, parseHashFragment, serializeHashFragment, SystemTopology, Viewport} from '../util';
@@ -49,11 +49,12 @@ export class Dashboard implements OnInit, OnDestroy {
   layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
   viewport = new BehaviorSubject<Viewport>(new Viewport());
   tab = new BehaviorSubject<number>(0);
-  sort = new BehaviorSubject<Sort>({active: '', direction: ''});
+  threadSort = new BehaviorSubject<Sort>({active: '', direction: ''});
   filter = new BehaviorSubject<string>('');
   showMigrations = new BehaviorSubject<boolean>(false);
   showSleeping = new BehaviorSubject<boolean>(true);
   maxIntervalCount = new BehaviorSubject<number>(5000);
+  expandedThread = new BehaviorSubject<string|undefined>(undefined);
   // End Global State
 
   cpuRunLayer = new CpuRunningLayer();
@@ -91,15 +92,14 @@ export class Dashboard implements OnInit, OnDestroy {
     this.global.history.replaceState(null, '', newURL);
   }
 
-  updateShareURL<T extends string|number|Viewport|boolean|Layer[]>(propName:
-                                                                       string) {
+  updateShareURL<T extends CheckpointValue>(propName: string) {
     return (prop: T) => {
       // This cast is an external index signature for displayOptions
       // tsickle does not generate the proper Closure types for interfaces
       // with index signatures and statically defined fields, so we can't
       // include the index signature on the type itself.
       const dO = this.checkpoint.displayOptions as unknown as
-          {[k: string]: string | number | Viewport | boolean | Layer[]};
+          {[k: string]: CheckpointValue};
       dO[propName] = prop;
       this.hashState();
     };
@@ -122,12 +122,13 @@ export class Dashboard implements OnInit, OnDestroy {
     this.tab.subscribe(this.updateShareURL('tab'));
     this.showMigrations.subscribe(this.updateShareURL('showMigrations'));
     this.showSleeping.subscribe(this.updateShareURL('showSleeping'));
+    this.expandedThread.subscribe(this.updateShareURL('expandedThread'));
     this.maxIntervalCount.subscribe(this.updateShareURL('maxIntervalCount'));
-    this.sort.subscribe(sort => {
+    this.threadSort.subscribe(sort => {
       this.checkpoint.displayOptions.threadListSortField = sort.active;
       // -1 is unused in schedviz 1, use it to mean undefined here.
       this.checkpoint.displayOptions.threadListSortOrder =
-          sort.direction === 'desc' ? 1 : (sort.direction === 'asc' ? 0 : -1);
+          Dashboard.serializeSortDirection(sort.direction);
       this.hashState();
     });
     this.viewport.subscribe(this.updateShareURL('viewport'));
@@ -153,10 +154,11 @@ export class Dashboard implements OnInit, OnDestroy {
     this.layers.complete();
     this.viewport.complete();
     this.tab.complete();
-    this.sort.complete();
+    this.threadSort.complete();
     this.filter.complete();
     this.showMigrations.complete();
     this.showSleeping.complete();
+    this.expandedThread.complete();
   }
 
   initFromUrl(hash: string) {
@@ -174,19 +176,19 @@ export class Dashboard implements OnInit, OnDestroy {
         if (share) {
           this.checkpoint = share;
           const dO = share.displayOptions;
-          this.cpuFilter.next(dO.cpuFilter.trim().toLowerCase());
+          this.cpuFilter.next((dO.cpuFilter || '').trim().toLowerCase());
           this.tab.next(Math.max(Number(dO.tab), 0));
           this.viewport.next(new Viewport(dO.viewport));
           this.filter.next(dO.commandFilter || dO.pidFilter);
           this.showMigrations.next(dO.showMigrations);
           this.showSleeping.next(dO.showSleeping);
+          this.expandedThread.next(dO.expandedThread);
           this.maxIntervalCount = new BehaviorSubject<number>(
               dO.maxIntervalCount != null ? dO.maxIntervalCount : 5000);
-          this.sort.next({
+          this.threadSort.next({
             active: dO.threadListSortField,
-            direction: dO.threadListSortOrder === 1 ?
-                'desc' :
-                (dO.threadListSortOrder === 0 ? 'asc' : ''),
+            direction:
+                Dashboard.deserializeSortDirection(dO.threadListSortOrder),
           });
           if (dO.layers) {
             const layerSubjects: Array<BehaviorSubject<Layer>> = [];
@@ -251,5 +253,13 @@ export class Dashboard implements OnInit, OnDestroy {
                   new SystemTopology(collectionParameters.cpus);
               this.cdr.detectChanges();
             });
+  }
+
+  static serializeSortDirection(direction: SortDirection): number {
+    return direction === 'desc' ? 1 : (direction === 'asc' ? 0 : -1);
+  }
+
+  static deserializeSortDirection(direction: number): SortDirection {
+    return direction === 1 ? 'desc' : (direction === 0 ? 'asc' : '');
   }
 }

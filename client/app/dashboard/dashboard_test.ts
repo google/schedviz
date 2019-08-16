@@ -58,9 +58,10 @@ describe('Dashboard', () => {
     viewport = new BehaviorSubject<Viewport>(new Viewport());
     tab = new BehaviorSubject<number>(0);
     tabs = dashboard.tabs;
-    sort = new BehaviorSubject<Sort>({active: '', direction: ''});
+    threadSort = new BehaviorSubject<Sort>({active: '', direction: ''});
     showMigrations = new BehaviorSubject<boolean>(false);
     showSleeping = new BehaviorSubject<boolean>(false);
+    expandedThread = new BehaviorSubject<string|undefined>(undefined);
     maxIntervalCount = new BehaviorSubject<number>(5000);
     getCollectionParameters(...args: unknown[]) {}
     checkpoint = {displayOptions: {}} as Checkpoint;
@@ -116,27 +117,28 @@ describe('Dashboard', () => {
 
   it('should parse and load data from the hash fragment in the URL', () => {
     const hash =
-        '#collection=abc&share=eJzFlEGPmzAQhf9K5F5aCalg2AC%252BVo1aqdVuu1vtocrB4AmM4mBkhqXbKP%252B9NolY0kpRL204AHp%252BY3%252FvCbFnCrtWy%252BfbltA0HRN7Vrb9CjWBZYKxgCkgiXolSzJOuQkD1qKaG0qz28nmTCJZMBEHrKvN8BkrK0%252Bbb6Tu4Cjfa4AWm2oSqbYg1Sfs6N5YWiFo5TYbJBLhDtjvhlur%252FGlRwJ4QhtYpnl3Dxj0dI5l2fFqsahpthSEyu%252FG1rKWlR1RU3%252F1gIs34SfoA3u21ZRoeAuZ6Aeuwv%252B9ZIx2DYA8jg4hivswjsT0iKd%252BSJPnw3L54nIbKzx69a9%252BT9g2yVznkiife0LjGnlx8Z1v7IB0W2m1BtofTamu0JJhKKoyP%252FVUq7N1Q7AIqK4f3qoLuZQwJpcafoE5jh%252BAPfs7DnIvtYOwW7NsbEV2OMNrnETabNEzia0bIltk8AL8YwJvn%252BGEoyzK6Jn6ap1k28fNEhBcDjPZ5AlkkaVFeJcG7u2%252BLj9OpZ9RuaUI%252B%252F1z8dYH2hPavcB%252FdX2TxpYce%252Fg7YVsXrPA4WPOHuFiVv%252FmPR68PhF6qM2gI%253D';
+        '#collection=abc&share=eJzFVU2P2jAQ%252FSvIvbRSoPkEkuuqqJVa7bZLtYeKgxMPiUWII3sCbFf8946TNMBWQr205JBYz29m3huNJi9MSFOX%252FPm%252BRqkqw5IXltXNQpYImiUsYg4TgFyWC56hIihyHVZLMTBiYmRqu%252BXVCSMIecoSz2GmUPsvMte8T7%252FmpYEOfiwBalnlA4iFBi4%252BS4OPSuNCQiko2Z5LRLkF9ppwr4WtRkV2EvY1IVZ9CWv6kkhUdfvVMi%252BwpaUKUW3bY1ZwjU9SYPFwYMnUjXroI1i2xTzXd48Oo9aAJt0%252FXljFSUTClq2IxAv8aewlm06TsH3iyJfP9YlDmBQ2tuOubKNK20P2JoZY%252BKElVNSyHfkn2so6MTItKQXqBvrbWpUcYehSqqzvb1zIhoICcig0338QOZhTmETJS%252FkTRB92dP7Q7%252Ftu7CebvdIb0O%252BjxLtuoaWfW1ivZ24Y3NLCfDo%252FN%252BBfNWDJ5%252FJdl2eZd0v5s3g2nw%252F6%252FTBxrxpo6ecOeBrO0uwmDu4evo8%252BDVUvVNPVIPlyXOxzRW0v7V%252FJfaI1MvraQAN%252FJ1jn6ds4cEZ%252B6NPLC9%252F9x0av7P40m2GfCthR9S0%252F%252FO75nWoqtLvYdTvq66XZS%252BtGqGNfEvvlSeFwqGl3g1jSLUX6wSTPYEwlJ2pnxo2pjT2IdLKTGitAezUulMGJN42jYDqLYvuXGNJ0UztMuR9FYRQn3ZSz4%252FEXB7Uklw%253D%253D';
     dashboard.initFromUrl.call(mockDashboard, hash);
     expect(mockDashboard.collectionName).toBe('abc');
-    expect(mockDashboard.cpuFilter.value).toBe('');
-    expect(mockDashboard.sort.value).toEqual({
+    expect(mockDashboard.cpuFilter.value).toBe('5');
+    expect(mockDashboard.expandedThread.value).toBe('Thread:255459:worker');
+    expect(mockDashboard.threadSort.value).toEqual({
       active: 'waittime',
       direction: 'desc',
     });
-    expect(mockDashboard.tab.value).toBe(3);
+    expect(mockDashboard.tab.value).toBe(1);
     expect(mockDashboard.showMigrations.value).toBe(false);
     expect(mockDashboard.showSleeping.value).toBe(false);
     expect(mockDashboard.maxIntervalCount.value).toBe(5000);
-    expect(mockDashboard.filter.value).toBe('');
+    expect(mockDashboard.filter.value).toBe('9');
     expect(mockDashboard.layers.value.length).toBe(4);
     const viewport = new Viewport({
       bottom: 1,
       left: 0,
       right: 1,
       top: 0,
-      chartWidthPx: 782,
-      chartHeightPx: 670,
+      chartWidthPx: 605,
+      chartHeightPx: 1020,
     } as Viewport);
     expect(mockDashboard.viewport.value).toEqual(viewport);
   });

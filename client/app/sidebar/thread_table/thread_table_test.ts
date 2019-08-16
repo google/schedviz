@@ -47,7 +47,7 @@ function setupThreadTable(component: ThreadTable) {
   component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
   component.sort = new BehaviorSubject<Sort>({active: '', direction: ''});
   component.filter = new BehaviorSubject<string>('');
-  component.expandedThread = new BehaviorSubject<Thread|undefined>(undefined);
+  component.expandedThread = new BehaviorSubject<string|undefined>(undefined);
   component.expandedFtraceIntervals = new BehaviorSubject<FtraceInterval[]>([]);
   component.expandedThreadAntagonists =
       new BehaviorSubject<ThreadInterval[]>([]);

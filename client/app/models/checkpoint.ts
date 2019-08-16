@@ -18,6 +18,11 @@ import {Layer} from './layer';
 import {Viewport} from '../util/viewport';
 
 /**
+ * The types that a value in the Checkpoint could be
+ */
+export type CheckpointValue = string|number|Viewport|boolean|Layer[]|undefined;
+
+/**
  * Checkpoint stores state related to display options
  */
 export declare interface Checkpoint {
@@ -33,6 +38,7 @@ export declare interface Checkpoint {
     threadListSortOrder: number,
     viewport: Viewport,
     layers: Layer[],
+    expandedThread: string,
   };
 }
 

@@ -25,6 +25,7 @@ import {FtraceInterval, Interval, Layer, Thread, ThreadInterval} from '../../mod
 import {ColorService} from '../../services/color_service';
 import {getDurationInNsFromHumanReadableString} from '../../util/duration';
 
+import {jumpToRow} from './jump_to_time';
 import {SelectableTable} from './selectable_table';
 
 const EMBEDDED_PAGE_SIZE = 20;
@@ -77,7 +78,7 @@ export class ThreadTable extends SelectableTable implements OnInit,
                                                             AfterViewInit {
   // True if this table is embedded within another table (some features limited)
   @Input() embedded = false;
-  @Input() expandedThread!: BehaviorSubject<Thread|undefined>;
+  @Input() expandedThread!: BehaviorSubject<string|undefined>;
   @Input() expandedFtraceIntervals!: BehaviorSubject<FtraceInterval[]>;
   @Input() expandedThreadAntagonists!: BehaviorSubject<ThreadInterval[]>;
   @Input() filter!: BehaviorSubject<string>;
@@ -95,8 +96,8 @@ export class ThreadTable extends SelectableTable implements OnInit,
   rowHeightPx = 28;
   hideResults = false;
 
-  filterPredicate = (data: Interval, filter: string):
-      boolean => {
+  filterPredicate =
+      (data: Interval, filter: string): boolean => {
         if (!filter) {
           return true;
         }
@@ -105,7 +106,7 @@ export class ThreadTable extends SelectableTable implements OnInit,
         const pred = thread.command.toLowerCase().includes(filterLt) ||
             `${thread.pid}`.includes(filterLt);
         return this.hideResults ? !pred : pred;
-      }
+      };
 
   constructor(
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {
@@ -149,6 +150,18 @@ export class ThreadTable extends SelectableTable implements OnInit,
     this.data.subscribe(() => {
       this.onResize();
       this.updateAggregateMetrics(this.dataSource.filteredData as Thread[]);
+      if (this.data.value.length) {
+        const row = this.dataSource.filteredData.findIndex(
+            t => t.label && t.label === this.expandedThread.value);
+        if (row > -1) {
+          // Schedule task for next run of the event loop so the table
+          // has time to render the new data.
+          Promise.resolve().then(() => {
+            jumpToRow(this.dataSource, row);
+            this.cdr.detectChanges();
+          });
+        }
+      }
     });
   }
 
@@ -227,9 +240,9 @@ export class ThreadTable extends SelectableTable implements OnInit,
   }
 
   expandThread(thread: Thread) {
-    const expandedThread =
-        this.expandedThread.value === thread ? undefined : thread;
-    this.expandedThread.next(expandedThread);
+    const expandedThreadLabel =
+        this.expandedThread.value === thread.label ? undefined : thread.label;
+    this.expandedThread.next(expandedThreadLabel);
   }
 
 }

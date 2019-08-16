@@ -54,14 +54,29 @@ export function jumpToTime(
     return;
   }
 
-  const targetPageIndex = Math.floor(targetIntervalIndex / paginator.pageSize);
+  jumpToRow(table, targetIntervalIndex);
+}
 
-  paginator.pageIndex = targetPageIndex;
+/**
+ * Jumps a given table of intervals to the page which contains the given row
+ *
+ * @param table is a table of intervals to be jumped
+ * @param rowIndex the index of the row to jump to
+ */
+export function jumpToRow<T>(table: MatTableDataSource<T>, rowIndex: number) {
+  const paginator = table.paginator;
+  if (!paginator) {
+    console.warn('Unable to jump to row, table not paginated.');
+    return;
+  }
+  const targetPageIndex = Math.floor(rowIndex / paginator.pageSize);
+  paginator.pageIndex =
+      Math.max(Math.min(targetPageIndex, paginator.getNumberOfPages() - 1), 0);
 
   // Due to a bug (https://github.com/angular/components/issues/12620, to be
   // fixed by https://github.com/angular/components/pull/12586) the page
   // change event isn't fired automatically, so we have to do it manually
-  paginator.page.next({
+  paginator.page.emit({
     previousPageIndex: paginator.pageIndex,
     pageIndex: targetPageIndex,
     pageSize: paginator.pageSize,

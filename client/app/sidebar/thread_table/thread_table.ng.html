@@ -137,8 +137,8 @@
       <mat-cell *matCellDef="let thread" [attr.colspan]="displayedColumns.length">
         <!-- TODO(sainsley): Move out of template and insert as needed to avoid repeat use -->
         <div class="thread-detail" *ngIf="!embedded"
-             [@detailExpand]="thread === expandedThread.value ? 'expanded' : 'collapsed'">
-          <div *ngIf="thread === expandedThread.value">
+             [@detailExpand]="thread.label === expandedThread.value ? 'expanded' : 'collapsed'">
+          <div *ngIf="thread.label === expandedThread.value">
             <div class="expanded-controls">
               <mat-form-field>
                 <input matInput
@@ -164,7 +164,7 @@
                            [preview]="preview"
                            [layers]="layers"
                            [sort]="sort"
-                           [jumpToTimeNs]="thread === expandedThread.value && jumpToTimeNs"
+                           [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
                            [dataPending]="thread.eventsPending">
               </event-table>
               <antagonist-table class="detail-table"
@@ -172,7 +172,7 @@
                                 [preview]="preview"
                                 [layers]="layers"
                                 [sort]="sort"
-                                [jumpToTimeNs]="thread === expandedThread.value && jumpToTimeNs"
+                                [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
                                 [jumpToTimeEnabled]="antagonistJumpToTimeEnabled"
                                 [dataPending]="thread.antagonistsPending">
               </antagonist-table>
@@ -188,7 +188,7 @@
              class="selectable-row thread-row"
              (mouseenter)="previewRow(thread)"
              (mouseout)="$event.stopPropagation();"
-             [class.expanded-row]="expandedThread.value === thread"
+             [class.expanded-row]="expandedThread.value === thread.label"
              (click)="!isTextSelected() && expandThread(thread)">
     </mat-row>
     <mat-row *matRowDef="let row; columns: ['expandedDetail']" class="detail-row">
