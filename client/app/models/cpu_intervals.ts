@@ -64,14 +64,16 @@ export class CpuInterval extends Interval {
     return `${threadResidency.thread.pid}:${threadResidency.thread.command}`;
   }
 
+  private stringifyThreadResidency(threadResidency: ThreadResidency): string {
+    return `  (${this.getPercentageTimeStr(threadResidency.duration)}) ${
+        this.getThreadName(
+            threadResidency)} (P:${threadResidency.thread.priority})`;
+  }
+
   get tooltipProps() {
     return {
       'Running': '\n' +
-          this.running
-              .map(
-                  r => `  (${this.getPercentageTimeStr(r.duration)}) ${
-                      this.getThreadName(r)}`)
-              .join('\n'),
+          this.running.map(r => this.stringifyThreadResidency(r)).join('\n'),
       'CPU': `${this.cpu}`,
       'Start Time': this.formatTime(this.startTimeNs),
       'End Time': this.formatTime(this.endTimeNs),
@@ -84,11 +86,7 @@ export class CpuInterval extends Interval {
           this.formatTime(this.waitingNs)}`,
       'Waiting PID Count': `${this.waiting.length}`,
       'Waiting': '\n' +
-          this.waiting
-              .map(
-                  w => `  (${this.getPercentageTimeStr(w.duration)}) ${
-                      this.getThreadName(w)} `)
-              .join('\n'),
+          this.waiting.map(w => this.stringifyThreadResidency(w)).join('\n'),
     };
   }
 

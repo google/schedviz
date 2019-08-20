@@ -82,7 +82,7 @@ function addMockIntervals(component: Heatmap): CpuIntervalCollection[] {
       thread: {
         pid: 1,
         command: 'test2',
-        priority: 120,
+        priority: 100,
       },
       duration: (params.endTimeNs - params.startTimeNs) / 2,
       state: services.ThreadState.RUNNING_STATE,
@@ -106,7 +106,7 @@ function addMockIntervals(component: Heatmap): CpuIntervalCollection[] {
       thread: {
         pid: 3,
         command: 'test4',
-        priority: 120,
+        priority: 80,
       },
       duration: (params.endTimeNs - params.startTimeNs),
       state: services.ThreadState.WAITING_STATE,
@@ -142,6 +142,26 @@ function mockParameters(): CollectionParameters {
 
 function mockTopology(): SystemTopology {
   return new SystemTopology(CPUS);
+}
+
+function createHoverEvent(xPos: number, yPos: number): MouseEvent {
+  const event = document.createEvent('MouseEvent');
+  event.initMouseEvent(
+      'mouseover', true, true, window, 0, 0, 0, xPos, yPos, false, false,
+    false, false, 0, null);
+  return event;
+}
+
+function isTooltipBelow(tooltipRect: ClientRect | DOMRect, yPos: number) {
+  // Since the tooltip is offset from the cursor, the Y position of the cursor
+  // will always be between the top and bottom edges of the tooltip. So, to
+  // determine if the tooltip is below the cursor, we will do a relative
+  // comparison of the distance to the top and bottom edges.
+  return Math.abs(tooltipRect.top - yPos) < Math.abs(tooltipRect.bottom - yPos);
+}
+
+function isTooltipOnRight(tooltipRect: ClientRect|DOMRect, xPos: number) {
+  return tooltipRect.left > xPos;
 }
 
 describe('Heatmap', () => {
@@ -271,8 +291,8 @@ describe('Heatmap', () => {
     expect(tooltip.innerText)
         .toBe(
             'Running: \n' +
-            '  (50.0%) 0:test\n' +
-            '  (50.0%) 1:test2\n' +
+            '  (50.0%) 0:test (P:120)\n' +
+            '  (50.0%) 1:test2 (P:100)\n' +
             'CPU: 0\n' +
             'Start Time: 500 msec\n' +
             'End Time: 2500 msec\n' +
@@ -282,9 +302,105 @@ describe('Heatmap', () => {
             'Waiting Time:  (200%) 4000 msec\n' +
             'Waiting PID Count: 2\n' +
             'Waiting: \n' +
-            '  (100%) 2:test3 \n' +
-            '  (100%) 3:test4 ');
+            '  (100%) 2:test3 (P:120)\n' +
+            '  (100%) 3:test4 (P:80)');
   });
+
+  it('should place tooltip below and to the right by default', async () => {
+    const fixture = TestBed.createComponent(Heatmap);
+    const component = fixture.componentInstance;
+    setupHeatmap(component);
+    component.ngOnInit();
+
+    // Expand the container element to allow room for tooltip to go in any
+    // direction
+    const rootElement = (fixture.nativeElement as HTMLElement);
+    rootElement.style.height = '1000px';
+    rootElement.style.width = '1000px';
+
+    addMockIntervals(component);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const interval = document.querySelector('.interval') as SVGElement;
+    const tooltip = document.querySelector('.tooltip') as HTMLElement;
+
+    // Hover in the middle of the screen, check that tooltip is below and to the
+    // right
+    const yPos = Math.floor(rootElement.getBoundingClientRect().bottom / 2);
+    const xPos = Math.floor(rootElement.getBoundingClientRect().right / 2);
+    interval.dispatchEvent(createHoverEvent(xPos, yPos));
+    await fixture.whenStable();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    expect(isTooltipBelow(tooltipRect, yPos)).toBe(true);
+    expect(isTooltipOnRight(tooltipRect, xPos)).toBe(true);
+  });
+
+  it(`should place tooltip properly at the corners of the container`,
+     async () => {
+       const fixture = TestBed.createComponent(Heatmap);
+       const component = fixture.componentInstance;
+       setupHeatmap(component);
+       component.ngOnInit();
+
+       const rootElement = (fixture.nativeElement as HTMLElement);
+       rootElement.style.height = '1000px';
+       rootElement.style.width = '1000px';
+
+       addMockIntervals(component);
+       fixture.detectChanges();
+       await fixture.whenStable();
+
+       const containerTop = rootElement.getBoundingClientRect().top;
+       const containerBottom = rootElement.getBoundingClientRect().bottom;
+       const containerLeft = rootElement.getBoundingClientRect().left;
+       const containerRight = rootElement.getBoundingClientRect().right;
+
+       const testCases = [
+         {
+           cornerLocation: 'top left',
+           hoverCoordinate: {x: containerLeft, y: containerTop},
+           expectedTooltipPlacement: {below: true, right: true}
+         },
+         {
+           cornerLocation: 'top right',
+           hoverCoordinate: {x: containerRight, y: containerTop},
+           expectedTooltipPlacement: {below: true, right: false}
+         },
+         {
+           cornerLocation: 'bottom right',
+           hoverCoordinate: {x: containerRight, y: containerBottom},
+           expectedTooltipPlacement: {below: false, right: false}
+         },
+         {
+           cornerLocation: 'bottom left',
+           hoverCoordinate: {x: containerLeft, y: containerBottom},
+           expectedTooltipPlacement: {below: false, right: true}
+         },
+       ];
+
+       // Simulate each hover and verify the resulting tooltip locations in turn
+       for (const testCase of testCases) {
+         const cursorX = testCase.hoverCoordinate.x;
+         const cursorY = testCase.hoverCoordinate.y;
+         const interval = document.querySelector('.interval') as SVGElement;
+         interval.dispatchEvent(createHoverEvent(cursorX, cursorY));
+         await fixture.whenStable();
+
+         const tooltip = document.querySelector('.tooltip') as HTMLElement;
+         const tooltipRect = tooltip.getBoundingClientRect();
+         expect(isTooltipBelow(tooltipRect, cursorY))
+             .toBe(
+                 testCase.expectedTooltipPlacement.below,
+                 `Incorrect vertical placement for corner location: ${
+                     testCase.cornerLocation}`);
+         expect(isTooltipOnRight(tooltipRect, cursorX))
+             .toBe(
+                 testCase.expectedTooltipPlacement.right,
+                 `Incorrect horizontal placement for corner location: ${
+                     testCase.cornerLocation}`);
+       }
+     });
 
   it('should fetch PID intervals on thread layer added', async () => {
     const fixture = TestBed.createComponent(Heatmap);

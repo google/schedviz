@@ -361,13 +361,17 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
       return;
     }
     this.hoverInterval = data[0] as Interval;
-    const offsetX = 10;
-    const offsetY = 28;
     this.tooltip.innerHTML = this.tooltipHtml;
     const tooltip = d3.select(this.tooltip);
     tooltip.style('border-color', layer.getIntervalColor(this.hoverInterval));
-    tooltip.style('left', `${(event.layerX as number) + offsetX}px`)
-        .style('top', `${(event.layerY as number) - offsetY}px`);
+
+    const topPos = IntervalsLayer.calculateTopTooltipPos(
+        tooltip.node(), (event.layerY as number));
+    tooltip.style('top', `${topPos}px`);
+
+    const leftPos = IntervalsLayer.calculateLeftTooltipPos(
+        tooltip.node(), (event.layerX as number));
+    tooltip.style('left', `${leftPos}px`);
   }
 
   /**
@@ -422,6 +426,71 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
     }
     return Object.keys(this.hoverInterval.tooltipProps);
   }
+
+  private static calculateTopTooltipPos(
+      tooltipElement: Element|null, cursorY: number) {
+    if (!tooltipElement || !tooltipElement.parentElement) {
+      return 0;
+    }
+
+    const tooltipBounds = tooltipElement.getBoundingClientRect();
+    const containerBounds =
+        tooltipElement.parentElement.getBoundingClientRect();
+
+    // Normally the top border of the tooltip will be offset slightly above
+    // the cursor to add some visual space
+    const offsetY = -28;
+
+    // If the tooltip is able to be placed below the cursor, place it there
+    const topPosWhenBelow = cursorY + offsetY;
+    const fitsBelow =
+        (topPosWhenBelow + tooltipBounds.height <= containerBounds.height);
+    if (fitsBelow) {
+      return topPosWhenBelow;
+    }
+
+    // If it doesn't fit in the normal position but it fits within the
+    // container, then align the bottom of the tooltip with the bottom of the
+    // container, i.e. place it as low as possible
+    if (containerBounds.height > tooltipBounds.height) {
+      return containerBounds.height - tooltipBounds.height;
+    }
+
+    // If it doesn't fit in the container at all place it at the top, this will
+    // cause the bottom to be cropped
+    return 0;
+  }
+
+  private static calculateLeftTooltipPos(
+      tooltipElement: Element|null, cursorX: number) {
+    if (!tooltipElement || !tooltipElement.parentElement) {
+      return 0;
+    }
+
+    const tooltipBounds = tooltipElement.getBoundingClientRect();
+    const containerBounds =
+        tooltipElement.parentElement.getBoundingClientRect();
+
+    // Normally the left border of the tooltip will be offset slightly to the
+    // right of the cursor to avoid being obscured by it. Conversely if the
+    // tooltip only fits left the cursor, the right border will be offset
+    // slightly left of the cursor
+    const offsetX = 10;
+
+    // Prefer putting the tooltip on the right. If it doesn't fit there but fits
+    // on the left, put it on the left
+    const leftPosWhenOnRight = cursorX + offsetX;
+    const fitsRight =
+        leftPosWhenOnRight + tooltipBounds.width <= containerBounds.width;
+    const leftPosWhenOnLeft = cursorX - offsetX - tooltipBounds.width;
+    const fitsLeft = leftPosWhenOnLeft >= 0;
+
+    if (!fitsRight && fitsLeft) {
+      return leftPosWhenOnLeft;
+    } else {
+      return leftPosWhenOnRight;
+    }
+  }
 }
 
 /**
@@ -433,7 +502,7 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
   <h1 mat-dialog-title>
     Which running threads do you want to show layers for?
   </h1>
-  <form #form="ngForm" (ngSubmit)="onFormSubmit()">
+  <form #form='ngForm' (ngSubmit)='onFormSubmit()'>
     <div mat-dialog-content>
       <mat-form-field>
         <mat-label>Choose threads</mat-label>
@@ -444,14 +513,14 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
           <mat-select-trigger>
             {{getLabel()}}
           </mat-select-trigger>
-          <mat-option *ngFor="let thread of this.data" [value]="thread">
+          <mat-option *ngFor='let thread of this.data' [value]='thread'>
             {{getThreadName(thread)}}
           </mat-option>
         </mat-select>
       </mat-form-field>
     </div>
-    <div mat-dialog-actions align="end">
-      <button type="button" mat-stroked-button [mat-dialog-close]="null">
+    <div mat-dialog-actions align='end'>
+      <button type='button' mat-stroked-button [mat-dialog-close]='null'>
         Cancel
       </button>
       <button type="submit" mat-stroked-button>Submit</button>
