@@ -1,3 +1,4 @@
+load("@npm_bazel_typescript//:defs.bzl", "ts_library")
 load("@npm_angular_bazel//:index.bzl", "ng_module")
 
 package(default_visibility = ["//visibility:public"])
@@ -24,3 +25,14 @@ ng_module(
         "@npm//rxjs",
     ],
 )
+
+# LINT.IfChange
+ts_library(
+    name = "services_tests",
+    testonly = True,
+    deps = [
+        ":services",
+        "@npm//@types/jasmine",
+    ],
+)
+# LINT.ThenChange(//depot/google3/third_party/schedviz/copy.bara.sky)
