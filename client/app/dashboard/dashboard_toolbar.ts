@@ -25,6 +25,7 @@ import {catchError, map, switchMap, take} from 'rxjs/operators';
 import {CollectionMetadata} from '../models';
 import {CollectionDataService} from '../services/collection_data_service';
 import {createHttpErrorMessage, parseHashFragment} from '../util';
+import {copyToClipboard} from '../util/clipboard';
 import {COLLECTION_NAME_KEY} from '../util/hash_keys';
 
 

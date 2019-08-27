@@ -13,6 +13,7 @@ ng_module(
         "index.ts",
         "metrics_service.ts",
         "render_data_service.ts",
+        "shortcut_service.ts",
     ],
     deps = [
         "//client/app/models",
@@ -26,13 +27,12 @@ ng_module(
     ],
 )
 
-# LINT.IfChange
 ts_library(
     name = "services_tests",
     testonly = True,
+    srcs = ["shortcut_service_test.ts"],
     deps = [
         ":services",
         "@npm//@types/jasmine",
     ],
 )
-# LINT.ThenChange(//depot/google3/third_party/schedviz/copy.bara.sky)

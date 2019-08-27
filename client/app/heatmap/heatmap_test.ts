@@ -16,6 +16,7 @@
 //
 import {fakeAsync, TestBed, tick} from '@angular/core/testing';
 import {MatDialog} from '@angular/material/dialog';
+import {MatSnackBar} from '@angular/material/snack-bar';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import * as d3 from 'd3';
@@ -25,7 +26,10 @@ import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLaye
 import * as services from '../models/render_data_services';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService, RenderDataService} from '../services/render_data_service';
+import {ShortcutId, ShortcutService} from '../services/shortcut_service';
+import {triggerShortcut} from '../services/shortcut_service_test';
 import {SystemTopology, Viewport} from '../util';
+import * as clipboard from '../util/clipboard';
 
 import {Heatmap} from './heatmap';
 import {HeatmapModule} from './heatmap_module';
@@ -177,6 +181,7 @@ describe('Heatmap', () => {
           providers: [
             {provide: 'MetricsService', useClass: LocalMetricsService},
             {provide: 'RenderDataService', useClass: LocalRenderDataService},
+            {provide: 'ShortcutService', useClass: ShortcutService},
           ],
         })
         .compileComponents();
@@ -904,5 +909,137 @@ describe('Heatmap', () => {
         expect(interval.queueCount).toBe(expectation.count);
       }
     }
+  });
+
+  it('should register copy to clipboard handler', async () => {
+    const fixture = TestBed.createComponent(Heatmap);
+    const component = fixture.componentInstance;
+    setupHeatmap(component);
+    component.ngOnInit();
+    addMockIntervals(component);
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Trigger a tooltip
+    const event = document.createEvent('SVGEvents');
+    event.initEvent('mouseover', true, true);
+    (document.querySelector('.interval') as SVGElement).dispatchEvent(event);
+
+    await fixture.whenStable();
+
+    const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
+    const snackBarSpy = spyOn(snackBar, 'open');
+
+    const shortcutId = ShortcutId.COPY_TOOLTIP;
+    const copyToClipboardSpy =
+        spyOn(clipboard, 'copyToClipboard').and.returnValue(true);
+    const shortcutService = fixture.debugElement.injector.get(ShortcutService);
+    const shortcut = shortcutService.getShortcuts()[shortcutId];
+    expect(shortcut.isEnabled).toBe(true);
+    triggerShortcut(shortcut);
+    expect(copyToClipboardSpy).toHaveBeenCalledTimes(1);
+
+    const tooltip = document.querySelector('.tooltip') as HTMLElement;
+    expect(copyToClipboardSpy)
+      .toHaveBeenCalledWith(tooltip.innerText);
+
+    const snackBarMessage = snackBarSpy.calls.mostRecent().args[0];
+    expect(snackBarMessage).toBe('Tooltip copied to clipboard');
+
+    // Verify that shortcut is deregistered
+    component.ngOnDestroy();
+    const shortcutAfterDestroy = shortcutService.getShortcuts()[shortcutId];
+    expect(shortcutAfterDestroy.isEnabled).toBe(false);
+  });
+
+  it('should handle copy to clipboard shortcut error', async () => {
+    const fixture = TestBed.createComponent(Heatmap);
+    const component = fixture.componentInstance;
+    setupHeatmap(component);
+    component.ngOnInit();
+    addMockIntervals(component);
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const event = document.createEvent('SVGEvents');
+    event.initEvent('mouseover', true, true);
+    (document.querySelector('.interval') as SVGElement).dispatchEvent(event);
+
+    await fixture.whenStable();
+
+    const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
+    const snackBarSpy = spyOn(snackBar, 'open');
+
+    const copyToClipboardSpy =
+        spyOn(clipboard, 'copyToClipboard').and.returnValue(false);
+    const shortcutService = fixture.debugElement.injector.get(ShortcutService);
+    const shortcut = shortcutService.getShortcuts()[ShortcutId.COPY_TOOLTIP];
+    triggerShortcut(shortcut);
+    expect(copyToClipboardSpy).toHaveBeenCalledTimes(1);
+
+    const tooltip = document.querySelector('.tooltip') as HTMLElement;
+    expect(copyToClipboardSpy).toHaveBeenCalledWith(tooltip.innerText);
+
+    const snackBarMessage = snackBarSpy.calls.mostRecent().args[0];
+    expect(snackBarMessage).toBe('Error copying tooltip to clipboard');
+  });
+
+  it('should register reset viewport shortcut', async () => {
+    const fixture = TestBed.createComponent(Heatmap);
+    const component = fixture.componentInstance;
+    setupHeatmap(component);
+    component.ngOnInit();
+    addMockIntervals(component);
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const shortcutId = ShortcutId.RESET_VIEWPORT;
+    const shortcutService = fixture.debugElement.injector.get(ShortcutService);
+    const shortcut = shortcutService.getShortcuts()[shortcutId];
+
+    const viewport = new Viewport();
+    viewport.left = 0.25;
+    viewport.right = 0.75;
+    component.viewport.next(viewport);
+
+    expect(shortcut.isEnabled).toBe(true);
+    triggerShortcut(shortcut);
+
+    const viewportAfter = component.viewport.value;
+    expect(viewportAfter.left).toBe(0);
+    expect(viewportAfter.right).toBe(1);
+
+    // Verify that shortcut is deregistered
+    component.ngOnDestroy();
+    const shortcutAfterDestroy = shortcutService.getShortcuts()[shortcutId];
+    expect(shortcutAfterDestroy.isEnabled).toBe(false);
+  });
+
+  it('should register clear CPU filter shortcut', async () => {
+    const fixture = TestBed.createComponent(Heatmap);
+    const component = fixture.componentInstance;
+    setupHeatmap(component);
+    component.ngOnInit();
+    addMockIntervals(component);
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    component.cpuFilter.next('1');
+
+    const shortcutId = ShortcutId.CLEAR_CPU_FILTER;
+    const shortcutService = fixture.debugElement.injector.get(ShortcutService);
+    const shortcut = shortcutService.getShortcuts()[shortcutId];
+    triggerShortcut(shortcut);
+
+    expect(component.cpuFilter.value).toBe('');
+
+    // Verify that shortcut is deregistered
+    component.ngOnDestroy();
+    const shortcutAfterDestroy = shortcutService.getShortcuts()[shortcutId];
+    expect(shortcutAfterDestroy.isEnabled).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ licenses(["notice"])  # Apache License 2.0
 ng_module(
     name = "util",
     srcs = [
+        "clipboard.ts",
         "complex_system_topology.ts",
         "duration.ts",
         "hash_compressor.ts",

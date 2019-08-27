@@ -24,7 +24,9 @@ import {buffer, debounceTime, mergeMap, pairwise, take} from 'rxjs/operators';
 import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
 import {ThreadState} from '../models/render_data_services';
 import {RenderDataService} from '../services/render_data_service';
+import {ShortcutId, ShortcutService, DeregistrationCallback} from '../services/shortcut_service';
 import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
+import {copyToClipboard} from '../util/clipboard';
 import {nearlyEquals} from '../util/helpers';
 
 const HEATMAP_MARGIN_X = 150;
@@ -50,7 +52,7 @@ const MIN_WIDTH_NS = 1E5;
 export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   // View Children
   @ViewChild('svg', {static: true}) svg!: ElementRef;
-  @ViewChild('tooltip', {static: true}) tooltip!: ElementRef;
+  @ViewChild('tooltip', {static: true}) tooltip!: ElementRef<HTMLDivElement>;
   @ViewChild('clipRectAxes', {static: true}) clipRectAxes!: ElementRef;
   @ViewChild('cpuAxisGroup', {static: true}) cpuAxisGroup!: ElementRef;
   @ViewChild('xAxisGroup', {static: true}) xAxisGroup!: ElementRef;
@@ -79,6 +81,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   pidIntervalSubscription?: Subscription;
   schedEventSubscription?: Subscription;
   pendingLayerCount = 0;
+  private readonly shortcutDeregistrations: DeregistrationCallback[];
 
   // Zoom logic
   /** Last seen zoom transform for computing viewport delta on zoom change. */
@@ -87,8 +90,48 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
 
   constructor(
       @Inject('RenderDataService') public renderDataService: RenderDataService,
-      private readonly snackBar: MatSnackBar,
-      readonly cdr: ChangeDetectorRef) {}
+      readonly shortcutService: ShortcutService,
+      private readonly snackBar: MatSnackBar, readonly cdr: ChangeDetectorRef) {
+    this.shortcutDeregistrations = this.registerShortcuts();
+  }
+
+  private registerShortcuts(): DeregistrationCallback[] {
+    const shortcutDeregistrations: DeregistrationCallback[] = [];
+    const copyDereg =
+        this.shortcutService.register(ShortcutId.COPY_TOOLTIP, () => {
+          const showMessage = (message: string) =>
+              this.snackBar.open(message, '', {duration: 2000});
+
+          if (!this.tooltip || !this.tooltip.nativeElement) {
+            showMessage('Error copying to clipboard: Unable to locate tooltip');
+            return;
+          }
+
+          const success = copyToClipboard(this.tooltip.nativeElement.innerText);
+          if (success) {
+            showMessage('Tooltip copied to clipboard');
+          } else {
+            showMessage('Error copying tooltip to clipboard');
+          }
+        });
+    shortcutDeregistrations.push(copyDereg);
+
+    const resetViewportDereg =
+        this.shortcutService.register(ShortcutId.RESET_VIEWPORT, () => {
+          const viewport = this.viewport.value;
+          viewport.updateZoom(viewport.width, 1, 0, 0);
+          this.viewport.next(viewport);
+        });
+    shortcutDeregistrations.push(resetViewportDereg);
+
+    const clearFilterDereg =
+        this.shortcutService.register(ShortcutId.CLEAR_CPU_FILTER, () => {
+          this.cpuFilter.next('');
+        });
+    shortcutDeregistrations.push(clearFilterDereg);
+
+    return shortcutDeregistrations;
+  }
 
   onResize() {
     this.updateViewportSize();
@@ -200,6 +243,8 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                 this.snackBar.open(errMsg, 'Dismiss');
               });
     }
+
+    this.registerShortcuts();
   }
 
   ngAfterViewInit() {
@@ -221,6 +266,10 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
     }
     if (this.pidIntervalSubscription) {
       this.pidIntervalSubscription.unsubscribe();
+    }
+
+    for (const deregister of this.shortcutDeregistrations) {
+      deregister();
     }
   }
 

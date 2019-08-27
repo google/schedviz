@@ -15,8 +15,12 @@
 //
 //
 import {NgModule} from '@angular/core';
+import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
+import {MatDialogModule} from '@angular/material/dialog';
+import {MatDividerModule} from '@angular/material/divider';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTableModule} from '@angular/material/table';
 import {MatToolbarModule} from '@angular/material/toolbar';
 
 // Prevent unused import error
@@ -24,6 +28,7 @@ import {production} from '../environments/environment';
 
 import {AppRoot} from './app_root';
 import {AppRoutingModule} from './app_routing_module';
+import {DialogShortcuts} from './dialog_shortcuts';
 import {HttpCollectionDataService, LocalCollectionDataService} from './services/collection_data_service';
 import {HttpMetricsService, LocalMetricsService} from './services/metrics_service';
 import {HttpRenderDataService, LocalRenderDataService} from './services/render_data_service';
@@ -35,12 +40,16 @@ const renderDataService =
 const metricsService = production ? HttpMetricsService : LocalMetricsService;
 
 @NgModule({
-  declarations: [AppRoot],
+  declarations: [AppRoot, DialogShortcuts],
   exports: [AppRoot],
   imports: [
     AppRoutingModule,
+    FormsModule,
     MatButtonModule,
+    MatDialogModule,
+    MatDividerModule,
     MatIconModule,
+    MatTableModule,
     MatToolbarModule,
   ],
   bootstrap: [AppRoot],
@@ -49,6 +58,7 @@ const metricsService = production ? HttpMetricsService : LocalMetricsService;
     {provide: 'MetricsService', useClass: metricsService},
     {provide: 'CollectionDataService', useClass: collectionDataService},
   ],
+  entryComponents: [DialogShortcuts]
 })
 export class AppRootModule {
 }

@@ -51,6 +51,7 @@ ts_library(
         "//client/app/models",
         "//client/app/models:service_models",
         "//client/app/services",
+        "//client/app/services:services_tests",
         "//client/app/util",
         "@npm//@angular/core",
         "@npm//@angular/material",

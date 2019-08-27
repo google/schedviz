@@ -107,6 +107,15 @@ Usage:
 
 Take a look at our [features and usage walkthrough](doc/walkthrough.md).
 
+## Keyboard Shortcuts
+
+| Key                  | Description                                          |
+| -------------------- | ---------------------------------------------------- |
+| `?` (`Shift` + `/`)  | Show a shortcut cheatsheet dialog                    |
+| `Shift` + `c`        | Copy the current tooltip text to the clipboard       |
+| `Shift` + `a`        | Reset zoom level in heatmap viewport                 |
+| `Shift` + `x`        | Clear the CPU filter                                 |
+
 ## Common sources of errors
 
 ### Errors collecting traces

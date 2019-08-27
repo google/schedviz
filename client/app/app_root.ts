@@ -15,7 +15,10 @@
 //
 //
 import {Component, Inject, OnDestroy} from '@angular/core';
+import {MatDialog} from '@angular/material/dialog';
 import {Router, NavigationEnd} from '@angular/router';
+import {DialogShortcuts} from './dialog_shortcuts';
+import {ShortcutId, ShortcutService, DeregistrationCallback} from './services/shortcut_service';
 import {parseHashFragment} from './util';
 import {COLLECTION_NAME_KEY} from './util/hash_keys';
 import {Subject} from 'rxjs';
@@ -31,10 +34,14 @@ import {takeUntil} from 'rxjs/operators';
 })
 export class AppRoot implements OnDestroy {
   private readonly unsub$ = new Subject<void>();
+  private readonly deregisterShortcut: DeregistrationCallback;
 
   constructor(
-      private readonly router: Router,
+      private readonly router: Router, private readonly dialog: MatDialog,
+      private readonly shortcutService: ShortcutService,
   ) {
+
+    this.deregisterShortcut = this.registerShortcut();
 
     let {hash} = window.location;
     const hashMap = parseHashFragment(hash);
@@ -46,8 +53,15 @@ export class AppRoot implements OnDestroy {
     }
   }
 
+  private registerShortcut(): DeregistrationCallback {
+    return this.shortcutService.register(
+        ShortcutId.SHOW_SHORTCUTS,
+        () => this.dialog.open(DialogShortcuts, {width: '600px'}));
+  }
+
 
   ngOnDestroy() {
+    this.deregisterShortcut();
     this.unsub$.next();
     this.unsub$.complete();
   }

@@ -11,6 +11,7 @@ ng_module(
         "app_root.ts",
         "app_root_module.ts",
         "app_routing_module.ts",
+        "dialog_shortcuts.ts",
     ],
     assets = [
         "app.css",
@@ -23,6 +24,7 @@ ng_module(
         "//client/app/util",
         "//client/environments",
         "@npm//@angular/core",
+        "@npm//@angular/forms",
         "@npm//@angular/material",
         "@npm//@angular/router",
         "@npm//rxjs",
@@ -35,8 +37,11 @@ ts_library(
     srcs = ["app_root_test.ts"],
     deps = [
         ":app_root",
+        "//client/app/services",
+        "//client/app/services:services_tests",
         "//client/app/util",
         "@npm//@angular/core",
+        "@npm//@angular/material",
         "@npm//@angular/router",
         "@npm//@types/jasmine",
     ],

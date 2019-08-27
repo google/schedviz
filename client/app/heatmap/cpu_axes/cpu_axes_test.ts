@@ -25,6 +25,7 @@ import {LocalRenderDataService} from '../../services/render_data_service';
 import {SystemTopology, Viewport} from '../../util';
 import {Heatmap} from '../heatmap';
 import {HeatmapModule} from '../heatmap_module';
+import {ShortcutService} from '../../services/shortcut_service';
 
 const CPU_COUNT = 72;
 const CPUS: number[] = [];
@@ -72,6 +73,7 @@ describe('CpuAxisLayer', () => {
           providers: [
             {provide: 'MetricsService', useClass: LocalMetricsService},
             {provide: 'RenderDataService', useClass: LocalRenderDataService},
+            {provide: 'ShortcutService', useClass: ShortcutService},
           ]
         })
         .compileComponents();
