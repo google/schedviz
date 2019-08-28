@@ -4,6 +4,7 @@
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@npm_bazel_typescript//:defs.bzl", "ts_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 

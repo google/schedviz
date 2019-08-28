@@ -15,6 +15,22 @@ http_archive(
 )
 
 http_archive(
+    name = "com_grail_bazel_toolchain",
+    sha256 = "4a8ed1ec0349a43a82eebc0a5792417125fe387bae90952322cff2b9e8283d9c",
+    strip_prefix = "bazel-toolchain-664914644452a1eb8b746d3701612877c0eef24d",
+    urls = ["https://github.com/grailbio/bazel-toolchain/archive/664914644452a1eb8b746d3701612877c0eef24d.zip"],
+)
+
+http_archive(
+    name = "rules_cc",
+    sha256 = "67412176974bfce3f4cf8bdaff39784a72ed709fc58def599d1f68710b58d68b",
+    strip_prefix = "rules_cc-b7fe9697c0c76ab2fd431a891dbb9a6a32ed7c3e",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/b7fe9697c0c76ab2fd431a891dbb9a6a32ed7c3e.zip",
+        "https://github.com/bazelbuild/rules_cc/archive/b7fe9697c0c76ab2fd431a891dbb9a6a32ed7c3e.zip",
+    ],
+)
+http_archive(
     name = "bazel_gazelle",
     urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz"],
     sha256 = "3c681998538231a2d24d0c07ed5a7658cb72bfb5fd4bf9911157c0e9ac6a2687",
@@ -43,6 +59,17 @@ http_archive(
 load("@build_bazel_rules_nodejs//:defs.bzl", "check_bazel_version", "node_repositories", "yarn_install")
 
 check_bazel_version(minimum_bazel_version = "0.27.0")
+
+load("@com_grail_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
+
+llvm_toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "8.0.0",
+)
+
+load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
+
+llvm_register_toolchains()
 
 # Setup the Node repositories. We need a NodeJS version that is more recent than v10.15.0
 # because "selenium-webdriver" which is required for "ng e2e" cannot be installed.
@@ -119,6 +146,22 @@ go_repository(
     name = "org_golang_x_sync",
     importpath = "github.com/golang/sync",
     tag = "112230192c580c3556b8cee6403af37a4fc5f28c",
+)
+
+# abseil-cpp
+http_archive(
+    name = "com_google_absl",
+    urls = ["https://github.com/abseil/abseil-cpp/archive/20190808.zip"],
+    strip_prefix = "abseil-cpp-20190808",
+    sha256 = "0b62fc2d00c2b2bc3761a892a17ac3b8af3578bd28535d90b4c914b0a7460d4e",
+)
+
+# re2
+http_archive(
+    name = "com_googlesource_code_re2",
+    urls = ["https://github.com/google/re2/archive/2019-08-01.zip"],
+    strip_prefix = "re2-2019-08-01",
+    sha256 = "ae686c2f48e8df31414476a5e8dea4221c6fa679c0444470ab8703c1730e51dc",
 )
 
 load("@npm_bazel_typescript//:defs.bzl", "ts_setup_workspace")

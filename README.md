@@ -23,11 +23,11 @@ git clone https://github.com/google/schedviz.git
 SchedViz requires *yarn*. Closely follow the installation instructions
 on the [yarn Website](https://www.yarnpkg.com).
 
-Building SchedViz also requires the GNU C++ compiler *g++*. On Debian, for
-example, the dependency can be installed by executing this command:
+Building SchedViz also requires the GNU build tools and the unzip utility. On Debian, for
+example, the dependencies can be installed by executing this command:
 
 ```bash
-sudo apt-get update && sudo apt-get install build-essential
+sudo apt-get update && sudo apt-get install build-essential unzip
 ```
 
 To run SchedViz, run the following commands:
@@ -78,6 +78,14 @@ To load SchedViz, go to http://localhost:7042/collections
 
     The shell script collects the `sched_switch`, `sched_wakeup`,
     `sched_wakeup_new`, and `sched_migrate_task` tracepoints.
+
+    > NOTE: There is also a binary version of the trace collector script, which
+      can collect traces larger than the size of the buffer.
+    >
+    > To build it, run `bazel build util:trace` from the root of the repo.
+    >
+    > To run it, run `sudo bazel-bin/util/trace`. It takes the same arguments
+      as the shell script, except -copy_timeout.
 
 2.  Copy the generated tar.gz file off of the trace machine to a machine that
     can access the SchedViz UI.

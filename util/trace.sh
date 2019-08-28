@@ -124,9 +124,8 @@ cat "/sys/kernel/debug/tracing/events/header_page" > "${TMP}/formats/header_page
 for cf in /sys/kernel/debug/tracing/per_cpu/cpu*
 do
   cpuname="${cf##*/}"
-  echo "Copying ${TMP}/traces/${cpuname}"
+  echo "Copying ${cf}/trace_pipe_raw to ${TMP}/traces/${cpuname}"
   touch "${TMP}/traces/${cpuname}"
-  # TODO(tracked) Use a different utility than cat to copy the trace.
   cat "${cf}/trace_pipe_raw" > "${TMP}/traces/${cpuname}" &
   pids+=($!)
   disown
@@ -139,6 +138,7 @@ sleep "${COPYTIME}"
 kill_spawned
 
 echo "Creating tar file"
+rm -f "${OUT}/trace.tar.gz"
 chmod -R a+rwX "${TMP}"
 pushd ${OUT} > /dev/null
 ABS_OUT=`pwd`
