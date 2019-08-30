@@ -5,6 +5,32 @@
         Display Settings
       </mat-expansion-panel-header>
       <div>
+        <mat-form-field class="viewport-form">
+          <mat-label>Viewport Start Time</mat-label>
+          <input matInput class="viewport-input"
+           matTooltip="Update viewport start time (ns, ms, sec, min, etc.)"
+           isDuration
+           [errorStateMatcher]="jumpToTimeMatcher"
+           [ngModel]="getViewportStartTime(viewport.value)"
+           (ngModelChange)="viewportStartTimeInput.next($event)"
+           placeholder="0">
+          <mat-error>
+            Invalid time format
+          </mat-error>
+        </mat-form-field>
+        <mat-form-field class="viewport-form">
+          <mat-label>Viewport End Time</mat-label>
+          <input matInput class="viewport-input"
+           matTooltip="Update viewport end time (ns, ms, sec, min, etc.)"
+           isDuration
+           [errorStateMatcher]="jumpToTimeMatcher"
+           [ngModel]="getViewportEndTime(viewport.value)"
+           (ngModelChange)="viewportEndTimeInput.next($event)"
+           placeholder="0">
+           <mat-error>
+             Invalid time format
+           </mat-error>
+        </mat-form-field>
         <mat-slide-toggle class="settings-toggle"
           [checked]="showSleeping.value"
           (change)="showSleeping.next($event.checked)">

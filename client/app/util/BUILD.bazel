@@ -11,6 +11,7 @@ ng_module(
         "clipboard.ts",
         "complex_system_topology.ts",
         "duration.ts",
+        "duration_validator.ts",
         "hash_compressor.ts",
         "hash_keys.ts",
         "helpers.ts",
@@ -24,7 +25,9 @@ ng_module(
         "//client/app/models:service_models",
         "@npm//@angular/common",
         "@npm//@angular/core",
+        "@npm//@angular/forms",
         "@npm//pako",
+        "@npm//rxjs",
     ],
 )
 

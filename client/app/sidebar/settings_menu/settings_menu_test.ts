@@ -15,7 +15,7 @@
 //
 //
 import {CdkDragDrop} from '@angular/cdk/drag-drop';
-import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {ComponentFixture, fakeAsync, TestBed, tick} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -23,7 +23,8 @@ import {MatInputModule} from '@angular/material/input';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {BehaviorSubject} from 'rxjs';
 
-import {Layer} from '../../models';
+import {CollectionParameters, Layer} from '../../models';
+import {Viewport} from '../../util';
 
 import {SettingsMenu} from './settings_menu';
 import {SettingsMenuModule} from './settings_menu_module';
@@ -38,7 +39,13 @@ try {
 const RED_HEX = '#ff0000';
 const GREEN_HEX = '#00ff00';
 
+// Delay time which will guarantee flush of time input
+const TIME_INPUT_DEBOUNCE_MS = 1000;
+
 function setupSettingsMenu(component: SettingsMenu) {
+  component.parameters = new BehaviorSubject<CollectionParameters|undefined>(
+      new CollectionParameters('collection_params', [], 0, 2e9));
+  component.viewport = new BehaviorSubject<Viewport>(new Viewport());
   component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
   component.showMigrations = new BehaviorSubject<boolean>(true);
   component.showSleeping = new BehaviorSubject<boolean>(true);
@@ -207,4 +214,56 @@ describe('SettingsMenu', () => {
     const newLayer = layerSubjectSpy.calls.mostRecent().args[0] as Layer;
     expect(newLayer.color).toEqual(expectedNewColor);
   });
+
+  it('should update viewport on valid time input change', fakeAsync(() => {
+       const fixture = TestBed.createComponent(SettingsMenu);
+       const component = fixture.componentInstance;
+       setupSettingsMenu(component);
+       fixture.detectChanges();
+       const inputs = fixture.nativeElement.querySelectorAll('.viewport-input');
+       inputs[0].value = '50 ms';
+       inputs[0].dispatchEvent(new Event('input'));
+       tick(TIME_INPUT_DEBOUNCE_MS);
+       expect(component.viewport.value.left).toBe(0.025);
+       expect(component.viewport.value.right).toBe(1.0);
+     }));
+
+  it('should not update viewport on invalid time input change',
+     fakeAsync(() => {
+       const fixture = TestBed.createComponent(SettingsMenu);
+       const component = fixture.componentInstance;
+       setupSettingsMenu(component);
+       fixture.detectChanges();
+       const inputs = fixture.nativeElement.querySelectorAll('.viewport-input');
+       // Don't update if invalid
+       inputs[0].value = '50 ms';
+       inputs[0].dispatchEvent(new Event('input'));
+       inputs[1].value = '5 ms';
+       inputs[1].dispatchEvent(new Event('input'));
+       tick(TIME_INPUT_DEBOUNCE_MS);
+       expect(component.viewport.value.left).toBe(0.025);
+       expect(component.viewport.value.right).toBe(1.0);
+       // Update when valid
+       inputs[1].value = '55 ms';
+       inputs[1].dispatchEvent(new Event('input'));
+       tick(TIME_INPUT_DEBOUNCE_MS);
+       expect(component.viewport.value.left).toBe(0.025);
+       expect(component.viewport.value.right).toBe(0.0275);
+     }));
+
+  it('should clip out of range time inputs', fakeAsync(() => {
+       const fixture = TestBed.createComponent(SettingsMenu);
+       const component = fixture.componentInstance;
+       setupSettingsMenu(component);
+       fixture.detectChanges();
+       const inputs = fixture.nativeElement.querySelectorAll('.viewport-input');
+       // Correct bad inputs
+       inputs[0].value = '50 ms';
+       inputs[0].dispatchEvent(new Event('input'));
+       inputs[1].value = '3000 ms';
+       inputs[1].dispatchEvent(new Event('input'));
+       tick(TIME_INPUT_DEBOUNCE_MS);
+       expect(component.viewport.value.left).toBe(0.025);
+       expect(component.viewport.value.right).toBe(1.0);
+     }));
 });

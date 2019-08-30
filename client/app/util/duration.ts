@@ -17,6 +17,9 @@
 import {Pipe, PipeTransform} from '@angular/core';
 
 
+import {Observable} from 'rxjs';
+import {debounceTime, filter, map} from 'rxjs/operators';
+
 /**
  * A duration unit object, with two properties:
  *  - 'div': the factor by which to divide a duration in ns to yield this unit.
@@ -63,6 +66,17 @@ const DURATION_REGEX =
     new RegExp(`^\\s*(-?\\d+(?:\\.\\d+)?(?:[eE]\\d+)?)\\s*([^\\.\\s]+)\\s*$`);
 
 
+
+/**
+ * Returns an Observable that can be used to convert a human-readable time
+ * string (or any time unit) to a (debounced) time in nanoseconds.
+ */
+export function timeInputToNs(timeInput: Observable<string>):
+    Observable<number> {
+  return timeInput.pipe(
+      debounceTime(300), map(getDurationInNsFromHumanReadableString),
+      filter(val => !isNaN(val)));
+}
 
 /**
  * Returns the provided duration in ns as a human-readable string.  If the

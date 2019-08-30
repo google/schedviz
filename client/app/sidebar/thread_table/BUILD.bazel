@@ -9,7 +9,6 @@ ng_module(
     name = "thread_table",
     srcs = [
         "antagonist_table.ts",
-        "duration_validator.ts",
         "event_table.ts",
         "jump_to_time.ts",
         "layer_toggle.ts",

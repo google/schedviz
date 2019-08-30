@@ -114,3 +114,7 @@ mat-icon {
 p {
   display: inline;
 }
+
+.viewport-form {
+  margin: 10px;
+}

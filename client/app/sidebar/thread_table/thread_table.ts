@@ -23,7 +23,7 @@ import {debounceTime, filter, map} from 'rxjs/operators';
 
 import {FtraceInterval, Interval, Layer, Thread, ThreadInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
-import {getDurationInNsFromHumanReadableString} from '../../util/duration';
+import {timeInputToNs} from '../../util/duration';
 
 import {jumpToRow} from './jump_to_time';
 import {SelectableTable} from './selectable_table';
@@ -41,12 +41,6 @@ class ImmediateErrorStateMatcher implements ErrorStateMatcher {
 
     return control.invalid && control.value !== '';
   }
-}
-
-function timeInputToNs(timeInput: Observable<string>): Observable<number> {
-  return timeInput.pipe(
-      debounceTime(300), map(getDurationInNsFromHumanReadableString),
-      filter(val => !isNaN(val)));
 }
 
 /**
@@ -96,17 +90,16 @@ export class ThreadTable extends SelectableTable implements OnInit,
   rowHeightPx = 28;
   hideResults = false;
 
-  filterPredicate =
-      (data: Interval, filter: string): boolean => {
-        if (!filter) {
-          return true;
-        }
-        const filterLt = filter.toLowerCase();
-        const thread = data as Thread;
-        const pred = thread.command.toLowerCase().includes(filterLt) ||
-            `${thread.pid}`.includes(filterLt);
-        return this.hideResults ? !pred : pred;
-      };
+  filterPredicate = (data: Interval, filter: string): boolean => {
+    if (!filter) {
+      return true;
+    }
+    const filterLt = filter.toLowerCase();
+    const thread = data as Thread;
+    const pred = thread.command.toLowerCase().includes(filterLt) ||
+        `${thread.pid}`.includes(filterLt);
+    return this.hideResults ? !pred : pred;
+  };
 
   constructor(
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {

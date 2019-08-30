@@ -16,11 +16,29 @@
 //
 import {CdkDragDrop, moveItemInArray} from '@angular/cdk/drag-drop';
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit} from '@angular/core';
+import {FormControl} from '@angular/forms';
+import {ErrorStateMatcher} from '@angular/material/core';
 import {BehaviorSubject, merge} from 'rxjs';
 import {switchMap} from 'rxjs/operators';
 
-import {CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../../models';
+
+import {CollectionParameters, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../../models';
 import {ColorService} from '../../services/color_service';
+import {Viewport} from '../../util';
+import {getHumanReadableDurationFromNs, timeInputToNs} from '../../util/duration';
+
+/**
+ * Matcher which enters an error state immediately, ignoring empty fields.
+ */
+class ImmediateErrorStateMatcher implements ErrorStateMatcher {
+  isErrorState(control: FormControl|null): boolean {
+    if (!control) {
+      return false;
+    }
+
+    return control.invalid && control.value !== '';
+  }
+}
 
 /**
  * A display settings menu. Contains all components the control rendering
@@ -33,10 +51,15 @@ import {ColorService} from '../../services/color_service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsMenu implements OnInit {
+  @Input() parameters!: BehaviorSubject<CollectionParameters|undefined>;
   @Input() maxIntervalCount!: BehaviorSubject<number>;
   @Input() showMigrations!: BehaviorSubject<boolean>;
   @Input() showSleeping!: BehaviorSubject<boolean>;
   @Input() layers!: BehaviorSubject<Array<BehaviorSubject<Layer>>>;
+  @Input() viewport!: BehaviorSubject<Viewport>;
+  jumpToTimeMatcher = new ImmediateErrorStateMatcher();
+  viewportStartTimeInput = new BehaviorSubject<string>('');
+  viewportEndTimeInput = new BehaviorSubject<string>('');
 
   constructor(
       private readonly cdr: ChangeDetectorRef,
@@ -63,6 +86,12 @@ export class SettingsMenu implements OnInit {
     // TODO(sainsley): Investigate removing force change detection here.
     this.layers.pipe(switchMap(layers => merge(...layers)))
         .subscribe(() => this.cdr.detectChanges());
+    this.viewportStartTimeInput.pipe(timeInputToNs).subscribe((startTimeNs) => {
+      this.updateViewportInX(startTimeNs);
+    });
+    this.viewportEndTimeInput.pipe(timeInputToNs).subscribe((endTimeNs) => {
+      this.updateViewportInX(endTimeNs, /** updateRight */ true);
+    });
   }
 
   // TODO(sainsley): The only fixed layers are the CPU layers. Use instanceof
@@ -106,5 +135,52 @@ export class SettingsMenu implements OnInit {
     // Update the colors in other components.
     this.cdr.detectChanges();
     layerSub.next(layer);
+  }
+
+  /**
+   * Formats viewport left in best fit units of time.
+   */
+  getViewportStartTime(viewport: Viewport) {
+    return this.getViewportTime(viewport);
+  }
+
+  /**
+   * Formats viewport right in best fit units of time.
+   */
+  getViewportEndTime(viewport: Viewport) {
+    return this.getViewportTime(viewport, true /** returnEndTime */);
+  }
+
+  /**
+   * Formats viewport parametric value in best fit units of time.
+   */
+  private getViewportTime(viewport: Viewport, returnEndTime = false) {
+    const parameters = this.parameters.value;
+    if (!parameters) {
+      return 0;
+    }
+    const viewportTime = returnEndTime ? viewport.right : viewport.left;
+    const timeNs = Math.round(
+        viewportTime * parameters.domainSizeNs + parameters.startTimeNs);
+    return getHumanReadableDurationFromNs(timeNs);
+  }
+
+  private updateViewportInX(viewportTimeNs: number, updateRight = false) {
+    const parameters = this.parameters.value;
+    if (!parameters || !parameters.domainSizeNs) {
+      return;
+    }
+    const viewport = this.viewport.value;
+    const startNs = parameters.startTimeNs;
+    const domainSize = parameters.domainSizeNs;
+    const viewportX = (viewportTimeNs - startNs) / domainSize;
+    const viewportRight =
+        updateRight ? Math.min(1.0, viewportX) : viewport.right;
+    const viewportLeft = updateRight ? viewport.left : Math.max(0, viewportX);
+    if (viewportLeft < viewportRight) {
+      viewport.left = viewportLeft;
+      viewport.right = viewportRight;
+      this.viewport.next(viewport);
+    }
   }
 }

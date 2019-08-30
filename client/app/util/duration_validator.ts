@@ -17,7 +17,7 @@
 import {Directive} from '@angular/core';
 import {AbstractControl, NG_VALIDATORS, Validator} from '@angular/forms';
 
-import {getDurationInNsFromHumanReadableString} from '../../util/duration';
+import {getDurationInNsFromHumanReadableString} from './duration';
 
 /**
  * Validates that a given control contains a valid duration value.

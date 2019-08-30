@@ -19,16 +19,20 @@ import {DragDropModule} from '@angular/cdk/drag-drop';
 import {NgModule} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
+import {MAT_HAMMER_OPTIONS} from '@angular/material/core';
 import {MatExpansionModule} from '@angular/material/expansion';
+import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
+import {MatInputModule} from '@angular/material/input';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {MatSliderModule} from '@angular/material/slider';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {BrowserModule} from '@angular/platform-browser';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 
-import {SettingsMenu} from './settings_menu';
+import {UtilModule} from '../../util';
 
+import {SettingsMenu} from './settings_menu';
 
 @NgModule({
   declarations: [
@@ -43,11 +47,21 @@ import {SettingsMenu} from './settings_menu';
     DragDropModule,
     MatButtonModule,
     MatIconModule,
+    MatInputModule,
     MatExpansionModule,
+    MatFormFieldModule,
     MatSliderModule,
     MatSlideToggleModule,
     MatTooltipModule,
     FormsModule,
+    UtilModule,
+  ],
+  providers: [
+    {
+      provide: MAT_HAMMER_OPTIONS,
+      // Allow for selection of items underneath tooltips
+      useValue: {cssProps: {userSelect: true}},
+    },
   ],
 })
 export class SettingsMenuModule {

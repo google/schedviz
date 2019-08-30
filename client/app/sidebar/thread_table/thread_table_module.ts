@@ -32,9 +32,10 @@ import {MatTableModule} from '@angular/material/table';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {BrowserModule} from '@angular/platform-browser';
 
+import {UtilModule} from '../../util';
+
 import {AntagonistTable} from './antagonist_table';
 import {EventTable} from './event_table';
-import {DurationValidator} from './duration_validator';
 import {LayerToggle} from './layer_toggle';
 import {SchedEventsTable} from './sched_events_table';
 import {SelectableTable} from './selectable_table';
@@ -43,11 +44,15 @@ import {ThreadTable} from './thread_table';
 @NgModule({
   declarations: [
     SchedEventsTable, ThreadTable, EventTable, AntagonistTable, SelectableTable,
-    LayerToggle, DurationValidator
+    LayerToggle
   ],
   exports: [
-    SchedEventsTable, ThreadTable, EventTable, AntagonistTable, SelectableTable,
-    LayerToggle, DurationValidator
+    SchedEventsTable,
+    ThreadTable,
+    EventTable,
+    AntagonistTable,
+    SelectableTable,
+    LayerToggle,
   ],
   imports: [
     BrowserModule,
@@ -65,6 +70,7 @@ import {ThreadTable} from './thread_table';
     MatBadgeModule,
     MatSlideToggleModule,
     MatTooltipModule,
+    UtilModule,
   ],
   providers: [
     {

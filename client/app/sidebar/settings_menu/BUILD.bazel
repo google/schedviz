@@ -18,6 +18,7 @@ ng_module(
     deps = [
         "//client/app/models",
         "//client/app/services",
+        "//client/app/util",
         "@npm//@angular/cdk",
         "@npm//@angular/core",
         "@npm//@angular/forms",
@@ -36,6 +37,7 @@ ts_library(
     deps = [
         ":settings_menu",
         "//client/app/models",
+        "//client/app/util",
         "@npm//@angular/cdk",
         "@npm//@angular/core",
         "@npm//@angular/forms",

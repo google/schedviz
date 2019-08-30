@@ -23,13 +23,16 @@ const NANOS_TO_MILLIS = 1e6;
  * Describes the high-level parameters of a collection, for view sizing, etc.
  */
 export class CollectionParameters {
+  readonly domainSizeNs: number;
   constructor(
       public name: string,
       public cpus: number[],
       public startTimeNs: number,
       public endTimeNs: number,
       public ftraceEventTypes: string[] = [],
-  ) {}
+  ) {
+    this.domainSizeNs = this.endTimeNs - this.startTimeNs;
+  }
 
   get size() {
     return this.cpus.length;

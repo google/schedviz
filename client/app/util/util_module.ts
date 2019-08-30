@@ -16,14 +16,11 @@
 //
 import {NgModule} from '@angular/core';
 import {FormatTimePipe} from './duration';
+import {DurationValidator} from './duration_validator';
 
 @NgModule({
-  declarations: [
-    FormatTimePipe,
-  ],
-  exports: [
-    FormatTimePipe,
-  ],
+  declarations: [FormatTimePipe, DurationValidator],
+  exports: [FormatTimePipe, DurationValidator],
   imports: [],
 })
 export class UtilModule {
