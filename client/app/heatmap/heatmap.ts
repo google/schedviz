@@ -71,6 +71,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   @Input() showMigrations!: BehaviorSubject<boolean>;
   @Input() showSleeping!: BehaviorSubject<boolean>;
 
+  tooltipProps = new BehaviorSubject<{[key: string]: string}>({});
   visibleCpus = new BehaviorSubject<number[]>([]);
   baseIntervals: CpuIntervalCollection[] = [];
 
@@ -87,6 +88,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   /** Last seen zoom transform for computing viewport delta on zoom change. */
   lastTransform: d3.ZoomTransform = d3.zoomIdentity;
   /** TODO(sainsley): Hook up controls in thread list in follow-up CL */
+
+  // Sort function to use with the keyvalue pipe to not sort entries by key.
+  noKeyvalueSort = () => 0;
 
   constructor(
       @Inject('RenderDataService') public renderDataService: RenderDataService,

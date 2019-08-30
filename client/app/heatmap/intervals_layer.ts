@@ -50,6 +50,7 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
   @Input() cpus!: number[];
   @Input() generateEdges!: BehaviorSubject<boolean>;
   @Input() showSleeping!: BehaviorSubject<boolean>;
+  @Input() tooltipProps!: BehaviorSubject<{[key: string]: string}>;
 
   hoverInterval?: Interval;
   renderedColor?: string;
@@ -81,6 +82,9 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
     }
     if (!this.showSleeping) {
       throw new Error('Missing Observable for sleeping intervals flag');
+    }
+    if (!this.tooltipProps) {
+      throw new Error('Missing Observable for tooltip text');
     }
     // Rescale transform on viewport change
     this.viewport.subscribe((viewport) => {
@@ -361,7 +365,7 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
       return;
     }
     this.hoverInterval = data[0] as Interval;
-    this.tooltip.innerHTML = this.tooltipHtml;
+    this.tooltipProps.next(this.hoverInterval.tooltipProps);
     const tooltip = d3.select(this.tooltip);
     tooltip.style('border-color', layer.getIntervalColor(this.hoverInterval));
 
@@ -393,38 +397,6 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
 
   scaledHeightPx(viewport: Viewport) {
     return viewport.chartHeightPx / viewport.height;
-  }
-
-  /**
-   * @return the inner HTML for the global tooltip given the current
-   * mouseover interval
-   */
-  get tooltipHtml() {
-    if (!this.hoverInterval) {
-      return '';
-    }
-    const hoverInterval = this.hoverInterval;
-    // Add a new line for each valid tooltip property
-    const tooltipHtml =
-        this.tooltipKeys
-            .map((key) => {
-              const prop = hoverInterval.tooltipProps[key];
-              return prop ? `<div><b>${key}: </b><span>${prop}</span></div>` :
-                            '';
-            })
-            .join('');
-    const safeHtml = this.sanitizer.sanitize(SecurityContext.HTML, tooltipHtml);
-    return safeHtml ? safeHtml : '';
-  }
-
-  /**
-   * @return keys to render in tooltip
-   */
-  get tooltipKeys() {
-    if (!this.hoverInterval) {
-      return [];
-    }
-    return Object.keys(this.hoverInterval.tooltipProps);
   }
 
   private static calculateTopTooltipPos(

@@ -74,7 +74,7 @@ function addMockIntervals(component: Heatmap): CpuIntervalCollection[] {
     {
       thread: {
         pid: 0,
-        command: 'test',
+        command: '<h3>hey!</h3>',
         priority: 120,
       },
       duration: (params.endTimeNs - params.startTimeNs) / 2,
@@ -98,7 +98,7 @@ function addMockIntervals(component: Heatmap): CpuIntervalCollection[] {
     {
       thread: {
         pid: 2,
-        command: 'test3',
+        command: '<script>expect("xss").toBeNull()</script>',
         priority: 120,
       },
       duration: (params.endTimeNs - params.startTimeNs),
@@ -291,12 +291,14 @@ describe('Heatmap', () => {
     (document.querySelector('.interval') as SVGElement).dispatchEvent(event);
 
     await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
 
     const tooltip = document.querySelector('.tooltip') as HTMLElement;
     expect(tooltip.innerText)
         .toBe(
             'Running: \n' +
-            '  (50.0%) 0:test (P:120)\n' +
+            '  (50.0%) 0:<h3>hey!</h3> (P:120)\n' +
             '  (50.0%) 1:test2 (P:100)\n' +
             'CPU: 0\n' +
             'Start Time: 500 msec\n' +
@@ -307,7 +309,7 @@ describe('Heatmap', () => {
             'Waiting Time:  (200%) 4000 msec\n' +
             'Waiting PID Count: 2\n' +
             'Waiting: \n' +
-            '  (100%) 2:test3 (P:120)\n' +
+            '  (100%) 2:<script>expect("xss").toBeNull()</script> (P:120)\n' +
             '  (100%) 3:test4 (P:80)');
   });
 
@@ -335,6 +337,8 @@ describe('Heatmap', () => {
     const yPos = Math.floor(rootElement.getBoundingClientRect().bottom / 2);
     const xPos = Math.floor(rootElement.getBoundingClientRect().right / 2);
     interval.dispatchEvent(createHoverEvent(xPos, yPos));
+    await fixture.whenStable();
+    fixture.detectChanges();
     await fixture.whenStable();
     const tooltipRect = tooltip.getBoundingClientRect();
     expect(isTooltipBelow(tooltipRect, yPos)).toBe(true);
@@ -390,6 +394,8 @@ describe('Heatmap', () => {
          const cursorY = testCase.hoverCoordinate.y;
          const interval = document.querySelector('.interval') as SVGElement;
          interval.dispatchEvent(createHoverEvent(cursorX, cursorY));
+         await fixture.whenStable();
+         fixture.detectChanges();
          await fixture.whenStable();
 
          const tooltip = document.querySelector('.tooltip') as HTMLElement;

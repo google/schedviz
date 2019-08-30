@@ -9,6 +9,8 @@
 </metrics-overlay>
 <div id="scalingSvgContainer">
   <div #tooltip class="tooltip">
+    <div *ngFor="let prop of (tooltipProps | async | keyvalue: noKeyvalueSort)">
+      <b>{{prop.key}}: </b>{{prop.value}}</div>
   </div>
   <svg #svg class="scaling-svg">
     <defs id="defs">
@@ -28,6 +30,7 @@
             <g
                [intervalsLayer]
                [tooltip]="tooltip"
+               [tooltipProps]="tooltipProps"
                [viewport]="viewport"
                [layer]="layer"
                [layers]="layers"
