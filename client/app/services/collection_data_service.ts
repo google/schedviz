@@ -134,8 +134,12 @@ export class HttpCollectionDataService implements CollectionDataService {
     return this.http
         .post<services.SystemTopologyResponse>(requestUrl, metadata.name)
         .pipe(
-            map(systemTopology =>
-                    new ComplexSystemTopology(systemTopology, metadata.cpus)),
+            map(systemTopology => {
+              if (systemTopology.systemTopology.logicalCores) {
+                return new ComplexSystemTopology(systemTopology, metadata.cpus);
+              }
+              return new SystemTopology(metadata.cpus);
+            }),
         );
   }
 

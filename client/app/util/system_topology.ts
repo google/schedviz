@@ -28,7 +28,10 @@ import {Viewport} from './viewport';
  * within that topology.
  */
 export class CpuLabel {
-  constructor(public cpuIndex: number, public totalCpuCount: number) {}
+  constructor(
+      public cpuIndex: number,
+      private readonly maxCpuNum: number,
+  ) {}
 
   /**
    * @return This CPUs location within the host, i.e. its topological row.
@@ -41,7 +44,7 @@ export class CpuLabel {
    * @return a label for this CPU.
    */
   get label(): string {
-    const maxIdLen = String(this.totalCpuCount - 1).length;
+    const maxIdLen = String(this.maxCpuNum - 1).length;
     const id = String(this.cpuIndex);
     // Pad on the left w/ enough 0s to make it as long as the longest CPU
     // id.
@@ -58,7 +61,8 @@ export class CpuLabel {
 export class SystemTopology {
   protected cpuLabels: CpuLabel[];
   constructor(public cpus: number[]) {
-    this.cpuLabels = cpus.map(cpu => new CpuLabel(cpu, cpus.length));
+    const maxCpuNum = Math.max(...cpus, 0);
+    this.cpuLabels = cpus.map(cpu => new CpuLabel(cpu, maxCpuNum));
   }
 
   getVisibleCpuIds(viewport: Viewport, filter?: string) {

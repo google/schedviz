@@ -30,7 +30,7 @@ export class ComplexCpuLabel extends CpuLabel {
   constructor(
       public logicalCore: LogicalCore,
       public systemTopology: ComplexSystemTopology) {
-    super(Number(logicalCore.cpuId), systemTopology.cpuCount);
+    super(Number(logicalCore.cpuId), Math.max(...systemTopology.cpus, 0));
   }
 
   /**
