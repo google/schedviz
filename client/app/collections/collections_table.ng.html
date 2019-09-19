@@ -39,7 +39,11 @@
           <input matInput placeholder="Collected By" [ngModel]="owner.value" (ngModelChange)="owner.next($event)">
         </mat-form-field>
       </mat-header-cell>
-      <mat-cell *matCellDef="let metadata">{{metadata.creator}}</mat-cell>
+      <mat-cell *matCellDef="let metadata">
+        <selectable-anchor [href]="getCollectionUrl(metadata.name)">
+          {{metadata.creator}}
+        </selectable-anchor>
+      </mat-cell>
     </ng-container>
 
     <!-- Target Machine Column -->
@@ -49,7 +53,11 @@
           <input matInput placeholder="Target Machine" [(ngModel)]="filter.targetMachine">
         </mat-form-field>
       </mat-header-cell>
-      <mat-cell *matCellDef="let metadata">{{metadata.targetMachine}}</mat-cell>
+      <mat-cell *matCellDef="let metadata">
+        <selectable-anchor [href]="getCollectionUrl(metadata.name)">
+          {{metadata.targetMachine}}
+        </selectable-anchor>
+      </mat-cell>
     </ng-container>
 
     <!-- Creation Time Column -->
@@ -59,7 +67,11 @@
           <input matInput placeholder="Collected On" [(ngModel)]="filter.creationTime">
         </mat-form-field>
       </mat-header-cell>
-      <mat-cell *matCellDef="let metadata">{{metadata.creationTime | date:'medium'}}</mat-cell>
+      <mat-cell *matCellDef="let metadata">
+        <selectable-anchor [href]="getCollectionUrl(metadata.name)">
+          {{metadata.creationTime | date:'medium'}}
+        </selectable-anchor>
+      </mat-cell>
     </ng-container>
 
     <!-- Tags Column -->
@@ -69,7 +81,11 @@
           <input matInput placeholder="Tags" [(ngModel)]="filter.tags">
         </mat-form-field>
       </mat-header-cell>
-      <mat-cell *matCellDef="let metadata">{{metadata.tags.join(", ")}}</mat-cell>
+      <mat-cell *matCellDef="let metadata">
+        <selectable-anchor [href]="getCollectionUrl(metadata.name)">
+          {{metadata.tags.join(", ")}}
+        </selectable-anchor>
+      </mat-cell>
     </ng-container>
 
     <!-- Description Column -->
@@ -79,7 +95,11 @@
           <input matInput placeholder="Description" [(ngModel)]="filter.description">
         </mat-form-field>
       </mat-header-cell>
-      <mat-cell *matCellDef="let metadata">{{metadata.description}}</mat-cell>
+      <mat-cell *matCellDef="let metadata">
+        <selectable-anchor [href]="getCollectionUrl(metadata.name)">
+          {{metadata.description}}
+        </selectable-anchor>
+      </mat-cell>
     </ng-container>
 
     <!-- Collection Name Column -->
@@ -89,7 +109,11 @@
           <input matInput placeholder="Name" [(ngModel)]="filter.name">
         </mat-form-field>
       </mat-header-cell>
-      <mat-cell *matCellDef="let metadata">{{metadata.name}}</mat-cell>
+      <mat-cell *matCellDef="let metadata">
+        <selectable-anchor [href]="getCollectionUrl(metadata.name)">
+          {{metadata.name}}
+        </selectable-anchor>
+      </mat-cell>
     </ng-container>
 
     <mat-header-row *matHeaderRowDef="displayedColumns; sticky: true">

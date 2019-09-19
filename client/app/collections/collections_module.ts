@@ -35,10 +35,16 @@ import {RouterModule} from '@angular/router';
 import {Collections} from './collections';
 import {CollectionsTable, DialogDeleteConfirm} from './collections_table';
 import {CollectionsToolbar} from './collections_toolbar';
+import {SelectableAnchor} from './selectable_anchor';
 
 @NgModule({
-  declarations:
-      [CollectionsTable, CollectionsToolbar, Collections, DialogDeleteConfirm],
+  declarations: [
+    CollectionsTable,
+    CollectionsToolbar,
+    Collections,
+    DialogDeleteConfirm,
+    SelectableAnchor,
+  ],
   exports: [CollectionsTable, CollectionsToolbar, Collections],
   imports: [
     BrowserModule,

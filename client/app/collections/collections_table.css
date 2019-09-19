@@ -112,3 +112,7 @@ mat-form-field.mat-form-field {
   vertical-align: middle;
   margin-left: 10px;
 }
+
+selectable-anchor {
+  z-index: 1;
+}

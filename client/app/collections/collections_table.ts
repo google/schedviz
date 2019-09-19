@@ -208,6 +208,12 @@ export class CollectionsTable implements OnInit, OnDestroy {
               });
     });
   }
+
+  getCollectionUrl(name: string): string {
+    return this.router
+        .createUrlTree(['/dashboard'], {fragment: `collection=${name}`})
+        .toString();
+  }
 }
 
 /**

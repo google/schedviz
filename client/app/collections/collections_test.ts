@@ -44,6 +44,7 @@ import {LocalCollectionDataService} from '../services';
 import {Collections} from './collections';
 import {CollectionsTable} from './collections_table';
 import {CollectionsToolbar} from './collections_toolbar';
+import {SelectableAnchor} from './selectable_anchor';
 
 describe('Collections', () => {
   let collectionsTable: CollectionsTable;
@@ -98,7 +99,8 @@ describe('Collections', () => {
         },
         {provide: APP_BASE_HREF, useValue: '/'},
       ],
-      declarations: [CollectionsTable, Collections, CollectionsToolbar],
+      declarations:
+          [CollectionsTable, Collections, CollectionsToolbar, SelectableAnchor],
     });
   });
 

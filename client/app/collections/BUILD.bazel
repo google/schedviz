@@ -12,6 +12,7 @@ ng_module(
         "collections_module.ts",
         "collections_table.ts",
         "collections_toolbar.ts",
+        "selectable_anchor.ts",
     ],
     assets = [
         "collections.ng.html",
