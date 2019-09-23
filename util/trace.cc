@@ -59,7 +59,8 @@ static constexpr const auto kUSAGE =
     "--kernel_trace_root Path to the root directory of the Ftrace filesystem. "
     "Default '/sys/kernel/debug/tracing'\n"
     "--kernel_devices_root Path to the root directory of the devices "
-    "filesystem. Default '/sys/devices'";
+    "filesystem. Default '/sys/devices'"
+    "\n";
 
 /**
  * Regex for matching a CPU name in a SysFS path.
@@ -70,6 +71,7 @@ static constexpr const LazyRE2 kCPURegex = {"(cpu\\d+$)"};
  * Regex for matching a NUMA node name in a SysFS path.
  */
 static constexpr const LazyRE2 kNodeRegex = {"(node\\d+$)"};
+
 
 int main(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);
@@ -115,7 +117,8 @@ int main(int argc, char** argv) {
   }
 
   FTraceTracer tracer(kernel_trace_root, kernel_devices_root, output_path,
-                      buffer_size, events);
+                      buffer_size,
+                      events);
 
   const auto& status = tracer.Trace(capture_seconds);
   if (!status.ok()) {
@@ -224,6 +227,7 @@ Status FTraceTracer::ConfigureFTrace() {
   if (!status.ok()) {
     return status;
   }
+
 
   return Status::OkStatus();
 }
@@ -393,6 +397,7 @@ Status FTraceTracer::CollectTrace(const int capture_seconds) {
     absl::SleepFor(interval);
   }
 
+
   status = StopTrace(/*final_copy=*/true);
   if (!failedCopyStatus.ok()) {
     // Merge the failure message from the failed copy and StopTrace,
@@ -423,8 +428,10 @@ Status FTraceTracer::StopTrace(bool final_copy) {
   if (!is_tracing_) {
     return Status::InternalError("Not currently in a trace");
   }
-  const auto& tracing_file_path = kernel_trace_root_ / "tracing_on";
+
   Status status;
+
+  const auto& tracing_file_path = kernel_trace_root_ / "tracing_on";
   status = WriteString(tracing_file_path, "0");
   if (!status.ok()) {
     std::cerr << "WARNING: Failed to stop tracing. FTrace may still be "
@@ -523,3 +530,4 @@ Status FTraceTracer::WriteString(const std::filesystem::path& path,
   }
   return Status::OkStatus();
 }
+
