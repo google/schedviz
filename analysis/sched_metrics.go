@@ -56,7 +56,8 @@ func (c *Collection) PerThreadEventSeries(pid PID, startTimestamp, endTimestamp 
 }
 
 // ThreadSummaries returns a set of thread summaries for a specified collection over a specified interval.
-func (c *Collection) ThreadSummaries(cpus []CPUID, startTimestamp, endTimestamp time.Duration) ([]Metrics, error) {
+func (c *Collection) ThreadSummaries(filters ...Filter) ([]Metrics, error) {
+	f := buildFilter(c, filters)
 	pidsAndComms, err := c.PIDsAndComms()
 	if err != nil {
 		return nil, err
@@ -76,7 +77,7 @@ func (c *Collection) ThreadSummaries(cpus []CPUID, startTimestamp, endTimestamp 
 	})
 
 	var cpuIDs = []CPUID{}
-	for _, cpu := range cpus {
+	for cpu := range f.cpus {
 		cpuIDs = append(cpuIDs, CPUID(cpu))
 	}
 	cpuFilter := CPUs(cpuIDs...)
@@ -84,12 +85,12 @@ func (c *Collection) ThreadSummaries(cpus []CPUID, startTimestamp, endTimestamp 
 
 	var pidMetrics = []Metrics{}
 	// Get timestamps from collection if not provided.
-	startTS := trace.Timestamp(startTimestamp)
+	startTS := f.startTimestamp
 	if startTS <= trace.UnknownTimestamp {
 		collectionStartTS, _ := c.Interval()
 		startTS = collectionStartTS
 	}
-	endTS := trace.Timestamp(endTimestamp)
+	endTS := f.endTimestamp
 	if endTS <= trace.UnknownTimestamp {
 		_, collectionEndTS := c.Interval()
 		endTS = collectionEndTS

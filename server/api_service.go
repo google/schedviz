@@ -211,7 +211,9 @@ func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.Thread
 		return models.ThreadSummariesResponse{}, err
 	}
 
-	threadSummaries, err := c.Collection.ThreadSummaries(req.Cpus, time.Duration(req.StartTimestampNs), time.Duration(req.EndTimestampNs))
+	threadSummaries, err := c.Collection.ThreadSummaries(
+		sched.CPUs(req.Cpus...),
+		sched.TimeRange(trace.Timestamp(req.StartTimestampNs), trace.Timestamp(req.EndTimestampNs)))
 	if err != nil {
 		return models.ThreadSummariesResponse{}, err
 	}

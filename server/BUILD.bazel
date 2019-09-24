@@ -83,6 +83,7 @@ importpath = "github.com/google/schedviz/server/storageservice",
     ],
     deps = [
         ":models",
+        "//analysis:legacyconversion",
         "//analysis:sched",
         "//tracedata:schedviz_events_go_proto",
         "//tracedata:trace",

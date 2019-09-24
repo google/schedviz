@@ -93,3 +93,13 @@ go_test(
         "@org_golang_google_grpc//status:go_default_library",
     ],
 )
+
+go_library(
+    name = "legacyconversion",
+importpath = "github.com/google/schedviz/analysis/legacyconversion",
+
+    deps = [
+        "//tracedata:schedviz_events_go_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
+    ],
+)

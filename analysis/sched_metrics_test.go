@@ -18,7 +18,6 @@ package sched
 
 import (
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -32,15 +31,11 @@ func TestPIDSummary(t *testing.T) {
 		t.Fatalf("Broken collection, can't proceed: `%s'", err)
 	}
 	tests := []struct {
-		description    string
-		cpus           []CPUID
-		startTimestamp time.Duration
-		endTimestamp   time.Duration
-		wantMs         []Metrics
+		description string
+		filters     []Filter
+		wantMs      []Metrics
 	}{{
-		description:    "Full time range",
-		startTimestamp: -1,
-		endTimestamp:   -1,
+		description: "Full time range",
 		wantMs: []Metrics{
 			{
 				// Wakeup, switch-in at 1010, switch-out at 1100
@@ -102,10 +97,8 @@ func TestPIDSummary(t *testing.T) {
 			},
 		},
 	}, {
-		description:    "Full time range, CPU filtered",
-		cpus:           []CPUID{1},
-		startTimestamp: -1,
-		endTimestamp:   -1,
+		description: "Full time range, CPU filtered",
+		filters:     []Filter{CPUs(1)},
 		wantMs: []Metrics{
 			{
 				// Wakeup, switch-in at 1010, switch-out at 1100
@@ -154,9 +147,8 @@ func TestPIDSummary(t *testing.T) {
 			},
 		},
 	}, {
-		description:    "Time filtered",
-		startTimestamp: 50,
-		endTimestamp:   100,
+		description: "Time filtered",
+		filters:     []Filter{TimeRange(50, 100)},
 		wantMs: []Metrics{
 			{
 				// Switch-out at 1100.
@@ -214,10 +206,8 @@ func TestPIDSummary(t *testing.T) {
 			},
 		},
 	}, {
-		description:    "Time and CPU filtered",
-		cpus:           []CPUID{2},
-		startTimestamp: 50,
-		endTimestamp:   100,
+		description: "Time and CPU filtered",
+		filters:     []Filter{CPUs(2), TimeRange(50, 100)},
 		wantMs: []Metrics{
 			{
 				// Migrate at 1080, switch-in at 1100.
@@ -249,15 +239,15 @@ func TestPIDSummary(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			metrics, err := coll.ThreadSummaries(test.cpus, test.startTimestamp, test.endTimestamp)
+			metrics, err := coll.ThreadSummaries(test.filters...)
 			if err != nil {
-				t.Fatalf("ThreadSummaries(%v, %v, %v) threw %v", test.cpus, test.startTimestamp, test.endTimestamp, err)
+				t.Fatalf("ThreadSummaries() threw %v", err)
 			}
 			if len(metrics) != len(test.wantMs) {
-				t.Fatalf("PIDSummaryList(%v, %s, %s) returned %d metrics, expected %d", test.cpus, test.startTimestamp, test.endTimestamp, len(metrics), len(test.wantMs))
+				t.Fatalf("PIDSummaryList() returned %d metrics, expected %d", len(metrics), len(test.wantMs))
 			}
 			if diff := cmp.Diff(test.wantMs, metrics); diff != "" {
-				t.Errorf("PIDSummaryList(%v, %s, %s) = %v, Diff -want +got: %v", test.cpus, test.startTimestamp, test.endTimestamp, metrics, diff)
+				t.Errorf("PIDSummaryList() = %v, Diff -want +got: %v", metrics, diff)
 			}
 		})
 	}
