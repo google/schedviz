@@ -36,7 +36,11 @@
     <ng-container matColumnDef="creator">
       <mat-header-cell *matHeaderCellDef mat-sort-header>
         <mat-form-field (click)="$event.stopPropagation()">
-          <input matInput placeholder="Collected By" [ngModel]="owner.value" (ngModelChange)="owner.next($event)">
+          <input matInput
+                 placeholder="Collected By"
+                 [ngModel]="owner.value"
+                 (ngModelChange)="owner.next($event)"
+                 matTooltip="Comma separated list of collection owners.">
         </mat-form-field>
       </mat-header-cell>
       <mat-cell *matCellDef="let metadata">
