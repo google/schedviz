@@ -224,6 +224,7 @@ func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.Thread
 	}, nil
 }
 
+
 // GetUtilizationMetrics returns a set of metrics describing the utilization or over-utilization of
 // some portion of the system over some span of the trace.
 // These metrics are described in the sched.Utilization struct.

@@ -218,6 +218,7 @@ func (c *Collection) UtilizationMetrics(filters ...Filter) (Utilization, error) 
 	if err != nil {
 		return Utilization{}, err
 	}
+	maxCPUID := f.maxCPUID()
 	um := Utilization{}
 	eim := newElementaryIntervalMerger(f)
 	cpuCount := len(f.cpus)
@@ -239,13 +240,18 @@ func (c *Collection) UtilizationMetrics(filters ...Filter) (Utilization, error) 
 		totalTime += intervalDuration * Duration(cpuCount)
 		waitingThreadCount := 0
 		// Idle CPUs have nothing currently running on them.
-		idleCPUs := map[CPUID]struct{}{}
+		idleCPUs := make([]bool, maxCPUID+1)
+		idleCPUCount := 0
 		// Overloaded CPUs currently have something waiting to run on them.
-		overloadedCPUs := map[CPUID]struct{}{}
+		overloadedCPUs := make([]bool, maxCPUID+1)
+		overloadedCPUCount := 0
 		if err := eim.mergeDiff(elemInterval); err != nil {
 			return Utilization{}, err
 		}
 		for _, csm := range eim.cpuStateMergers {
+			if csm == nil {
+				continue
+			}
 			// CPU is idle if either no thread was running on it (can happen when unused for all recorded
 			// time before now) or if it has a process with PID 0.
 			isIdle := csm.running == nil || csm.running.PID == 0
@@ -258,16 +264,19 @@ func (c *Collection) UtilizationMetrics(filters ...Filter) (Utilization, error) 
 				continue
 			}
 			if isIdle {
-				idleCPUs[csm.cpu] = struct{}{}
+				if !idleCPUs[csm.cpu] {
+					idleCPUs[csm.cpu] = true
+					idleCPUCount++
+				}
 			}
 			if isOverloaded {
-				overloadedCPUs[csm.cpu] = struct{}{}
+				if !overloadedCPUs[csm.cpu] {
+					overloadedCPUs[csm.cpu] = true
+					overloadedCPUCount++
+				}
 				waitingThreadCount += len(csm.waiting)
 			}
 		}
-
-		idleCPUCount := len(idleCPUs)
-		overloadedCPUCount := len(overloadedCPUs)
 
 		idleTime += Duration(idleCPUCount) * intervalDuration
 

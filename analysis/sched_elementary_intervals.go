@@ -160,6 +160,12 @@ type elementaryCPUIntervalBuilder struct {
 	// Set to true when the last requested interval has been returned.  If true,
 	// only nil intervals will be returned thenceforward.
 	finished bool
+
+	// When updating running and waiting threads, during iteration, each CPU may
+	// need some working state.  This is done frequently enough that it produces
+	// a considerable volume of memory thrash, so a scratchpad is allocated once
+	// per builder.
+	workingCPUStates map[CPUStateMergeType][]*CPUState
 }
 
 // Create a new elementaryCPUIntervalBuilder over the requested CPUs and time
@@ -207,6 +213,7 @@ func (c *Collection) newElementaryCPUIntervalBuilder(f *filter) (*elementaryCPUI
 		}
 		startTimestamp = newStartTimestamp
 	}
+	maxCPUID := f.maxCPUID()
 	ret := &elementaryCPUIntervalBuilder{
 		c:                c,
 		f:                f,
@@ -214,6 +221,10 @@ func (c *Collection) newElementaryCPUIntervalBuilder(f *filter) (*elementaryCPUI
 		endTimestamp:     f.endTimestamp,
 		currentTimestamp: startTimestamp,
 		finished:         startTimestamp > f.endTimestamp,
+		workingCPUStates: map[CPUStateMergeType][]*CPUState{
+			Add:    make([]*CPUState, maxCPUID+1),
+			Remove: make([]*CPUState, maxCPUID+1),
+		},
 	}
 	// Populate and sort the waiting interval slices.
 	for cpu := range f.cpus {
@@ -441,22 +452,18 @@ func (b *elementaryCPUIntervalBuilder) nextInterval() (trace.Timestamp, trace.Ti
 // The first Interval output by a Builder contains the full scheduling state of
 // the system at that point as Added state.
 func (b *elementaryCPUIntervalBuilder) updateRunningAndWaiting(resp *ElementaryCPUInterval) error {
-	cpuStates := map[CPUStateMergeType]map[CPUID]*CPUState{
-		Add:    {},
-		Remove: {},
-	}
 	addThreadSpan := func(ts *threadSpan, mergeType CPUStateMergeType) error {
 		thread, err := b.threadFromThreadSpan(ts)
 		if err != nil {
 			return err
 		}
-		cs, ok := cpuStates[mergeType][ts.cpu]
-		if !ok {
+		cs := b.workingCPUStates[mergeType][ts.cpu]
+		if cs == nil {
 			cs = &CPUState{
 				CPU:       ts.cpu,
 				MergeType: mergeType,
 			}
-			cpuStates[mergeType][ts.cpu] = cs
+			b.workingCPUStates[mergeType][ts.cpu] = cs
 		}
 		switch ts.state {
 		case RunningState:
@@ -491,9 +498,12 @@ func (b *elementaryCPUIntervalBuilder) updateRunningAndWaiting(resp *ElementaryC
 			return err
 		}
 	}
-	for _, csMap := range cpuStates {
-		for _, cs := range csMap {
-			resp.CPUStates = append(resp.CPUStates, cs)
+	for _, css := range b.workingCPUStates {
+		for cpuid, cs := range css {
+			if cs != nil {
+				resp.CPUStates = append(resp.CPUStates, cs)
+				css[cpuid] = nil
+			}
 		}
 	}
 	// Sort CPUStates first by state (Remove first), then by CPU increasing.
@@ -587,12 +597,13 @@ func (csm *cpuStateMerger) cpuState() *CPUState {
 }
 
 type elementaryIntervalMerger struct {
-	cpuStateMergers map[CPUID]*cpuStateMerger
+	cpuStateMergers []*cpuStateMerger
 }
 
 func newElementaryIntervalMerger(f *filter) *elementaryIntervalMerger {
+	maxCPUID := f.maxCPUID()
 	ret := &elementaryIntervalMerger{
-		cpuStateMergers: map[CPUID]*cpuStateMerger{},
+		cpuStateMergers: make([]*cpuStateMerger, maxCPUID+1),
 	}
 	for cpu := range f.cpus {
 		ret.cpuStateMergers[cpu] = newCPUStateMerger(cpu)
@@ -622,6 +633,9 @@ func (eim *elementaryIntervalMerger) elementaryCPUInterval(eci *ElementaryCPUInt
 		EndTimestamp:   eci.EndTimestamp,
 	}
 	for _, csm := range eim.cpuStateMergers {
+		if csm == nil {
+			continue
+		}
 		ret.CPUStates = append(ret.CPUStates, csm.cpuState())
 	}
 	return ret, nil

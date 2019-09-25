@@ -157,3 +157,13 @@ func (f *filter) spanFilteredIn(span *threadSpan) bool {
 		span.startTimestamp <= f.endTimestamp &&
 		inCPUs && inPIDs
 }
+
+func (f *filter) maxCPUID() CPUID {
+	var max CPUID
+	for cpu := range f.cpus {
+		if cpu > max {
+			max = cpu
+		}
+	}
+	return max
+}
