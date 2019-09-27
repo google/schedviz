@@ -17,13 +17,11 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -38,10 +36,9 @@ import (
 	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/testhelpers/testhelpers"
 	"github.com/google/schedviz/tracedata/trace"
-
 )
 
-const collectionName = "f0d3d241-b27f-4ad0-b5cf-17bb7482674b_1_bob"
+var collectionName string
 
 var url string
 var tmpDir string
@@ -105,20 +102,17 @@ func encodeJSON(t *testing.T, s interface{}) string {
 	return string(b)
 }
 
+
 func TestMain(m *testing.M) {
 	var server *httptest.Server
+	var err error
 	defer func() {
 		if server != nil {
 			server.Close()
 		}
 	}()
 
-
-	startServer = func(r *mux.Router) {
-		server = httptest.NewServer(r)
-		url = server.URL
-	}
-	var err error
+	// Set up a collections path.
 	tmpDir, err = ioutil.TempDir("", "collections")
 	if err != nil {
 		log.Fatalf("failed to create temp dir: %s", err)
@@ -128,31 +122,39 @@ func TestMain(m *testing.M) {
 			log.Fatal(err)
 		}
 	}()
+	*storagePath = tmpDir
 
-	// Copy runfile to temp directory so we can write there
+		setStorageService(context.Background())
+	setStorageService = func(ctx context.Context) error { return nil }
+
+	startServer = func(r *mux.Router) {
+		server = httptest.NewServer(r)
+		url = server.URL
+	}
+	// Create a test collection.
 	runFiles := testhelpers.GetRunFilesPath()
 	testFilePath := path.Join(runFiles,
 		"server",
 		"testdata",
-		"collections",
-		fmt.Sprintf("%s.binproto", collectionName))
+		"test.tar.gz")
 	testFile, err := os.Open(testFilePath)
 	if err != nil {
 		log.Fatalf("failed to open test file: %s", err)
 	}
-	destFile, err := os.Create(fmt.Sprintf("%s/%s.binproto", tmpDir, collectionName))
-	if err != nil {
-		log.Fatalf("failed to copy test file: %s", err)
+	createReq := &models.CreateCollectionRequest{
+		Creator:     defaultHTTPUser,
+		Owners:      []string{"joe"},
+		Tags:        []string{"test"},
+		Description: "test",
 	}
-	_, err = io.Copy(destFile, testFile)
+	collectionName, err = storageService.UploadFile(context.Background(), createReq, testFile)
 	if err != nil {
-		log.Fatalf("failed to copy test file: %s", err)
+		log.Fatalf("failed to save collection: %s", err)
 	}
 
 	*resourceRoot = path.Join(runFiles, "client")
 
-	storagePath = &tmpDir
-	runServer()
+	runServer(context.Background())
 
 	os.Exit(m.Run())
 }
@@ -214,15 +216,16 @@ func TestGetCollectionMetadata(t *testing.T) {
 	if err := readResponseBodyIntoStruct(res, got); err != nil {
 		t.Fatal(err)
 	}
-
+	// Don't bother comparing creation time.
+	got.CreationTime = 0
 	want := &models.Metadata{
 		CollectionUniqueName: collectionName,
-		Creator:              "bob",
+		Creator:              defaultHTTPUser,
 		Owners:               []string{"joe"},
 		Tags:                 []string{"test"},
 		Description:          "test",
-		CreationTime:         1,
-		FtraceEvents:         []string{},
+		FtraceEvents: []string{
+		},
 	}
 
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -258,8 +261,7 @@ func TestGetCollectionParameters(t *testing.T) {
 }
 
 func TestListCollectionMetadata(t *testing.T) {
-	// Parameter is ignored with fs backend.
-	endpoint := fmt.Sprintf("list_collection_metadata?request=%s", "")
+	endpoint := fmt.Sprintf("list_collection_metadata?request=%s", defaultHTTPUser)
 	res, err := http.Post(fullURL(endpoint), "application/json", strings.NewReader(""))
 	if err != nil {
 		t.Fatalf("unexpected error fetching %s: %s", endpoint, err)
@@ -271,15 +273,19 @@ func TestListCollectionMetadata(t *testing.T) {
 	if err := readResponseBodyIntoStruct(res, &got); err != nil {
 		t.Fatal(err)
 	}
-
+	if len(got) != 1 {
+		t.Fatal("Expected 1 returned metadata, got %d", len(got))
+	}
+	// Don't bother comparing creation time.
+	got[0].CreationTime = 0
 	want := []models.Metadata{{
 		CollectionUniqueName: collectionName,
-		Creator:              "bob",
+		Creator:              defaultHTTPUser,
 		Owners:               []string{"joe"},
 		Tags:                 []string{"test"},
 		Description:          "test",
-		CreationTime:         1,
-		FtraceEvents:         []string{},
+		FtraceEvents: []string{
+		},
 	}}
 
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -287,60 +293,11 @@ func TestListCollectionMetadata(t *testing.T) {
 	}
 }
 
-func TestUploadEditDeleteCollection(t *testing.T) {
-	// Create a new collection
-	createRequestProto := encodeJSON(t, &models.CreateCollectionRequest{
-		Creator:      "bob",
-		Owners:       []string{"joe"},
-		Tags:         []string{"test"},
-		Description:  "test",
-		CreationTime: 0,
-	})
-	uploadEndpoint := "upload"
-	runFiles := testhelpers.GetRunFilesPath()
-	file, err := os.Open(path.Join(runFiles, "server", "testdata", "test.tar.gz"))
-	if err != nil {
-		t.Fatalf("error reading tar for UploadFile: %s", err)
-	}
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	if err := writer.WriteField("request", createRequestProto); err != nil {
-		t.Fatalf("error writing request to multipart form for UploadFile: %s", err)
-	}
-	fileWriter, err := writer.CreateFormFile("file", "test.tar.gz")
-	if err != nil {
-		t.Fatalf("error creating multipart form file writer for UploadFile: %s", err)
-	}
-	_, err = io.Copy(fileWriter, file)
-	if err != nil {
-		t.Fatalf("error writing file to multipart form for UploadFile: %s", err)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("error closing multipart form file writer for UploadFile: %s", err)
-	}
-	uploadRes, err := http.Post(fullURL(uploadEndpoint), writer.FormDataContentType(), body)
-	if err != nil {
-		t.Fatalf("unexpected error posting %s: %s", uploadEndpoint, err)
-	}
-	if err := checkStatusCode(uploadRes, http.StatusOK); err != nil {
-		t.Fatal(err)
-	}
-	newCollectionName, err := readResponseBodyIntoString(uploadRes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if newCollectionName == "" {
-		t.Fatal("no collection name was returned")
-	}
-	newCollectionFile := fmt.Sprintf("%s/%s.binproto", tmpDir, newCollectionName)
-	if _, err := os.Stat(newCollectionFile); os.IsNotExist(err) {
-		t.Fatalf("new collection file was not created: %s", err)
-	}
+func TestEditCollection(t *testing.T) {
 	// Edit the new collection's metadata
 	editRequestProto := encodeJSON(t, &models.EditCollectionRequest{
-		CollectionName: newCollectionName,
+		CollectionName: collectionName,
 		Description:    "abc",
-		AddOwners:      []string{"john"},
 		AddTags:        []string{"edited"},
 		RemoveTags:     []string{"test"},
 	})
@@ -352,17 +309,17 @@ func TestUploadEditDeleteCollection(t *testing.T) {
 	if err := checkStatusCode(editRes, http.StatusOK); err != nil {
 		t.Fatal(err)
 	}
-	// Delete the new collection
-	deleteEndpoint := fmt.Sprintf("delete_collection?request=%s", newCollectionName)
-	deleteRes, err := http.Get(fullURL(deleteEndpoint))
+	// Revert the edit
+	editRequestProto = encodeJSON(t, &models.EditCollectionRequest{
+		CollectionName: collectionName,
+		Description:    "test",
+		RemoveTags:     []string{"edited"},
+		AddTags:        []string{"test"},
+	})
+	editEndpoint = fmt.Sprintf("edit_collection?request=%s", editRequestProto)
+	_, err = http.Post(fullURL("edit_collection"), "application/json", strings.NewReader(editRequestProto))
 	if err != nil {
-		t.Fatalf("unexpected error fetching %s: %s", deleteEndpoint, err)
-	}
-	if err := checkStatusCode(deleteRes, http.StatusOK); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(newCollectionFile); !os.IsNotExist(err) {
-		t.Fatalf("new collection file was not deleted: %s", err)
+		t.Fatalf("unexpected error fetching %s: %s", editEndpoint, err)
 	}
 }
 

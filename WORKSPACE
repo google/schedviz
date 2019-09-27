@@ -108,11 +108,6 @@ go_repository(
     tag = "v1.7.0",
 )
 go_repository(
-    name = "com_github_golang_groupcache",
-    importpath = "github.com/golang/groupcache",
-    tag = "5b532d6fd5efaf7fa130d4e859a2fde0fc3a9e1b",
-)
-go_repository(
     name = "com_github_google_go-cmp",
     importpath = "github.com/google/go-cmp",
     tag = "v0.3.0",
@@ -136,6 +131,11 @@ go_repository(
     name = "com_github_workiva_go-datastructures",
     importpath = "github.com/Workiva/go-datastructures",
     tag = "v1.0.50",
+)
+go_repository(
+    name = "com_github_hashicorp_golang-lru",
+    importpath = "github.com/hashicorp/golang-lru",
+    tag = "v0.5.1",
 )
 go_repository(
     name = "com_github_golang_glog",

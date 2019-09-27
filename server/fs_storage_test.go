@@ -27,7 +27,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/golang/groupcache/lru"
 
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
@@ -43,10 +42,11 @@ var colRequest = &models.CreateCollectionRequest{
 }
 
 var (
-	ctx  = context.Background()
-	user = "test_user"
+	ctx = context.Background()
 )
 
+// TODO(tracked) Consider using schedtestcommon.TestTrace1(t) here
+// as a lighter-weight alternative.
 var fh = func(t *testing.T) io.Reader {
 	t.Helper()
 	// Bazel stores test location in these environment variables
@@ -73,15 +73,23 @@ func cleanup(t *testing.T, tmpDir string) {
 	}
 }
 
+func createFSStorage(t *testing.T, path string, count int) StorageService {
+	ss, err := CreateFSStorage(path, count)
+	if err != nil {
+		t.Fatalf("Failed to create storage service: %s", err)
+	}
+	return ss
+}
+
 func TestFsStorage_UploadFile(t *testing.T) {
 	tmpDir, err := createCollectionDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cleanup(t, tmpDir)
-	fsStorage := CreateFSStorage(tmpDir, 1)
+	fsStorage := createFSStorage(t, tmpDir, 1)
 
-	collectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	collectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}
@@ -137,8 +145,8 @@ func TestFsStorage_DeleteCollection(t *testing.T) {
 		t.Fatalf("temp file was not created: %s", err)
 	}
 
-	fsStorage := CreateFSStorage(tmpDir, 1)
-	if err := fsStorage.DeleteCollection(ctx, user, collectionName); err != nil {
+	fsStorage := createFSStorage(t, tmpDir, 1)
+	if err := fsStorage.DeleteCollection(ctx, "", collectionName); err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::DeleteCollection: %s", err)
 	}
 
@@ -147,87 +155,65 @@ func TestFsStorage_DeleteCollection(t *testing.T) {
 	}
 }
 
-type mockCache struct {
-	c     *lru.Cache
-	Count int
-}
-
-func (m *mockCache) Add(key lru.Key, value interface{}) {
-	m.c.Add(key, value)
-}
-func (m *mockCache) Get(key lru.Key) (value interface{}, ok bool) {
-	cached, ok := m.c.Get(key)
-	if ok {
-		m.Count++
-	}
-	return cached, ok
-}
-func (m *mockCache) Remove(key lru.Key) {
-	m.c.Remove(key)
-}
-func (m *mockCache) RemoveOldest() {
-	m.c.RemoveOldest()
-}
-func (m *mockCache) Len() int {
-	return m.c.Len()
-}
-
 func TestFsStorage_GetCollection(t *testing.T) {
 	tmpDir, err := createCollectionDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cleanup(t, tmpDir)
-	fsStorage, ok := CreateFSStorage(tmpDir, 1).(*FsStorage)
+	fsStorage, ok := createFSStorage(t, tmpDir, 1).(*FsStorage)
 	if !ok {
 		t.Fatalf("CreateFSStorage returned wrong type")
 	}
 
-	mCache := &mockCache{c: lru.New(1)}
-	fsStorage.lruCache = mCache
+	origAddToCache := addToCache
+	cacheAdds := 0
+	addToCache = func(sb *storageBase, path string, collection *CachedCollection) {
+		cacheAdds++
+		origAddToCache(sb, path, collection)
+	}
+	defer func() { addToCache = origAddToCache }()
 
-	firstCollectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	// Adds an entry to the cache.
+	firstCollectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}
-
-	// Should hit cache
 	_, err = fsStorage.GetCollection(ctx, firstCollectionName)
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if mCache.Count != 1 {
-		t.Errorf("expected first read to %s to hit cache, but didn't", firstCollectionName)
+	if cacheAdds != 1 {
+		t.Errorf("Expected 1 cache adds after first GetCollection, got %d", cacheAdds)
 	}
-
-	secondCollectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	// Adds an entry to the cache, evicting the old one.
+	secondCollectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}
-
 	// Should hit cache
 	_, err = fsStorage.GetCollection(ctx, secondCollectionName)
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if mCache.Count != 2 {
-		t.Errorf("expected first read to %s to hit cache, but didn't", secondCollectionName)
+	if cacheAdds != 2 {
+		t.Errorf("Expected 2 cache adds after second GetCollection, got %d", cacheAdds)
 	}
-	// Should not hit cache
+	// Adds an entry to the cache, evicting the old one.
 	_, err = fsStorage.GetCollection(ctx, firstCollectionName)
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if mCache.Count != 2 {
-		t.Errorf("expected second read to %s to not hit cache, but did", firstCollectionName)
+	if cacheAdds != 3 {
+		t.Errorf("Expected 3 cache adds after third GetCollection, got %d", cacheAdds)
 	}
 	// Should hit cache
 	_, err = fsStorage.GetCollection(ctx, firstCollectionName)
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if mCache.Count != 3 {
-		t.Errorf("expected third read to %s to hit cache, but didn't", firstCollectionName)
+	if cacheAdds != 3 {
+		t.Errorf("Expected 3 cache adds after fourth GetCollection, got %d", cacheAdds)
 	}
 }
 
@@ -237,8 +223,8 @@ func TestFsStorage_GetCollectionMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup(t, tmpDir)
-	fsStorage := CreateFSStorage(tmpDir, 1)
-	collectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	fsStorage := createFSStorage(t, tmpDir, 1)
+	collectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}
@@ -268,9 +254,9 @@ func TestFsStorage_EditCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup(t, tmpDir)
-	fsStorage := CreateFSStorage(tmpDir, 1)
+	fsStorage := createFSStorage(t, tmpDir, 1)
 
-	collectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	collectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}
@@ -283,7 +269,7 @@ func TestFsStorage_EditCollection(t *testing.T) {
 		RemoveTags:     []string{"test"},
 	}
 
-	if err := fsStorage.EditCollection(ctx, user, req); err != nil {
+	if err := fsStorage.EditCollection(ctx, "", req); err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::EditCollection: %s", err)
 	}
 
@@ -314,13 +300,13 @@ func TestFsStorage_ListCollectionMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup(t, tmpDir)
-	fsStorage := CreateFSStorage(tmpDir, 1)
+	fsStorage := createFSStorage(t, tmpDir, 1)
 
-	firstCollectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	firstCollectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}
-	secondCollectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	secondCollectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}
@@ -353,9 +339,9 @@ func TestFsStorage_GetCollectionParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup(t, tmpDir)
-	fsStorage := CreateFSStorage(tmpDir, 1)
+	fsStorage := createFSStorage(t, tmpDir, 1)
 
-	collectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	collectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}
@@ -384,9 +370,9 @@ func TestFsStorage_GetFtraceEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup(t, tmpDir)
-	fsStorage := CreateFSStorage(tmpDir, 1)
+	fsStorage := createFSStorage(t, tmpDir, 1)
 
-	collectionName, err := fsStorage.UploadFile(ctx, user, colRequest, fh(t))
+	collectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 	}

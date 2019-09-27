@@ -65,7 +65,7 @@ const (
 )
 
 // UploadFile creates a new collection from the uploaded file and saves it to disk
-func (fs *FsStorage) UploadFile(_ context.Context, _ string, req *models.CreateCollectionRequest, file io.Reader) (string, error) {
+func (fs *FsStorage) UploadFile(_ context.Context, req *models.CreateCollectionRequest, file io.Reader) (string, error) {
 	eventSet, topology, err := readTar(file)
 	if err != nil {
 		return "", err
@@ -142,12 +142,13 @@ func (fs *FsStorage) saveCollection(metadata *models.Metadata, eventSet *eventpb
 	if err != nil {
 		return err
 	}
-	fs.lruCache.Add(fullPath, &CachedCollection{
+	cachedCollection := &CachedCollection{
 		Collection:     collection,
 		Metadata:       convertMetadataProtoToStruct(outProto.Metadata),
 		SystemTopology: convertTopologyProtoToStruct(outProto.Topology),
 		Payload:        map[string]interface{}{},
-	})
+	}
+	fs.addToCache(fullPath, cachedCollection)
 
 	return nil
 }

@@ -20,10 +20,11 @@ package storageservice
 import (
 	"context"
 	"io"
+	"sync"
 
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
-	"github.com/golang/groupcache/lru"
 )
 
 // CachedCollection is a collection and its metadata that is stored in the LRU cache.
@@ -35,18 +36,34 @@ type CachedCollection struct {
 	Payload map[string]interface{}
 }
 
-// cache is an interface wrapping the lru cache
-type cache interface {
-	Add(key lru.Key, value interface{})
-	Get(key lru.Key) (value interface{}, ok bool)
-	Remove(key lru.Key)
-	RemoveOldest()
-	Len() int
+type storageBase struct {
+	lruCache *simplelru.LRU
+	mu       sync.Mutex
+}
+
+func newStorageBase(cacheSize int) (*storageBase, error) {
+	lru, err := simplelru.NewLRU(cacheSize, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &storageBase{
+		lruCache: lru,
+	}, nil
+}
+
+func (sb *storageBase) addToCache(collectionName string, collection *CachedCollection) {
+	addToCache(sb, collectionName, collection)
+}
+
+var addToCache = func(sb *storageBase, collectionName string, collection *CachedCollection) {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	sb.lruCache.Add(collectionName, collection)
 }
 
 // StorageService is an interface containing the APIs that storage services expose
 type StorageService interface {
-	UploadFile(ctx context.Context, creator string, req *models.CreateCollectionRequest, fileHeader io.Reader) (string, error)
+	UploadFile(ctx context.Context, req *models.CreateCollectionRequest, fileHeader io.Reader) (string, error)
 	DeleteCollection(ctx context.Context, editor string, collectionUniqueName string) error
 	GetCollection(ctx context.Context, collectionName string) (*CachedCollection, error)
 	GetCollectionMetadata(ctx context.Context, collectionUniqueName string) (models.Metadata, error)

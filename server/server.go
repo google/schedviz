@@ -19,6 +19,7 @@ package main
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -58,8 +59,10 @@ const fileTag = "file"
 
 var storageService storageservice.StorageService
 
+var defaultHTTPUser = "local_user"
+
 var httpUser = func(w http.ResponseWriter, req *http.Request) (string, error) {
-	return "local_user", nil
+	return defaultHTTPUser, nil
 }
 
 var handle = func(r *mux.Router, path string, handler http.HandlerFunc) {
@@ -125,6 +128,7 @@ func (s *storageServiceHTTPHandler) handleUpload(w http.ResponseWriter, req *htt
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	jsonreq.Creator = user
 
 	file, err := req.MultipartForm.File[fileTag][0].Open()
 	if err != nil {
@@ -137,7 +141,7 @@ func (s *storageServiceHTTPHandler) handleUpload(w http.ResponseWriter, req *htt
 		}
 	}()
 
-	collectionName, err := s.UploadFile(ctx, user, jsonreq, file)
+	collectionName, err := s.UploadFile(ctx, jsonreq, file)
 	if err != nil {
 		http.Error(w, err500, http.StatusInternalServerError)
 		return
@@ -442,9 +446,23 @@ var startServer = func(r *mux.Router) {
 }
 
 
-func runServer() {
+var setStorageService = func(ctx context.Context) error {
+	var ss storageservice.StorageService
+	var err error
+		ss, err = storageservice.CreateFSStorage(*storagePath, *cacheSize)
+	if err != nil {
+		return err
+	}
+	storageService = ss
+	return nil
+}
+
+func runServer(ctx context.Context) {
 	var r = mux.NewRouter()
-	storageService = storageservice.CreateFSStorage(*storagePath, *cacheSize)
+	if err := setStorageService(ctx); err != nil {
+		log.Exit(err)
+	}
+	// END-INTERNAL
 
 	apiService := &apiservice.APIService{StorageService: storageService}
 
@@ -458,7 +476,7 @@ func runServer() {
 
 func main() {
 		flag.Parse()
-	runServer()
+	runServer(context.Background())
 }
 
 // gzipEnabledWriter returns a gzip writer that wraps the http.ResponseWriter if the client supports

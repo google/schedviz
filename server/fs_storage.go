@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
-	"github.com/golang/groupcache/lru"
 
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
@@ -37,24 +36,29 @@ import (
 // FsStorage is a storage service that saves collections as protos on local disk
 // Implements StorageService
 type FsStorage struct {
+	*storageBase
 	StoragePath string
-	lruCache    cache
 }
 
 // CreateFSStorage creates a new file system storage service that stores its files at storagePath
 // and has an LRU cache of size cacheSize.
-func CreateFSStorage(storagePath string, cacheSize int) StorageService {
-	return &FsStorage{
-		StoragePath: storagePath,
-		lruCache:    lru.New(cacheSize),
+func CreateFSStorage(storagePath string, cacheSize int) (*FsStorage, error) {
+	sb, err := newStorageBase(cacheSize)
+	if err != nil {
+		return nil, err
 	}
+	return &FsStorage{
+		storageBase: sb,
+		StoragePath: storagePath,
+	}, nil
 }
-
 
 // DeleteCollection deletes the collection with the given name.
 func (fs *FsStorage) DeleteCollection(_ context.Context, _ string, collectionUniqueName string) error {
 	filePath := path.Join(fs.StoragePath, collectionUniqueName+".binproto")
+	fs.mu.Lock()
 	fs.lruCache.Remove(filePath)
+	defer fs.mu.Unlock()
 	if err := os.Remove(filePath); err != nil {
 		return err
 	}
@@ -62,7 +66,9 @@ func (fs *FsStorage) DeleteCollection(_ context.Context, _ string, collectionUni
 }
 
 func (fs *FsStorage) getCollectionFromCache(filePath string) (*CachedCollection, bool, error) {
+	fs.mu.Lock()
 	cached, ok := fs.lruCache.Get(filePath)
+	fs.mu.Unlock()
 	if ok {
 		cachedCollection, ok := cached.(*CachedCollection)
 		if ok {
@@ -106,7 +112,7 @@ func (fs *FsStorage) GetCollection(_ context.Context, collectionName string) (*C
 		SystemTopology: convertTopologyProtoToStruct(collectionProto.Topology),
 		Payload:        map[string]interface{}{},
 	}
-	fs.lruCache.Add(filePath, cacheValue)
+	fs.addToCache(filePath, cacheValue)
 	return cacheValue, nil
 }
 
@@ -185,7 +191,7 @@ func (fs *FsStorage) EditCollection(ctx context.Context, _ string, req *models.E
 	}
 
 	// Update cache
-	fs.lruCache.Add(filePath, collection)
+	fs.addToCache(filePath, collection)
 	return nil
 }
 
