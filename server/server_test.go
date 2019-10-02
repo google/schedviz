@@ -792,3 +792,4 @@ func TestGetSystemTopology(t *testing.T) {
 		t.Fatalf("TestGetSystemTopology: Diff -want +got:\n%s", diff)
 	}
 }
+
