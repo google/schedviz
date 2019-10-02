@@ -135,7 +135,10 @@ func (ab *antagonistBuilder) Antagonists() Antagonists {
 func (c *Collection) Antagonists(filters ...Filter) (Antagonists, error) {
 	f := buildFilter(c, filters)
 	pids := pidMapKeys(f.pids)
-	if len(pids) != 1 {
+	if len(pids) == 0 {
+		return Antagonists{}, nil
+	}
+	if len(pids) > 1 {
 		return Antagonists{}, errors.New("can only collect antagonists of a single PID")
 	}
 	pid := pids[0]
