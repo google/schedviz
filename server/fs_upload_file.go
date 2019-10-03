@@ -26,7 +26,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -38,7 +37,6 @@ import (
 	"github.com/google/uuid"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 
-	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/traceparser/traceparser"
 )
@@ -65,7 +63,7 @@ const (
 )
 
 // UploadFile creates a new collection from the uploaded file and saves it to disk
-func (fs *FsStorage) UploadFile(_ context.Context, req *models.CreateCollectionRequest, file io.Reader) (string, error) {
+func (fs *FsStorage) UploadFile(ctx context.Context, req *models.CreateCollectionRequest, file io.Reader) (string, error) {
 	eventSet, topology, err := readTar(file)
 	if err != nil {
 		return "", err
@@ -73,7 +71,7 @@ func (fs *FsStorage) UploadFile(_ context.Context, req *models.CreateCollectionR
 
 	metadata := makeMetadata(req)
 
-	if err := fs.saveCollection(metadata, eventSet, topology); err != nil {
+	if err := fs.saveCollection(ctx, metadata, eventSet, topology); err != nil {
 		return "", err
 	}
 
@@ -111,7 +109,7 @@ func makeMetadata(req *models.CreateCollectionRequest) *models.Metadata {
 	return metadata
 }
 
-func (fs *FsStorage) saveCollection(metadata *models.Metadata, eventSet *eventpb.EventSet, topology *models.SystemTopology) error {
+func (fs *FsStorage) saveCollection(ctx context.Context, metadata *models.Metadata, eventSet *eventpb.EventSet, topology *models.SystemTopology) error {
 	metadataProto, err := convertMetadataStructToProto(metadata)
 	if err != nil {
 		return err
@@ -131,26 +129,13 @@ func (fs *FsStorage) saveCollection(metadata *models.Metadata, eventSet *eventpb
 		return err
 	}
 
-	fullPath := path.Join(fs.StoragePath, metadata.CollectionUniqueName+".binproto")
+	fullPath := fs.getCollectionPath(metadata.CollectionUniqueName)
 	if err := ioutil.WriteFile(fullPath, protoBytes, 0644); err != nil {
 		return err
 	}
 
-	collection, err := sched.NewCollection(eventSet,
-		sched.DefaultEventLoaders(),
-		sched.NormalizeTimestamps(true))
-	if err != nil {
-		return err
-	}
-	cachedCollection := &CachedCollection{
-		Collection:     collection,
-		Metadata:       convertMetadataProtoToStruct(outProto.Metadata),
-		SystemTopology: convertTopologyProtoToStruct(outProto.Topology),
-		Payload:        map[string]interface{}{},
-	}
-	fs.addToCache(fullPath, cachedCollection)
-
-	return nil
+	_, err = fs.GetCollection(ctx, metadata.CollectionUniqueName)
+	return err
 }
 
 /*

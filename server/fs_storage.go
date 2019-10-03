@@ -24,8 +24,6 @@ import (
 	"path"
 
 	"github.com/golang/protobuf/proto"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 
 	"github.com/google/schedviz/analysis/sched"
@@ -65,33 +63,29 @@ func (fs *FsStorage) DeleteCollection(_ context.Context, _ string, collectionUni
 	return nil
 }
 
-func (fs *FsStorage) getCollectionFromCache(filePath string) (*CachedCollection, bool, error) {
-	fs.mu.Lock()
-	cached, ok := fs.lruCache.Get(filePath)
-	fs.mu.Unlock()
-	if ok {
-		cachedCollection, ok := cached.(*CachedCollection)
-		if ok {
-			return cachedCollection, true, nil
-		}
-		return nil, false, status.Error(codes.Internal, "unknown type stored in collection cache")
-	}
-	return nil, false, nil
+func (fs *FsStorage) getCollectionPath(collectionName string) string {
+	return path.Join(fs.StoragePath, collectionName+".binproto")
 }
 
-// GetCollection returns the collection with the given name.
+// GetCollection returns an already-saved collection with the given name.
 // shouldCache controls whether or not the fetched collection will be saved in the cache to speed up
 // future requests for the same collection.
-func (fs *FsStorage) GetCollection(_ context.Context, collectionName string) (*CachedCollection, error) {
-	filePath := path.Join(fs.StoragePath, collectionName+".binproto")
-	cachedCollection, ok, err := fs.getCollectionFromCache(filePath)
+func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (*CachedCollection, error) {
+	filePath := fs.getCollectionPath(collectionName)
+	cachedCollection, ok, err := fs.getCollectionFromCache(filePath, true /*= addCollection*/)
 	if err != nil {
 		return nil, err
 	}
 	if ok {
-		return cachedCollection, nil
+		if err := cachedCollection.wait(ctx); err != nil {
+			return nil, err
+		}
+		return cachedCollection, cachedCollection.err
 	}
-
+	defer func() {
+		cachedCollection.err = err
+		cachedCollection.release()
+	}()
 	bytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -106,14 +100,11 @@ func (fs *FsStorage) GetCollection(_ context.Context, collectionName string) (*C
 	if err != nil {
 		return nil, err
 	}
-	cacheValue := &CachedCollection{
-		Collection:     collection,
-		Metadata:       convertMetadataProtoToStruct(collectionProto.Metadata),
-		SystemTopology: convertTopologyProtoToStruct(collectionProto.Topology),
-		Payload:        map[string]interface{}{},
-	}
-	fs.addToCache(filePath, cacheValue)
-	return cacheValue, nil
+	cachedCollection.Collection = collection
+	cachedCollection.Metadata = convertMetadataProtoToStruct(collectionProto.Metadata)
+	cachedCollection.SystemTopology = convertTopologyProtoToStruct(collectionProto.Topology)
+	cachedCollection.Payload = map[string]interface{}{}
+	return cachedCollection, nil
 }
 
 // GetCollectionMetadata gets the metadata for the collection with the given name.
@@ -191,8 +182,9 @@ func (fs *FsStorage) EditCollection(ctx context.Context, _ string, req *models.E
 	}
 
 	// Update cache
-	fs.addToCache(filePath, collection)
-	return nil
+	fs.dropCollectionFromCache(filePath)
+	_, err = fs.GetCollection(ctx, req.CollectionName)
+	return err
 }
 
 // ListCollectionMetadata gets the metadata for all collections.
@@ -208,7 +200,7 @@ func (fs *FsStorage) ListCollectionMetadata(ctx context.Context, _ string, _ str
 	for _, file := range files {
 		// Check if cache contains metadata already
 		filePath := path.Join(fs.StoragePath, file.Name())
-		cachedCollection, ok, err := fs.getCollectionFromCache(filePath)
+		cachedCollection, ok, err := fs.getCollectionFromCache(filePath, false /*= addCollection */)
 		if err == nil && ok {
 			ret = append(ret, cachedCollection.Metadata)
 			continue
