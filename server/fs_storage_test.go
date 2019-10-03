@@ -240,7 +240,12 @@ func TestFsStorage_GetCollectionMetadata(t *testing.T) {
 		Tags:                 []string{"test"},
 		Description:          "test",
 		CreationTime:         1,
-		FtraceEvents:         []string{},
+		FtraceEvents: []string{
+			"sched_migrate_task",
+			"sched_switch",
+			"sched_wakeup",
+			"sched_wakeup_new",
+		},
 	}
 
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -280,7 +285,12 @@ func TestFsStorage_EditCollection(t *testing.T) {
 		Tags:                 []string{"edited"},
 		Description:          "abc",
 		CreationTime:         1,
-		FtraceEvents:         []string{},
+		FtraceEvents: []string{
+			"sched_migrate_task",
+			"sched_switch",
+			"sched_wakeup",
+			"sched_wakeup_new",
+		},
 	}
 
 	got, err := fsStorage.GetCollectionMetadata(ctx, collectionName)

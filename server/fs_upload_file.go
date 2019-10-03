@@ -110,13 +110,20 @@ func makeMetadata(req *models.CreateCollectionRequest) *models.Metadata {
 }
 
 func (fs *FsStorage) saveCollection(ctx context.Context, metadata *models.Metadata, eventSet *eventpb.EventSet, topology *models.SystemTopology) error {
+	sort.Slice(eventSet.Event, func(i, j int) bool {
+		return eventSet.Event[i].TimestampNs < eventSet.Event[j].TimestampNs
+	})
+
+	ftraceEvents, err := fs.extractEventNames(eventSet)
+	if err != nil {
+		return err
+	}
+	metadata.FtraceEvents = ftraceEvents
+
 	metadataProto, err := convertMetadataStructToProto(metadata)
 	if err != nil {
 		return err
 	}
-	sort.Slice(eventSet.Event, func(i, j int) bool {
-		return eventSet.Event[i].TimestampNs < eventSet.Event[j].TimestampNs
-	})
 
 	outProto := &eventpb.Collection{
 		Metadata: metadataProto,

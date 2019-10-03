@@ -20,6 +20,7 @@ package storageservice
 import (
 	"context"
 	"io"
+	"sort"
 	"sync"
 
 	"google.golang.org/grpc/codes"
@@ -27,6 +28,8 @@ import (
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
+
+	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 )
 
 // CachedCollection is a collection and its metadata that is stored in the LRU cache.
@@ -94,6 +97,19 @@ func (sb *storageBase) dropCollectionFromCache(collectionName string) {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 	sb.lruCache.Remove(collectionName)
+}
+
+// extractEventNames gets a list of all event descriptor names in the event set
+func (sb *storageBase) extractEventNames(es *eventpb.EventSet) ([]string, error) {
+	var events []string
+	for idx, ed := range es.EventDescriptor {
+		if ed.Name < 0 || int(ed.Name) >= len(es.StringTable) {
+			return nil, status.Errorf(codes.Internal, "invalid event name %d in event descriptor %d", ed.Name, idx)
+		}
+		events = append(events, es.StringTable[ed.Name])
+	}
+	sort.Strings(events)
+	return events, nil
 }
 
 // getCollectionFromCache returns the named collection, if it is stored in the

@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,11 +28,15 @@ import (
 	"strings"
 	"testing"
 
+
+	log "github.com/golang/glog"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/mux"
 
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
+	"github.com/google/schedviz/server/storageservice"
 	"github.com/google/schedviz/testhelpers/testhelpers"
 	"github.com/google/schedviz/tracedata/trace"
 )
@@ -41,7 +44,6 @@ import (
 var collectionName string
 
 var url string
-var tmpDir string
 
 func fullURL(endpoint string) string {
 	return fmt.Sprintf("%s/%s", url, endpoint)
@@ -103,28 +105,11 @@ func encodeJSON(t *testing.T, s interface{}) string {
 }
 
 
-func TestMain(m *testing.M) {
+func setupTests(ss storageservice.StorageService) func() {
 	var server *httptest.Server
 	var err error
-	defer func() {
-		if server != nil {
-			server.Close()
-		}
-	}()
 
-	// Set up a collections path.
-	tmpDir, err = ioutil.TempDir("", "collections")
-	if err != nil {
-		log.Fatalf("failed to create temp dir: %s", err)
-	}
-	defer func() {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	*storagePath = tmpDir
-
-		setStorageService(context.Background())
+	storageService = ss
 	setStorageService = func(ctx context.Context) error { return nil }
 
 	startServer = func(r *mux.Router) {
@@ -156,7 +141,42 @@ func TestMain(m *testing.M) {
 
 	runServer(context.Background())
 
-	os.Exit(m.Run())
+	// Cleanup function
+	return func() {
+		if server != nil {
+			server.CloseClientConnections()
+			server.Close()
+		}
+	}
+}
+
+func TestMain(m *testing.M) {
+	ret := 0
+	var ss storageservice.StorageService
+	var err error
+
+	log.Info("Testing FSStorage")
+	// Set up a collections path.
+	tmpDir, err := ioutil.TempDir("", "collections")
+	if err != nil {
+		log.Fatalf("failed to create temp dir: %s", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	*storagePath = tmpDir
+	ss, err = storageservice.CreateFSStorage(*storagePath, *cacheSize)
+	if err != nil {
+		log.Fatalf("Failed to start file storage service: %s", err)
+	}
+	cleanup := setupTests(ss)
+	ret |= m.Run()
+	cleanup()
+
+
+	os.Exit(ret)
 }
 
 func TestHTML(t *testing.T) {
@@ -218,6 +238,7 @@ func TestGetCollectionMetadata(t *testing.T) {
 	}
 	// Don't bother comparing creation time.
 	got.CreationTime = 0
+	got.TargetMachine = ""
 	want := &models.Metadata{
 		CollectionUniqueName: collectionName,
 		Creator:              defaultHTTPUser,
@@ -225,6 +246,10 @@ func TestGetCollectionMetadata(t *testing.T) {
 		Tags:                 []string{"test"},
 		Description:          "test",
 		FtraceEvents: []string{
+			"sched_migrate_task",
+			"sched_switch",
+			"sched_wakeup",
+			"sched_wakeup_new",
 		},
 	}
 
@@ -278,6 +303,7 @@ func TestListCollectionMetadata(t *testing.T) {
 	}
 	// Don't bother comparing creation time.
 	got[0].CreationTime = 0
+	got[0].TargetMachine = ""
 	want := []models.Metadata{{
 		CollectionUniqueName: collectionName,
 		Creator:              defaultHTTPUser,
@@ -285,6 +311,10 @@ func TestListCollectionMetadata(t *testing.T) {
 		Tags:                 []string{"test"},
 		Description:          "test",
 		FtraceEvents: []string{
+			"sched_migrate_task",
+			"sched_switch",
+			"sched_wakeup",
+			"sched_wakeup_new",
 		},
 	}}
 

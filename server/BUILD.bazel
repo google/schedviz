@@ -66,6 +66,7 @@ go_test(
         "//analysis:sched",
         "//testhelpers",
         "//tracedata:trace",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_google_go-cmp//cmp:go_default_library",
         "@com_github_gorilla_mux//:go_default_library",
     ],
