@@ -35,7 +35,6 @@ import (
 // CachedCollection is a collection and its metadata that is stored in the LRU cache.
 type CachedCollection struct {
 	Collection     *sched.Collection
-	Metadata       models.Metadata
 	SystemTopology models.SystemTopology
 	// Payload stores arbitrary data by a string key.
 	Payload map[string]interface{}

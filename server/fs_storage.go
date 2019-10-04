@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
@@ -67,12 +68,28 @@ func (fs *FsStorage) getCollectionPath(collectionName string) string {
 	return path.Join(fs.StoragePath, collectionName+".binproto")
 }
 
+func (fs *FsStorage) getCollectionNameFromFileName(fileName string) string {
+	return strings.TrimSuffix(fileName, ".binproto")
+}
+
+func (fs *FsStorage) getCollectionFromDisk(collectionName string) (*eventpb.Collection, error) {
+	filePath := fs.getCollectionPath(collectionName)
+	bytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	collectionProto := &eventpb.Collection{}
+	if err := proto.Unmarshal(bytes, collectionProto); err != nil {
+		return nil, err
+	}
+	return collectionProto, nil
+}
+
 // GetCollection returns an already-saved collection with the given name.
 // shouldCache controls whether or not the fetched collection will be saved in the cache to speed up
 // future requests for the same collection.
 func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (*CachedCollection, error) {
-	filePath := fs.getCollectionPath(collectionName)
-	cachedCollection, ok, err := fs.getCollectionFromCache(filePath, true /*= addCollection*/)
+	cachedCollection, ok, err := fs.getCollectionFromCache(collectionName, true /*= addCollection*/)
 	if err != nil {
 		return nil, err
 	}
@@ -86,12 +103,8 @@ func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (
 		cachedCollection.err = err
 		cachedCollection.release()
 	}()
-	bytes, err := ioutil.ReadFile(filePath)
+	collectionProto, err := fs.getCollectionFromDisk(collectionName)
 	if err != nil {
-		return nil, err
-	}
-	collectionProto := &eventpb.Collection{}
-	if err := proto.Unmarshal(bytes, collectionProto); err != nil {
 		return nil, err
 	}
 	collection, err := sched.NewCollection(collectionProto.EventSet,
@@ -101,7 +114,6 @@ func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (
 		return nil, err
 	}
 	cachedCollection.Collection = collection
-	cachedCollection.Metadata = convertMetadataProtoToStruct(collectionProto.Metadata)
 	cachedCollection.SystemTopology = convertTopologyProtoToStruct(collectionProto.Topology)
 	cachedCollection.Payload = map[string]interface{}{}
 	return cachedCollection, nil
@@ -109,11 +121,11 @@ func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (
 
 // GetCollectionMetadata gets the metadata for the collection with the given name.
 func (fs *FsStorage) GetCollectionMetadata(ctx context.Context, collectionUniqueName string) (models.Metadata, error) {
-	collection, err := fs.GetCollection(ctx, collectionUniqueName)
+	collectionProto, err := fs.getCollectionFromDisk(collectionUniqueName)
 	if err != nil {
 		return models.Metadata{}, err
 	}
-	return collection.Metadata, nil
+	return convertMetadataProtoToStruct(collectionProto.Metadata), nil
 }
 
 // EditCollection edits the metadata for the collection with the given name.
@@ -121,12 +133,12 @@ func (fs *FsStorage) EditCollection(ctx context.Context, _ string, req *models.E
 	if len(req.CollectionName) == 0 {
 		return missingFieldError("collection_name")
 	}
-	collection, err := fs.GetCollection(ctx, req.CollectionName)
+	metadata, err := fs.GetCollectionMetadata(ctx, req.CollectionName)
 	if err != nil {
 		return err
 	}
 
-	oldTags := collection.Metadata.Tags
+	oldTags := metadata.Tags
 	tagSet := make(map[string]struct{})
 	for _, tag := range oldTags {
 		tagSet[tag] = struct{}{}
@@ -141,10 +153,10 @@ func (fs *FsStorage) EditCollection(ctx context.Context, _ string, req *models.E
 	for tag := range tagSet {
 		newTags = append(newTags, tag)
 	}
-	collection.Metadata.Tags = newTags
+	metadata.Tags = newTags
 
 	ownerSet := make(map[string]struct{})
-	for _, owner := range collection.Metadata.Owners {
+	for _, owner := range metadata.Owners {
 		ownerSet[owner] = struct{}{}
 	}
 	for _, owner := range req.AddOwners {
@@ -154,20 +166,15 @@ func (fs *FsStorage) EditCollection(ctx context.Context, _ string, req *models.E
 	for owner := range ownerSet {
 		newOwners = append(newOwners, owner)
 	}
-	collection.Metadata.Owners = newOwners
-	collection.Metadata.Description = req.Description
+	metadata.Owners = newOwners
+	metadata.Description = req.Description
 
 	// Write updated metadata to file
-	filePath := path.Join(fs.StoragePath, req.CollectionName+".binproto")
-	inBytes, err := ioutil.ReadFile(filePath)
+	collectionProto, err := fs.getCollectionFromDisk(req.CollectionName)
 	if err != nil {
 		return err
 	}
-	collectionProto := &eventpb.Collection{}
-	if err := proto.Unmarshal(inBytes, collectionProto); err != nil {
-		return err
-	}
-	metadataProto, err := convertMetadataStructToProto(&collection.Metadata)
+	metadataProto, err := convertMetadataStructToProto(&metadata)
 	if err != nil {
 		return err
 	}
@@ -177,14 +184,11 @@ func (fs *FsStorage) EditCollection(ctx context.Context, _ string, req *models.E
 	if err != nil {
 		return err
 	}
+	filePath := fs.getCollectionPath(req.CollectionName)
 	if err := ioutil.WriteFile(filePath, outBytes, 0644); err != nil {
 		return err
 	}
-
-	// Update cache
-	fs.dropCollectionFromCache(filePath)
-	_, err = fs.GetCollection(ctx, req.CollectionName)
-	return err
+	return nil
 }
 
 // ListCollectionMetadata gets the metadata for all collections.
@@ -198,21 +202,9 @@ func (fs *FsStorage) ListCollectionMetadata(ctx context.Context, _ string, _ str
 	// of an empty array.
 	var ret = []models.Metadata{}
 	for _, file := range files {
-		// Check if cache contains metadata already
-		filePath := path.Join(fs.StoragePath, file.Name())
-		cachedCollection, ok, err := fs.getCollectionFromCache(filePath, false /*= addCollection */)
-		if err == nil && ok {
-			ret = append(ret, cachedCollection.Metadata)
-			continue
-		}
-		// If not, read just the metadata (i.e. don't create a new collection)
-		// This is faster than performing the full analysis on every collection.
-		bytes, err := ioutil.ReadFile(filePath)
+		collectionName := fs.getCollectionNameFromFileName(file.Name())
+		collectionProto, err := fs.getCollectionFromDisk(collectionName)
 		if err != nil {
-			return nil, err
-		}
-		collectionProto := &eventpb.Collection{}
-		if err := proto.Unmarshal(bytes, collectionProto); err != nil {
 			return nil, err
 		}
 		metadata := convertMetadataProtoToStruct(collectionProto.Metadata)
