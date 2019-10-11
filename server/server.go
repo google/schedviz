@@ -31,7 +31,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/mux"
 
-	"github.com/google/schedviz/collector/collector"
 	"github.com/google/schedviz/server/apiservice"
 	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/server/storageservice"
@@ -59,7 +58,6 @@ const requestTag = "request"
 const fileTag = "file"
 
 var storageService storageservice.StorageService
-
 
 var defaultHTTPUser = "local_user"
 
