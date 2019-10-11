@@ -59,6 +59,7 @@ const fileTag = "file"
 
 var storageService storageservice.StorageService
 
+
 var defaultHTTPUser = "local_user"
 
 var httpUser = func(w http.ResponseWriter, req *http.Request) (string, error) {
