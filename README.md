@@ -53,7 +53,7 @@ The sever binary takes several options:
 | port           | Int    | Optional.<br>The port to run the server on.<br>Defaults to 7402.                                                                                                                      |
 | resources_root | String | Optional.<br>The folder where the static files (e.g. HTML and JavaScript) are stored.<br>Default is "client".<br>If using bazel to run the server, you shouldn't need to change this. |
 
-To load SchedViz, go to http://localhost:7042/collections
+To load SchedViz, go to http://localhost:7402/collections
 
 ## Manually collecting a scheduling trace
 
