@@ -12,7 +12,6 @@ cc_binary(
         "trace.h",
     ],
     copts = ["-std=c++17"],
-    linkopts = ["-lc++fs"],
     deps = [
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
