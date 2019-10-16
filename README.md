@@ -12,6 +12,10 @@ Linux machines. It helps to:
 *   evaluate different scheduling policies,
 *   and much more.
 
+To learn more about what SchedViz can do and what problems it can solve, read
+our [announcement post](https://opensource.googleblog.com/2019/10/understanding-scheduling-behavior-with.html)
+on the Google open source blog.
+
 ## Running SchedViz
 
 To get started clone this repo:
