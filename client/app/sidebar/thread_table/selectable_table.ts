@@ -14,7 +14,6 @@
 // limitations under the License.
 //
 //
-
 import {SelectionModel} from '@angular/cdk/collections';
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, OnInit, ViewChild} from '@angular/core';
 import {MatPaginator} from '@angular/material/paginator';

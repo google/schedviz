@@ -14,7 +14,6 @@
 // limitations under the License.
 //
 //
-
 /**
  * A parametric viewport describing the current chart view.
  */
