@@ -64,7 +64,7 @@ const (
 
 // UploadFile creates a new collection from the uploaded file and saves it to disk
 func (fs *FsStorage) UploadFile(ctx context.Context, req *models.CreateCollectionRequest, file io.Reader) (string, error) {
-	eventSet, topology, err := readTar(file)
+	eventSet, topology, err := readTar(file, fs.failOnUnknownEventFormat)
 	if err != nil {
 		return "", err
 	}
@@ -179,7 +179,7 @@ traces
     ...
   - cpuN
 */
-func readTar(fileReader io.Reader) (*eventpb.EventSet, *models.SystemTopology, error) {
+func readTar(fileReader io.Reader, failOnUnknownEventFormat bool) (*eventpb.EventSet, *models.SystemTopology, error) {
 	// Unzip the tar.gz file.
 	gzipReader, err := gzip.NewReader(fileReader)
 	if err != nil {
@@ -273,6 +273,7 @@ func readTar(fileReader io.Reader) (*eventpb.EventSet, *models.SystemTopology, e
 					if err != nil {
 						return nil, nil, fmt.Errorf("failed to parse formats: %s", err)
 					}
+					tp.SetFailOnUnknownEventFormat(failOnUnknownEventFormat)
 					traceParser = &tp
 				}
 				if eventSetBuilder == nil {

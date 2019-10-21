@@ -144,6 +144,11 @@ go_repository(
     tag = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
 )
 go_repository(
+    name = "com_github_golang_time",
+    importpath = "golang.org/x/time",
+    tag = "c4c64cad1fd0a1a8dab2523e04e61d35308e131e",
+)
+go_repository(
     name = "org_golang_x_sync",
     importpath = "github.com/golang/sync",
     tag = "112230192c580c3556b8cee6403af37a4fc5f28c",

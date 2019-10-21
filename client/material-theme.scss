@@ -32,4 +32,6 @@ $my-app-theme: mat-light-theme($my-app-primary, $my-app-accent, $my-app-warn);
 
 .mat-simple-snackbar {
   white-space: pre-wrap;
+  word-break: break-word;
+  height: 100%;
 }

@@ -73,8 +73,9 @@ func (cc *CachedCollection) release() {
 }
 
 type storageBase struct {
-	lruCache *simplelru.LRU
-	mu       sync.Mutex
+	lruCache                 *simplelru.LRU
+	mu                       sync.Mutex
+	failOnUnknownEventFormat bool
 }
 
 func newStorageBase(cacheSize int) (*storageBase, error) {
@@ -162,4 +163,6 @@ type StorageService interface {
 	ListCollectionMetadata(ctx context.Context, user string, collectionName string) ([]models.Metadata, error)
 	GetCollectionParameters(ctx context.Context, collectionName string) (models.CollectionParametersResponse, error)
 	GetFtraceEvents(ctx context.Context, req *models.FtraceEventsRequest) (models.FtraceEventsResponse, error)
+	// Helper
+	SetFailOnUnknownEventFormat(option bool)
 }

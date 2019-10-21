@@ -215,22 +215,108 @@ func (r *ringBufferEvent) Length() (uint32, error) {
  */
 
 // ringBufferPageHeader represents the header of a page
-type ringBufferPageHeader struct {
-	// The base timestamp of this page. Time Deltas in events are relative to this.
-	Timestamp uint64
-	// First byte of Commit is the Overwrite indicator, rest of it is the size of the page data
-	Commit uint64
+type ringBufferPageHeader interface {
+	Timestamp() uint64
+	Commit() []byte
+	Overwrite() uint8
+	Size() uint64
+	SetEndianness(e binary.ByteOrder)
+	Endianness() binary.ByteOrder
+	Data() interface{}
+}
+
+// ringBufferPageHeader64 is a ringBufferPageHeader with a 64 bit Commit field
+// For internal use only
+type ringBufferPageHeader64 struct {
+	commit     [8]byte
+	endianness binary.ByteOrder
+	data       struct {
+		// The base timestamp of this page. Time Deltas in events are relative to this.
+		Timestamp uint64
+		// First byte of Commit is the Overwrite indicator, rest of it is the size of the page data
+		Commit uint64
+	}
+}
+
+func (r *ringBufferPageHeader64) Timestamp() uint64 {
+	return r.data.Timestamp
+}
+
+func (r *ringBufferPageHeader64) Commit() []byte {
+	b := r.commit[:]
+	r.Endianness().PutUint64(b, r.data.Commit)
+	return b
 }
 
 // Overwrite returns if this page was overwritten (like during FDR mode)
-func (r *ringBufferPageHeader) Overwrite() uint8 {
+func (r *ringBufferPageHeader64) Overwrite() uint8 {
 	// Get the leftmost byte
-	return uint8(r.Commit >> (7 * 8))
+	return uint8(r.data.Commit >> (7 * 8))
 }
 
 // Size returns the size in bytes of the data contained in this page
-func (r *ringBufferPageHeader) Size() uint64 {
+func (r *ringBufferPageHeader64) Size() uint64 {
 	// Only the lower 20 bits contain the size.
 	// See https://lkml.org/lkml/2019/5/23/1623
-	return r.Commit & 0xfffff
+	return r.data.Commit & 0xfffff
+}
+
+func (r *ringBufferPageHeader64) SetEndianness(e binary.ByteOrder) {
+	r.endianness = e
+}
+
+func (r *ringBufferPageHeader64) Endianness() binary.ByteOrder {
+	return r.endianness
+}
+
+func (r *ringBufferPageHeader64) Data() interface{} {
+	return &r.data
+}
+
+// ringBufferPageHeader32 is a ringBufferPageHeader with a 32 bit Commit field
+// For internal use only
+type ringBufferPageHeader32 struct {
+	commit     [4]byte
+	endianness binary.ByteOrder
+	data       struct {
+		// The base timestamp of this page. Time Deltas in events are relative to this.
+		Timestamp uint64
+		// First byte of Commit is the Overwrite indicator, rest of it is the size of the page data
+		Commit uint32
+	}
+}
+
+func (r *ringBufferPageHeader32) Timestamp() uint64 {
+	return r.data.Timestamp
+}
+
+func (r *ringBufferPageHeader32) Commit() []byte {
+	b := r.commit[:]
+	r.Endianness().PutUint32(r.commit[:], r.data.Commit)
+	return b
+}
+
+// Overwrite returns if this page was overwritten (like during FDR mode)
+func (r *ringBufferPageHeader32) Overwrite() uint8 {
+	// Get the leftmost byte
+	return uint8(r.data.Commit >> (3 * 8))
+}
+
+// Size returns the size in bytes of the data contained in this page
+func (r *ringBufferPageHeader32) Size() uint64 {
+	// Only the lower 20 bits contain the size.
+	// See https://lkml.org/lkml/2019/5/23/1623
+	return uint64(r.data.Commit & 0xfffff)
+}
+
+func (r *ringBufferPageHeader32) SetEndianness(e binary.ByteOrder) {
+	r.endianness = e
+}
+
+func (r *ringBufferPageHeader32) Endianness() binary.ByteOrder {
+	return r.endianness
+}
+
+func (r *ringBufferPageHeader32) Data() interface{} {
+	return &r.data
 }

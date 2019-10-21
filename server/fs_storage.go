@@ -273,6 +273,13 @@ func (fs *FsStorage) GetFtraceEvents(ctx context.Context, req *models.FtraceEven
 	}, nil
 }
 
+// SetFailOnUnknownEventFormat configures behavior when encountering an unknown
+// event format.  If the provided bool is true, parsing fails on unknown events;
+// otherwise unknown events are logged and ignored.
+func (fs *FsStorage) SetFailOnUnknownEventFormat(option bool) {
+	fs.failOnUnknownEventFormat = option
+}
+
 func missingFieldError(fieldName string) error {
 	return fmt.Errorf("missing required field %q`", fieldName)
 }

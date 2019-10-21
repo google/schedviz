@@ -18,7 +18,7 @@ importpath = "github.com/google/schedviz/traceparser/traceparser",
     ],
     deps = [
         "//tracedata:schedviz_events_go_proto",
-        "@com_github_golang_glog//:go_default_library",
+        "//util",
         "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )
@@ -28,7 +28,10 @@ go_test(
     size = "small",
     srcs = ["formatparser_test.go"],
     embed = [":traceparser"],
-    deps = ["@com_github_google_go-cmp//cmp:go_default_library"],
+    deps = [
+        "@com_github_google_go-cmp//cmp:go_default_library",
+        "@com_github_google_go-cmp//cmp/cmpopts:go_default_library",
+    ],
 )
 
 go_test(
@@ -39,12 +42,15 @@ go_test(
     ],
     data = [
         "testdata/input/cpu0",
+        "testdata/input/cpu0-32",
         "testdata/output/trace.gob",
+        "testdata/output/trace-32.gob",
     ],
     embed = [":traceparser"],
     deps = [
         "//testhelpers",
         "@com_github_google_go-cmp//cmp:go_default_library",
+        "@com_github_google_go-cmp//cmp/cmpopts:go_default_library",
     ],
 )
 

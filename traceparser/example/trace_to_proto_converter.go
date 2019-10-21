@@ -32,10 +32,11 @@ import (
 )
 
 var (
-	formatFilePaths = flag.String("format_files", "", "Required. Comma separated list of paths to format files. Must include path to header_page file as well.")
-	traceFilesPath  = flag.String("trace_files", "", "Required. Path to the recorded trace files. Should be a folder containing cpu0, cpu1, ... files")
-	outputPath      = flag.String("output_path", "", "Required. Path to the file where the output should be written.")
-	outputFormat    = flag.String("output_format", "proto", "Optional. Format to write the output in. Can be either \"proto\" or \"textproto\". Will use \"proto\" if not specified")
+	formatFilePaths          = flag.String("format_files", "", "Required. Comma separated list of paths to format files. Must include path to header_page file as well.")
+	traceFilesPath           = flag.String("trace_files", "", "Required. Path to the recorded trace files. Should be a folder containing cpu0, cpu1, ... files")
+	outputPath               = flag.String("output_path", "", "Required. Path to the file where the output should be written.")
+	outputFormat             = flag.String("output_format", "proto", "Optional. Format to write the output in. Can be either \"proto\" or \"textproto\". Will use \"proto\" if not specified")
+	failOnUnknownEventFormat = flag.Bool("fail_on_unknown_event_format", true, "Whether or not to continue parsing when an unknown event is encountered")
 )
 
 func main() {
@@ -83,6 +84,7 @@ func main() {
 	if err != nil {
 		log.Exitf("Failed to parse formats: %s", err)
 	}
+	traceParser.SetFailOnUnknownEventFormat(*failOnUnknownEventFormat)
 
 	traceFiles, err := ioutil.ReadDir(*traceFilesPath)
 	if err != nil {

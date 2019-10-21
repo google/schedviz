@@ -42,10 +42,11 @@ import (
 )
 
 var (
-	port         = flag.Int("port", 7402, "The SchedViz HTTP port.")
-	resourceRoot = flag.String("resources_root", "client", "The folder where the static files are stored.")
-	storagePath  = flag.String("storage_path", "", "The folder where trace data is/will be stored.")
-	cacheSize    = flag.Int("cache_size", 25, "The maximum number of collections to keep open at once.")
+	port                     = flag.Int("port", 7402, "The SchedViz HTTP port.")
+	resourceRoot             = flag.String("resources_root", "client", "The folder where the static files are stored.")
+	storagePath              = flag.String("storage_path", "", "The folder where trace data is/will be stored.")
+	cacheSize                = flag.Int("cache_size", 25, "The maximum number of collections to keep open at once.")
+	failOnUnknownEventFormat = flag.Bool("fail_on_unknown_event_format", true, "Whether or not to continue parsing when an unknown event is encountered")
 )
 
 
@@ -462,6 +463,8 @@ var setStorageService = func(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	ss.SetFailOnUnknownEventFormat(*failOnUnknownEventFormat)
+
 	storageService = ss
 	return nil
 }
@@ -471,7 +474,6 @@ func runServer(ctx context.Context) {
 	if err := setStorageService(ctx); err != nil {
 		log.Exit(err)
 	}
-	// END-INTERNAL
 
 	apiService := &apiservice.APIService{StorageService: storageService}
 

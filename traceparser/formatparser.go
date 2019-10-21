@@ -50,9 +50,10 @@ const (
 
 // TraceParser contains format information for a trace.
 type TraceParser struct {
-	HeaderFormat Format
-	Formats      map[uint16]*EventFormat
-	Endianness   binary.ByteOrder
+	HeaderFormat             Format
+	Formats                  map[uint16]*EventFormat
+	Endianness               binary.ByteOrder
+	failOnUnknownEventFormat bool
 }
 
 // New parses trace formats and returns a new TraceParser.
@@ -68,9 +69,17 @@ func New(headerFormat string, formatFiles []string) (TraceParser, error) {
 	}
 
 	return TraceParser{
-		HeaderFormat: *header,
-		Formats:      formats,
+		HeaderFormat:             *header,
+		Formats:                  formats,
+		failOnUnknownEventFormat: true,
 	}, nil
+}
+
+// SetFailOnUnknownEventFormat configures behavior when encountering an unknown
+// event format.  If the provided bool is true, parsing fails on unknown events;
+// otherwise unknown events are logged and ignored.
+func (tp *TraceParser) SetFailOnUnknownEventFormat(option bool) {
+	tp.failOnUnknownEventFormat = option
 }
 
 // parseRegularFormats parses TraceFS Formats into an EventFormat structs.
@@ -265,7 +274,12 @@ func constructFormatField(fieldType string, size uint64) (FormatField, error) {
 	field.Name = string(matches[2])
 
 	cType := matches[1]
-	if charRe.Match(cType) {
+	// Treat fields of char type that are more than one byte long as strings;
+	// char types that are one byte long will be treated as integers.
+	// This is needed because many char fields in some events are used as
+	// bitfields and can therefore contain non-UTF8 code point values, which can
+	// not be stored in a proto string.
+	if charRe.Match(cType) && size > 1 {
 		field.ProtoType = "string"
 	} else if dynArrRe.Match(cType) {
 		// If this field's type includes "__data_loc", then it describes a dynamic array.
