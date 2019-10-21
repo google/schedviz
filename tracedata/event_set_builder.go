@@ -21,7 +21,6 @@ package eventsetbuilder
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
@@ -170,15 +169,9 @@ func (b *Builder) WithEvent(eventName string, cpu int64, timestampNs int64, clip
 	return b
 }
 
-// TestProtobuf returns the EventSet built by the Builder.  If the
-// builder is in error, it fails on the provided testing.T.
-func (b *Builder) TestProtobuf(t *testing.T) *eventpb.EventSet {
-	if len(b.errs) > 0 {
-		var errStrs []string
-		for _, err := range b.errs {
-			errStrs = append(errStrs, err.Error())
-		}
-		t.Fatalf("Failed to construct EventSet protobuf: %s", strings.Join(errStrs, ", "))
-	}
-	return b.esb.EventSet
+// EventSet returns the constructed EventSet protobuf, along with any errors
+// encountered in building.  If the errors slice is nonempty, the returned
+// EventSet is invalid.
+func (b *Builder) EventSet() (*eventpb.EventSet, []error) {
+	return b.esb.EventSet, b.errs
 }

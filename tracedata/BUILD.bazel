@@ -31,6 +31,7 @@ go_test(
     deps = [
         ":eventsetbuilder",
         ":schedviz_events_go_proto",
+        ":testeventsetbuilder",
     ],
 )
 
@@ -38,7 +39,6 @@ go_library(
     name = "eventsetbuilder",
 importpath = "github.com/google/schedviz/tracedata/eventsetbuilder",
 
-    testonly = True,
     srcs = ["event_set_builder.go"],
     visibility = ["//visibility:public"],
     deps = [
@@ -73,4 +73,17 @@ importpath = "github.com/google/schedviz/tracedata/schedviz_events_go_proto",
 
     proto = ":schedviz_events_proto",
     visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "testeventsetbuilder",
+importpath = "github.com/google/schedviz/tracedata/testeventsetbuilder",
+
+    testonly = True,
+    srcs = ["test_event_set_builder.go"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":eventsetbuilder",
+        ":schedviz_events_go_proto",
+    ],
 )

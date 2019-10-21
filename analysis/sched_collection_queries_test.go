@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 
 	"github.com/google/schedviz/analysis/schedtestcommon"
 	"github.com/google/schedviz/tracedata/trace"
@@ -29,22 +30,22 @@ import (
 
 func TestPIDsAndComms(t *testing.T) {
 	coll, err := NewCollection(
-		schedtestcommon.UnpopulatedBuilder().
-			WithEvent("sched_switch", 1, 1000, false,
-				100, "Process A", 50, schedtestcommon.Interruptible,
-				200, "Constant", 50).
-			WithEvent("sched_switch", 1, 1010, false,
-				200, "Constant", 50, schedtestcommon.Runnable,
-				100, "Process B", 70).
-			WithEvent("sched_switch", 1, 1020, false,
-				100, "Process B", 70, schedtestcommon.Interruptible,
-				200, "Constant", 50).
-			WithEvent("sched_switch", 1, 1030, false,
-				200, "Constant", 50, schedtestcommon.Interruptible,
-				100, "Process C", 70).
-			WithEvent("sched_wakeup", 0, 1040, false,
-				200, "Constant", 50, 1).
-			TestProtobuf(t), DefaultEventLoaders(), PreciseCommands(true), PrecisePriorities(true))
+		testeventsetbuilder.TestProtobuf(t,
+			schedtestcommon.UnpopulatedBuilder().
+				WithEvent("sched_switch", 1, 1000, false,
+					100, "Process A", 50, schedtestcommon.Interruptible,
+					200, "Constant", 50).
+				WithEvent("sched_switch", 1, 1010, false,
+					200, "Constant", 50, schedtestcommon.Runnable,
+					100, "Process B", 70).
+				WithEvent("sched_switch", 1, 1020, false,
+					100, "Process B", 70, schedtestcommon.Interruptible,
+					200, "Constant", 50).
+				WithEvent("sched_switch", 1, 1030, false,
+					200, "Constant", 50, schedtestcommon.Interruptible,
+					100, "Process C", 70).
+				WithEvent("sched_wakeup", 0, 1040, false,
+					200, "Constant", 50, 1)), DefaultEventLoaders(), PreciseCommands(true), PrecisePriorities(true))
 	if err != nil {
 		t.Fatalf("Unexpected collection creation error %s", err)
 	}
@@ -412,23 +413,23 @@ func TestSwitchOnly(t *testing.T) {
 		want        []wantPIDIntervals
 	}{{
 		description: "simple switch-only",
-		eventSet: schedtestcommon.UnpopulatedBuilder().
-			WithEvent("sched_switch", 0, 1000, false,
-				100, "Process1", 50, schedtestcommon.Interruptible,
-				200, "Process2", 50).
-			WithEvent("sched_switch", 1, 1010, false,
-				300, "Process3", 50, schedtestcommon.Runnable,
-				400, "Process4", 50).
-			// We should infer that Process3 switched from CPU 1 to CPU 0 at time 1015.
-			WithEvent("sched_switch", 0, 1020, false,
-				200, "Process2", 50, schedtestcommon.Interruptible,
-				300, "Process3", 50).
-			// We should infer that Process1 switched from CPU 0 to CPU 1, and from
-			// Sleeping to Waiting state, at time 1015.
-			WithEvent("sched_switch", 1, 1030, false,
-				400, "Process4", 50, schedtestcommon.Runnable,
-				100, "Process1", 50).
-			TestProtobuf(t),
+		eventSet: testeventsetbuilder.TestProtobuf(t,
+			schedtestcommon.UnpopulatedBuilder().
+				WithEvent("sched_switch", 0, 1000, false,
+					100, "Process1", 50, schedtestcommon.Interruptible,
+					200, "Process2", 50).
+				WithEvent("sched_switch", 1, 1010, false,
+					300, "Process3", 50, schedtestcommon.Runnable,
+					400, "Process4", 50).
+				// We should infer that Process3 switched from CPU 1 to CPU 0 at time 1015.
+				WithEvent("sched_switch", 0, 1020, false,
+					200, "Process2", 50, schedtestcommon.Interruptible,
+					300, "Process3", 50).
+				// We should infer that Process1 switched from CPU 0 to CPU 1, and from
+				// Sleeping to Waiting state, at time 1015.
+				WithEvent("sched_switch", 1, 1030, false,
+					400, "Process4", 50, schedtestcommon.Runnable,
+					100, "Process1", 50)),
 		want: []wantPIDIntervals{
 			{
 				[]Filter{PIDs(100)},

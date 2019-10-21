@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/google/schedviz/tracedata/eventsetbuilder"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -166,18 +167,18 @@ func perCPUEventsIntervalsCollection(t *testing.T, normalizeTimestamps bool) *Co
 	// CPU 2:
 	//   ival 3:    *************
 	//   ival 4:        *****
-	es := eventsetbuilder.NewBuilder().
-		WithEventDescriptor(intervalStartLabel, eventsetbuilder.Number(intervalIDLabel)).
-		WithEventDescriptor(intervalEndLabel, eventsetbuilder.Number(intervalIDLabel)).
-		WithEvent(intervalStartLabel, 1, 1000, false, 1).
-		WithEvent(intervalStartLabel, 2, 1010, false, 3).
-		WithEvent(intervalStartLabel, 1, 1020, false, 2).
-		WithEvent(intervalStartLabel, 2, 1030, false, 4).
-		WithEvent(intervalEndLabel, 1, 1040, false, 1).
-		WithEvent(intervalEndLabel, 2, 1050, false, 4).
-		WithEvent(intervalEndLabel, 1, 1060, false, 2).
-		WithEvent(intervalEndLabel, 2, 1070, false, 3).
-		TestProtobuf(t)
+	es := testeventsetbuilder.TestProtobuf(t,
+		eventsetbuilder.NewBuilder().
+			WithEventDescriptor(intervalStartLabel, eventsetbuilder.Number(intervalIDLabel)).
+			WithEventDescriptor(intervalEndLabel, eventsetbuilder.Number(intervalIDLabel)).
+			WithEvent(intervalStartLabel, 1, 1000, false, 1).
+			WithEvent(intervalStartLabel, 2, 1010, false, 3).
+			WithEvent(intervalStartLabel, 1, 1020, false, 2).
+			WithEvent(intervalStartLabel, 2, 1030, false, 4).
+			WithEvent(intervalEndLabel, 1, 1040, false, 1).
+			WithEvent(intervalEndLabel, 2, 1050, false, 4).
+			WithEvent(intervalEndLabel, 1, 1060, false, 2).
+			WithEvent(intervalEndLabel, 2, 1070, false, 3))
 
 	coll, err := NewCollection(es, evtLoaders, NormalizeTimestamps(normalizeTimestamps))
 	if err != nil {

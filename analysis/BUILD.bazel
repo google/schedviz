@@ -60,6 +60,7 @@ go_test(
         ":schedtestcommon",
         "//tracedata:eventsetbuilder",
         "//tracedata:schedviz_events_go_proto",
+        "//tracedata:testeventsetbuilder",
         "//tracedata:trace",
         "@com_github_google_go-cmp//cmp:go_default_library",
     ],
@@ -74,6 +75,7 @@ importpath = "github.com/google/schedviz/analysis/schedtestcommon",
     deps = [
         "//tracedata:eventsetbuilder",
         "//tracedata:schedviz_events_go_proto",
+        "//tracedata:testeventsetbuilder",
     ],
 )
 
@@ -87,6 +89,7 @@ go_test(
     embed = [":sched"],
     deps = [
         "//tracedata:eventsetbuilder",
+        "//tracedata:testeventsetbuilder",
         "//tracedata:trace",
         "@com_github_google_go-cmp//cmp:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",

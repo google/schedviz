@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/google/schedviz/tracedata/eventsetbuilder"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -41,28 +42,28 @@ func perCPUEventsCollection(t *testing.T, normalizeTimestamps bool) *Collection 
 		indirectEventLabel:      func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
 	}
 
-	es := eventsetbuilder.NewBuilder().
-		WithEventDescriptor(
-			simpleNumericEventLabel,
-			eventsetbuilder.Number("value")).
-		WithEventDescriptor(
-			simpleTextualEventLabel,
-			eventsetbuilder.Text("value")).
-		WithEventDescriptor(
-			indirectEventLabel,
-			eventsetbuilder.Number("cpu")).
-		WithEvent(indirectEventLabel, 1, 900, true, 2).
-		WithEvent(simpleNumericEventLabel, 1, 1000, false, 1).
-		WithEvent(simpleTextualEventLabel, 1, 1005, false, "a").
-		WithEvent(simpleNumericEventLabel, 2, 1010, false, 2).
-		WithEvent(simpleTextualEventLabel, 2, 1015, false, "b").
-		WithEvent(indirectEventLabel, 1, 1018, false, 2).
-		WithEvent(simpleNumericEventLabel, 1, 1020, false, 3).
-		WithEvent(simpleTextualEventLabel, 1, 1025, false, "c").
-		WithEvent(simpleNumericEventLabel, 2, 1030, false, 4).
-		WithEvent(simpleTextualEventLabel, 2, 1035, false, "d").
-		WithEvent(indirectEventLabel, 2, 1038, false, 1).
-		TestProtobuf(t)
+	es := testeventsetbuilder.TestProtobuf(t,
+		eventsetbuilder.NewBuilder().
+			WithEventDescriptor(
+				simpleNumericEventLabel,
+				eventsetbuilder.Number("value")).
+			WithEventDescriptor(
+				simpleTextualEventLabel,
+				eventsetbuilder.Text("value")).
+			WithEventDescriptor(
+				indirectEventLabel,
+				eventsetbuilder.Number("cpu")).
+			WithEvent(indirectEventLabel, 1, 900, true, 2).
+			WithEvent(simpleNumericEventLabel, 1, 1000, false, 1).
+			WithEvent(simpleTextualEventLabel, 1, 1005, false, "a").
+			WithEvent(simpleNumericEventLabel, 2, 1010, false, 2).
+			WithEvent(simpleTextualEventLabel, 2, 1015, false, "b").
+			WithEvent(indirectEventLabel, 1, 1018, false, 2).
+			WithEvent(simpleNumericEventLabel, 1, 1020, false, 3).
+			WithEvent(simpleTextualEventLabel, 1, 1025, false, "c").
+			WithEvent(simpleNumericEventLabel, 2, 1030, false, 4).
+			WithEvent(simpleTextualEventLabel, 2, 1035, false, "d").
+			WithEvent(indirectEventLabel, 2, 1038, false, 1))
 
 	coll, err := NewCollection(es, evtLoaders, NormalizeTimestamps(normalizeTimestamps))
 	if err != nil {

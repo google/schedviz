@@ -23,6 +23,7 @@ import (
 	"github.com/google/schedviz/analysis/schedtestcommon"
 	"github.com/google/schedviz/tracedata/eventsetbuilder"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -121,12 +122,12 @@ func TestEventsAreLoaded(t *testing.T) {
 		wantTransitions func(sb *stringBank) []*threadTransition
 	}{{
 		description: "events load",
-		eventSet: eventSetBase.TestClone(t).
-			WithEvent("migrate-n-sleep", 1, 1000, false,
-				100, "thread 1", 50, 2).
-			WithEvent("wake-n-switch-in", 2, 1010, false,
-				100, "thread 1", 50).
-			TestProtobuf(t),
+		eventSet: testeventsetbuilder.TestProtobuf(t,
+			eventSetBase.TestClone(t).
+				WithEvent("migrate-n-sleep", 1, 1000, false,
+					100, "thread 1", 50, 2).
+				WithEvent("wake-n-switch-in", 2, 1010, false,
+					100, "thread 1", 50)),
 		wantErr: false,
 		wantTransitions: func(sb *stringBank) []*threadTransition {
 			return []*threadTransition{
