@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+
 	"github.com/golang/sync/errgroup"
 
 	"github.com/google/schedviz/analysis/sched"
@@ -224,7 +225,6 @@ func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.Thread
 	}, nil
 }
 
-
 // GetUtilizationMetrics returns a set of metrics describing the utilization or over-utilization of
 // some portion of the system over some span of the trace.
 // These metrics are described in the sched.Utilization struct.
@@ -262,6 +262,7 @@ func (as *APIService) GetSystemTopology(ctx context.Context, collectionName stri
 
 	return coll.SystemTopology, err
 }
+
 
 func missingFieldError(fieldName string) error {
 	return fmt.Errorf("missing required field %q", fieldName)

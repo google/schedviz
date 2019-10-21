@@ -436,6 +436,7 @@ func (a *apiServiceHTTPHandler) handleSystemTopology(w http.ResponseWriter, req 
 	sendStructHTTPResponse(req, jsonresp, w)
 }
 
+
 func registerAPIService(r *mux.Router, a *apiservice.APIService) {
 	ah := &apiServiceHTTPHandler{a}
 	handle(r, "/get_cpu_intervals", ah.handleGetCPUIntervals)
@@ -446,7 +447,6 @@ func registerAPIService(r *mux.Router, a *apiservice.APIService) {
 	handle(r, "/get_utilization_metrics", ah.handleGetUtilizationMetrics)
 	handle(r, "/get_system_topology", ah.handleSystemTopology)
 }
-
 
 var startServer = func(r *mux.Router) {
 		http.Handle("/", r)

@@ -125,6 +125,7 @@ importpath = "github.com/google/schedviz/server/apiservice",
     deps = [
         ":models",
         ":storageservice",
+        "//analysis:legacyconversion",
         "//analysis:sched",
         "//tracedata:trace",
         "@org_golang_x_sync//errgroup:go_default_library",
