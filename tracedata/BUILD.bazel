@@ -43,6 +43,7 @@ importpath = "github.com/google/schedviz/tracedata/eventsetbuilder",
     visibility = ["//visibility:public"],
     deps = [
         ":schedviz_events_go_proto",
+        "//analysis:event_loaders_go_proto",
         "//traceparser",
     ],
 )
@@ -63,6 +64,7 @@ proto_library(
     srcs = ["events.proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//analysis:event_loaders_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],
 )
@@ -73,6 +75,7 @@ importpath = "github.com/google/schedviz/tracedata/schedviz_events_go_proto",
 
     proto = ":schedviz_events_proto",
     visibility = ["//visibility:public"],
+    deps = ["//analysis:event_loaders_go_proto"],
 )
 
 go_library(

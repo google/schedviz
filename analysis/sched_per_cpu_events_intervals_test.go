@@ -180,7 +180,7 @@ func perCPUEventsIntervalsCollection(t *testing.T, normalizeTimestamps bool) *Co
 			WithEvent(intervalEndLabel, 1, 1060, false, 2).
 			WithEvent(intervalEndLabel, 2, 1070, false, 3))
 
-	coll, err := NewCollection(es, evtLoaders, NormalizeTimestamps(normalizeTimestamps))
+	coll, err := NewCollection(es, UsingEventLoaders(evtLoaders), NormalizeTimestamps(normalizeTimestamps))
 	if err != nil {
 		t.Fatalf("NewCollection yielded unexpected error %s", err)
 	}

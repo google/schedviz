@@ -17,6 +17,9 @@
 package sched
 
 import (
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	elpb "github.com/google/schedviz/analysis/event_loaders_go_proto"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -125,17 +128,6 @@ func LoadSchedWakeup(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
 	return nil
 }
 
-// DefaultEventLoaders is a set of event loader functions for standard
-// scheduling tracepoints.
-func DefaultEventLoaders() map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error {
-	return map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
-		"sched_migrate_task": LoadSchedMigrateTask,
-		"sched_switch":       LoadSchedSwitch,
-		"sched_wakeup":       LoadSchedWakeup,
-		"sched_wakeup_new":   LoadSchedWakeup,
-	}
-}
-
 // LoadSchedSwitchWithSynthetics loads a sched::sched_switch event from a trace
 // that lacks other events that could signal thread state or CPU changes.
 // Wherever a state or CPU transition is missing, a synthetic transition will
@@ -174,10 +166,40 @@ func LoadSchedSwitchWithSynthetics(ev *trace.Event, ttsb *ThreadTransitionSetBui
 	return nil
 }
 
-// SwitchOnlyLoaders is a set of loaders suitable for use on traces in
-// which scheduling behavior is only attested by sched_switch events.
-func SwitchOnlyLoaders() map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error {
+// EventLoaders represents a grouped set of event loaders meant to be used in
+// concert to load a given trace.
+type EventLoaders map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error
+
+// DefaultEventLoaders is a set of default event loaders operating on
+// sched_migrate_task, sched_switch, sched_wakeup, and sched_wakeup_new.
+// sched_wakeup events that cannot be reconciled are dropped.
+func DefaultEventLoaders() EventLoaders {
+	return map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
+		"sched_migrate_task": LoadSchedMigrateTask,
+		"sched_switch":       LoadSchedSwitch,
+		"sched_wakeup":       LoadSchedWakeup,
+		"sched_wakeup_new":   LoadSchedWakeup,
+	}
+}
+
+// SwitchOnlyLoaders is a set of event loaders operating on only sched_switch.
+// CPU and thread  state transitions are inferred and may not be entirely
+// accurate.  Running intervals will be entirely accurate, but waiting
+// intervals and CPU wait queues may be approximate.
+func SwitchOnlyLoaders() EventLoaders {
 	return map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
 		"sched_switch": LoadSchedSwitchWithSynthetics,
+	}
+}
+
+// EventLoader returns the event loader specified by the provided LoaderType.
+func EventLoader(elt elpb.LoadersType) (EventLoaders, error) {
+	switch elt {
+	case elpb.LoadersType_DEFAULT:
+		return DefaultEventLoaders(), nil
+	case elpb.LoadersType_SWITCH_ONLY:
+		return SwitchOnlyLoaders(), nil
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "unknown event loader type %v", elt)
 	}
 }

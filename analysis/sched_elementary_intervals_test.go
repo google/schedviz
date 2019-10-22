@@ -231,7 +231,7 @@ func TestElementaryCPUIntervals(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			coll, err := NewCollection(test.eventSet, DefaultEventLoaders())
+			coll, err := NewCollection(test.eventSet)
 			if err != nil {
 				t.Fatalf("NewCollection yielded unexpected error %s", err)
 			}

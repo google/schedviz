@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"testing"
 
+	elpb "github.com/google/schedviz/analysis/event_loaders_go_proto"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 	tp "github.com/google/schedviz/traceparser/traceparser"
 )
@@ -166,6 +167,13 @@ func (b *Builder) WithEvent(eventName string, cpu int64, timestampNs int64, clip
 	if err := b.esb.AddTraceEvent(traceEvent); err != nil {
 		b.errs = append(b.errs, err)
 	}
+	return b
+}
+
+// WithDefaultEventLoadersType specifies the default event loaders that should
+// be used to interpret this trace.
+func (b *Builder) WithDefaultEventLoadersType(elt elpb.LoadersType) *Builder {
+	b.esb.EventSet.DefaultLoadersType = elt
 	return b
 }
 

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sort"
 
+	log "github.com/golang/glog"
 	"github.com/Workiva/go-datastructures/augmentedtree"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -68,7 +69,7 @@ type Collection struct {
 // event set in es, or nil and an error if one could not be created.  If the
 // normalizeTimestamps argument is true, all valid, unclipped, sched event
 // timestamps will be normalized to the first valid, unclipped, sched event's.
-func NewCollection(es *eventpb.EventSet, eventLoaders map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error, options ...Option) (*Collection, error) {
+func NewCollection(es *eventpb.EventSet, options ...Option) (*Collection, error) {
 	c := &Collection{
 		normalizationOffset:    Unknown,
 		runningSpansByCPU:      make(map[CPUID][]*threadSpan),
@@ -80,9 +81,21 @@ func NewCollection(es *eventpb.EventSet, eventLoaders map[string]func(*trace.Eve
 		droppedEventCountsByID: map[int]int{},
 	}
 	for _, option := range options {
-		option(c.options)
+		if err := option(c.options); err != nil {
+			return nil, err
+		}
 	}
-	if err := c.buildSpansByPID(es, eventLoaders); err != nil {
+	// If no EventLoaders was specified, use the event set's default.
+	if c.options.loaders == nil {
+		elt := es.GetDefaultLoadersType()
+		log.Infof("Using default event loader type %s", elt)
+		el, err := EventLoader(elt)
+		if err != nil {
+			return nil, err
+		}
+		c.options.loaders = el
+	}
+	if err := c.buildSpansByPID(es, c.options.loaders); err != nil {
 		return nil, err
 	}
 	if err := c.buildSpansByCPU(); err != nil {

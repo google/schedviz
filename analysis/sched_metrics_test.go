@@ -25,7 +25,8 @@ import (
 )
 
 func TestPIDSummary(t *testing.T) {
-	coll, err := NewCollection(schedtestcommon.TestTrace1(t), DefaultEventLoaders(), NormalizeTimestamps(true))
+	coll, err := NewCollection(schedtestcommon.TestTrace1(t),
+		NormalizeTimestamps(true))
 
 	if err != nil {
 		t.Fatalf("Broken collection, can't proceed: `%s'", err)

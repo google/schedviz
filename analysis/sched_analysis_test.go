@@ -62,7 +62,9 @@ func TestAntagonists(t *testing.T) {
 				// PID 500 yields to PID 501 at time 99000, but this is clipped.
 				WithEvent("sched_switch", 0, 99000, true,
 					500, "InvalidProcess", 50, 130,
-					501, "InvalidProcess", 50)), DefaultEventLoaders(), PreciseCommands(true), PrecisePriorities(true))
+					501, "InvalidProcess", 50)),
+		PreciseCommands(true),
+		PrecisePriorities(true))
 	if err != nil {
 		t.Fatalf("Broken collection, can't proceed: %q", err)
 	}
@@ -252,7 +254,9 @@ func TestUtilizationMetrics(t *testing.T) {
 				// PID 500 migrates from CPU 3 to CPU 2 at time 1100
 				WithEvent("sched_migrate_task", 0, 1100, false,
 					500, "Process5", 50,
-					3, 2)), DefaultEventLoaders(), PreciseCommands(true), PrecisePriorities(true))
+					3, 2)),
+		PreciseCommands(true),
+		PrecisePriorities(true))
 	if err != nil {
 		t.Fatalf("Broken collection, can't proceed: %v", err)
 	}

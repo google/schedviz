@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package schedviz.analysis.event_loaders;
+
+enum LoadersType {
+  // A set of default event loaders operating on sched_migrate_task,
+  // sched_switch, sched_wakeup, and sched_wakeup_new.  sched_wakeup* events
+  // that cannot be reconciled are dropped.
+  DEFAULT = 0;
+  // A set of event loaders operating on only sched_switch.  CPU and thread
+  // state transitions are inferred and may not be entirely accurate.  Running
+  // intervals will be entirely accurate, but waiting intervals and CPU wait
+  // queues may be approximate.
+  SWITCH_ONLY = 1;
+}

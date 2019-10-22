@@ -65,7 +65,7 @@ func perCPUEventsCollection(t *testing.T, normalizeTimestamps bool) *Collection 
 			WithEvent(simpleTextualEventLabel, 2, 1035, false, "d").
 			WithEvent(indirectEventLabel, 2, 1038, false, 1))
 
-	coll, err := NewCollection(es, evtLoaders, NormalizeTimestamps(normalizeTimestamps))
+	coll, err := NewCollection(es, UsingEventLoaders(evtLoaders), NormalizeTimestamps(normalizeTimestamps))
 	if err != nil {
 		t.Fatalf("NewCollection yielded unexpected error %s", err)
 	}

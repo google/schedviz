@@ -108,7 +108,6 @@ func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (
 		return nil, err
 	}
 	collection, err := sched.NewCollection(collectionProto.EventSet,
-		sched.DefaultEventLoaders(),
 		sched.NormalizeTimestamps(true))
 	if err != nil {
 		return nil, err
