@@ -72,7 +72,6 @@ static constexpr const LazyRE2 kCPURegex = {"(cpu\\d+$)"};
  */
 static constexpr const LazyRE2 kNodeRegex = {"(node\\d+$)"};
 
-
 int main(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);
 
