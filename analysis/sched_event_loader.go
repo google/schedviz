@@ -72,6 +72,43 @@ func MissingFieldError(fieldName string, ev *trace.Event) error {
 	return status.Errorf(codes.NotFound, "field '%s' not found for event %d", fieldName, ev.Index)
 }
 
+// MigrateData comprises the data extracted from a raw sched_migrate_task
+// event.
+type MigrateData struct {
+	PID              PID
+	Comm             string
+	Priority         Priority
+	OrigCPU, DestCPU CPUID
+}
+
+// LoadMigrateData loads the data from a sched_migrate event, converting all
+// fields to suitable types, and returns a MigrateData struct.
+func LoadMigrateData(ev *trace.Event) (*MigrateData, error) {
+	ret := &MigrateData{}
+	pid, ok := ev.NumberProperties["pid"]
+	if !ok {
+		return nil, MissingFieldError("pid", ev)
+	}
+	ret.PID = PID(pid)
+	ret.Comm = ev.TextProperties["comm"]
+	prio, ok := ev.NumberProperties["prio"]
+	ret.Priority = Priority(prio)
+	if !ok {
+		ret.Priority = UnknownPriority
+	}
+	origCPU, ok := ev.NumberProperties["orig_cpu"]
+	if !ok {
+		return nil, MissingFieldError("orig_cpu", ev)
+	}
+	ret.OrigCPU = CPUID(origCPU)
+	destCPU, ok := ev.NumberProperties["dest_cpu"]
+	if !ok {
+		return nil, MissingFieldError("dest_cpu", ev)
+	}
+	ret.DestCPU = CPUID(destCPU)
+	return ret, nil
+}
+
 // SwitchData comprises the data extracted from a raw sched_switch event.
 // In its members, Next and Prev refer to the switched-in and switched-out
 // threads respectively.

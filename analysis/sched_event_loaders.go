@@ -25,33 +25,40 @@ import (
 
 // LoadSchedMigrateTask loads a sched::sched_migrate_task event.
 func LoadSchedMigrateTask(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
-	pid, ok := ev.NumberProperties["pid"]
-	if !ok {
-		return MissingFieldError("pid", ev)
-	}
-	comm := ev.TextProperties["comm"]
-	prio, ok := ev.NumberProperties["prio"]
-	priority := Priority(prio)
-	if !ok {
-		priority = UnknownPriority
-	}
-	origCPU, ok := ev.NumberProperties["orig_cpu"]
-	if !ok {
-		return MissingFieldError("orig_cpu", ev)
-	}
-	destCPU, ok := ev.NumberProperties["dest_cpu"]
-	if !ok {
-		return MissingFieldError("dest_cpu", ev)
+	md, err := LoadMigrateData(ev)
+	if err != nil {
+		return err
 	}
 	// sched:sched_migrate_task produces a single thread transition, from the PID
 	// backwards on the original CPU and forwards on the destination CPU.
-	ttsb.WithTransition(ev.Index, ev.Timestamp, PID(pid)).
-		WithPrevCommand(comm).
-		WithNextCommand(comm).
-		WithPrevPriority(priority).
-		WithNextPriority(priority).
-		WithPrevCPU(CPUID(origCPU)).
-		WithNextCPU(CPUID(destCPU))
+	ttsb.WithTransition(ev.Index, ev.Timestamp, md.PID).
+		WithPrevCommand(md.Comm).
+		WithNextCommand(md.Comm).
+		WithPrevPriority(md.Priority).
+		WithNextPriority(md.Priority).
+		WithPrevCPU(md.OrigCPU).
+		WithNextCPU(md.DestCPU)
+	return nil
+}
+
+// LoadSchedMigrateTaskWithDrops loads a sched::sched_migrate_task event.
+// Faulty migrates with irreconcilable CPUs will be dropped.
+func LoadSchedMigrateTaskWithDrops(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
+	md, err := LoadMigrateData(ev)
+	if err != nil {
+		return err
+	}
+	// sched:sched_migrate_task produces a single thread transition, from the PID
+	// backwards on the original CPU and forwards on the destination CPU.
+	ttsb.WithTransition(ev.Index, ev.Timestamp, md.PID).
+		WithPrevCommand(md.Comm).
+		WithNextCommand(md.Comm).
+		WithPrevPriority(md.Priority).
+		WithNextPriority(md.Priority).
+		WithPrevCPU(md.OrigCPU).
+		WithNextCPU(md.DestCPU).
+		OnBackwardsCPUConflict(Drop).
+		OnForwardsCPUConflict(Drop)
 	return nil
 }
 
@@ -121,9 +128,11 @@ func LoadSchedWakeup(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
 		WithNextPriority(priority).
 		WithPrevCPU(CPUID(targetCPU)).
 		WithNextCPU(CPUID(targetCPU)).
+		WithPrevState(UnknownState).
 		WithNextState(WaitingState).
 		OnBackwardsCPUConflict(Drop).
 		OnForwardsCPUConflict(Drop).
+		OnBackwardsStateConflict(Drop).
 		OnForwardsStateConflict(Drop)
 	return nil
 }
@@ -144,7 +153,7 @@ func LoadSchedSwitchWithSynthetics(ev *trace.Event, ttsb *ThreadTransitionSetBui
 		WithNextPriority(sd.NextPriority).
 		WithPrevCPU(CPUID(ev.CPU)).
 		WithNextCPU(CPUID(ev.CPU)).
-		WithPrevState(WaitingState).
+		WithPrevState(UnknownState).
 		WithNextState(RunningState).
 		OnForwardsCPUConflict(InsertSynthetic).
 		OnBackwardsCPUConflict(InsertSynthetic).
@@ -192,6 +201,21 @@ func SwitchOnlyLoaders() EventLoaders {
 	}
 }
 
+// FaultTolerantEventLoaders is a set of event loaders operating on
+// sched_migrate_task, sched_switch, sched_wakeup, and sched_wakeup_new, and
+// suitable for use on traces that may be incomplete or have out-of-order
+// events.  sched_migrate events whose CPUs cannot be reconciled are dropped;
+// sched_wakeup* events that cannot be reconciled are dropped, and unattested
+// CPU and thread state transitions between sched_switch events are inferred.
+func FaultTolerantEventLoaders() EventLoaders {
+	return map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
+		"sched_migrate_task": LoadSchedMigrateTaskWithDrops,
+		"sched_switch":       LoadSchedSwitchWithSynthetics,
+		"sched_wakeup":       LoadSchedWakeup,
+		"sched_wakeup_new":   LoadSchedWakeup,
+	}
+}
+
 // EventLoader returns the event loader specified by the provided LoaderType.
 func EventLoader(elt elpb.LoadersType) (EventLoaders, error) {
 	switch elt {
@@ -199,6 +223,8 @@ func EventLoader(elt elpb.LoadersType) (EventLoaders, error) {
 		return DefaultEventLoaders(), nil
 	case elpb.LoadersType_SWITCH_ONLY:
 		return SwitchOnlyLoaders(), nil
+	case elpb.LoadersType_FAULT_TOLERANT:
+		return FaultTolerantEventLoaders(), nil
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "unknown event loader type %v", elt)
 	}

@@ -425,8 +425,7 @@ func TestSwitchOnly(t *testing.T) {
 		WithEvent("sched_switch", 0, 1020, false,
 			200, "Process2", 50, schedtestcommon.Interruptible,
 			300, "Process3", 50).
-		// We should infer that Process1 switched from CPU 0 to CPU 1, and from
-		// Sleeping to Waiting state, at time 1015.
+		// We should infer that Process1 switched from CPU 0 to CPU 1 at time 1015.
 		WithEvent("sched_switch", 1, 1030, false,
 			400, "Process4", 50, schedtestcommon.Runnable,
 			100, "Process1", 50)
@@ -448,7 +447,7 @@ func TestSwitchOnly(t *testing.T) {
 				),
 				interval(
 					1, trace.Timestamp(1015), Duration(15), CPUID(1),
-					syntheticThreadResidency(thread1, Duration(15), WaitingState),
+					syntheticThreadResidency(thread1, Duration(15), SleepingState),
 				),
 				interval(
 					1, trace.Timestamp(1030), Duration(1), CPUID(1),
@@ -460,7 +459,7 @@ func TestSwitchOnly(t *testing.T) {
 			[]*Interval{
 				interval(
 					1, trace.Timestamp(1000), Duration(0), CPUID(0),
-					threadResidency(thread2, Duration(0), WaitingState),
+					threadResidency(thread2, Duration(0), UnknownState),
 				),
 				interval(
 					1, trace.Timestamp(1000), Duration(20), CPUID(0),
@@ -498,7 +497,7 @@ func TestSwitchOnly(t *testing.T) {
 			[]*Interval{
 				interval(
 					1, trace.Timestamp(1000), Duration(10), CPUID(1),
-					threadResidency(thread4, Duration(10), WaitingState),
+					threadResidency(thread4, Duration(10), UnknownState),
 				),
 				interval(
 					1, trace.Timestamp(1010), Duration(20), CPUID(1),

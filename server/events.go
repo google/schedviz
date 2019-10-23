@@ -16,6 +16,8 @@
 //
 package models
 
+import elpb "github.com/google/schedviz/analysis/event_loaders_go_proto"
+
 // Metadata contains metadata about a collection
 type Metadata struct {
 	// The unique name of the collection.
@@ -34,4 +36,6 @@ type Metadata struct {
 	FtraceEvents []string `json:"ftraceEvents"`
 	// The target machine on which the collection was performed.
 	TargetMachine string `json:"targetMachine"`
+	// The elpb.LoadersType used by default for this collection.
+	DefaultEventLoader elpb.LoadersType `json:"defaultEventLoader"`
 }

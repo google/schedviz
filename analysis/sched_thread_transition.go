@@ -94,8 +94,14 @@ func resolveConflict(a, b ConflictPolicy) ConflictPolicy {
 	var result ConflictPolicy = -1
 	switch {
 	case a == b:
+		// If the two policies are the same, we have concord.
 		result = a
-	case a == Fail && (b == Drop || b == DropOrInsertSynthetic):
+	case a == Fail && (b&Drop == Drop):
+		// If one policy is Fail and the other includes Drop, we can drop.
+		result = Drop
+	case a == Drop && (b&InsertSynthetic == InsertSynthetic):
+		// If one policy is Drop and the other includes InsertSynthetic,
+		// we can drop.
 		result = Drop
 	default:
 		result = a & b

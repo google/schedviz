@@ -153,6 +153,12 @@ func (b *Builder) WithEvent(eventName string, cpu int64, timestampNs int64, clip
 				return b
 			}
 			traceEvent.NumberProperties[field.Name] = int64(v)
+		case int64:
+			if field.ProtoType != "int64" {
+				b.errs = append(b.errs, fmt.Errorf("expected integer argument for property %d", i))
+				return b
+			}
+			traceEvent.NumberProperties[field.Name] = v
 		case string:
 			if field.ProtoType != "string" {
 				b.errs = append(b.errs, fmt.Errorf("expected string argument for property %d", i))
@@ -160,7 +166,7 @@ func (b *Builder) WithEvent(eventName string, cpu int64, timestampNs int64, clip
 			}
 			traceEvent.TextProperties[field.Name] = v
 		default:
-			b.errs = append(b.errs, fmt.Errorf("unknown type for property %d", i))
+			b.errs = append(b.errs, fmt.Errorf("unknown type for property %d (%#v, %T)", i, prop, prop))
 			return b
 		}
 	}

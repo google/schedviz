@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+package(default_visibility = ["//third_party/schedviz:__subpackages__"])
+
+licenses(["notice"])  # Apache License 2.0
+
+go_library(
+    name = "schedbt",
+importpath = "github.com/google/schedviz/ebpf/schedbt",
+
+    srcs = ["schedbt.go"],
+    deps = [
+        "//analysis:event_loaders_go_proto",
+        "//tracedata:eventsetbuilder",
+        "//tracedata:schedviz_events_go_proto",
+        "@com_github_golang_glog//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+    ],
+)
+
+go_test(
+    name = "schedbt_test",
+    size = "small",
+    srcs = ["schedbt_test.go"],
+    embed = [":schedbt"],
+    deps = [
+        "//tracedata:schedviz_events_go_proto",
+        "//tracedata:testeventsetbuilder",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+    ],
+)

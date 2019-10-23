@@ -143,6 +143,7 @@ importpath = "github.com/google/schedviz/server/models",
         "render_data_services.go",
     ],
     deps = [
+        "//analysis:event_loaders_go_proto",
         "//analysis:sched",
         "//tracedata:trace",
     ],

@@ -90,3 +90,12 @@ importpath = "github.com/google/schedviz/tracedata/testeventsetbuilder",
         ":schedviz_events_go_proto",
     ],
 )
+
+go_library(
+    name = "schedevent",
+importpath = "github.com/google/schedviz/tracedata/schedevent",
+
+    srcs = ["sched_event.go"],
+    visibility = ["//visibility:public"],
+    deps = [":trace"],
+)

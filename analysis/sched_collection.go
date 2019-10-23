@@ -63,6 +63,8 @@ type Collection struct {
 	// A mapping from dropped event IDs to the number of transitions that
 	// dropped them.
 	droppedEventCountsByID map[int]int
+	// A count of the number of synthetic transitions inserted in the collection.
+	syntheticTransitionCount int
 }
 
 // NewCollection builds and returns a new sched.Collection based on the ktrace
@@ -161,6 +163,7 @@ func (c *Collection) buildSpansByPID(es *eventpb.EventSet, eventLoaders map[stri
 	// behavior in the span is ongoing past the end of the trace.
 	c.spansByPID, err = ts.threadSpans(c.endTimestamp + 1)
 	c.droppedEventCountsByID = ts.droppedEventCountsByID
+	c.syntheticTransitionCount = ts.syntheticTransitionCount
 	return err
 }
 
@@ -300,6 +303,13 @@ func (c *Collection) DroppedEventIDs() []int {
 		return ret[a] < ret[b]
 	})
 	return ret
+}
+
+// SyntheticTransitionCount returns the number of synthetic thread transitions
+// (or synthetic scheduling events) needed to be inserted to interpret the
+// collection.
+func (c *Collection) SyntheticTransitionCount() int {
+	return c.syntheticTransitionCount
 }
 
 // ExpandCPUs takes a slice of CPUs, and either returns that slice,

@@ -33,6 +33,7 @@ type threadSpanSet struct {
 	spanGeneratorByPID     map[PID]*threadSpanGenerator
 	spansByPID             map[PID][]*threadSpan
 	droppedEventCountsByID map[int]int
+	syntheticTransitionCount    int
 }
 
 // newThreadSpanSet returns a new, empty threadSpanSet.  The provided
@@ -98,7 +99,9 @@ func (tss *threadSpanSet) createSpans(pid PID, infTTs []*threadTransition) error
 		if infTT.dropped && infTT.EventID != Unknown {
 			tss.droppedEventCountsByID[infTT.EventID]++
 		}
-
+		if infTT.synthetic {
+			tss.syntheticTransitionCount++
+		}
 		ts, err := sb.addTransition(infTT)
 		if err != nil {
 			return err
