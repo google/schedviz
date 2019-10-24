@@ -144,13 +144,23 @@ Status FTraceTracer::Trace(int capture_seconds) {
             << ": capture for " << capture_seconds
             << " seconds, send output to " << output_path_ << std::endl;
 
-  char temp_name[L_tmpnam];
-  if (!std::tmpnam(temp_name)) {
+  // Create temp directory
+  char temp_path_template[] = "/tmp/trace_XXXXXX";
+  if (const auto temp_path = mkdtemp(temp_path_template);
+      temp_path != nullptr) {
+    temp_path_ = temp_path;
+  } else {
     return Status::InternalError("Unable to create temporary directory.");
   }
-  temp_path_ = std::filesystem::temp_directory_path() / temp_name;
 
   Status status;
+  // Write metadata file
+  status =
+      WriteString(temp_path_ / "metadata.textproto", "trace_type: FTRACE\n");
+  if (!status.ok()) {
+    return status;
+  }
+
   status = ConfigureFTrace();
   if (!status.ok()) {
     return status;

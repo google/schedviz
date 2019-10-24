@@ -133,3 +133,13 @@ message Collection {
   EventSet event_set = 2;
   SystemTopology topology = 3;
 }
+
+// ArchiveMetadataConfig is the format of the METADATA file in tars produced by
+// trace collection scripts.
+message ArchiveMetadataConfig {
+  enum TraceType {
+    // Trace was recorded using FTrace
+    FTRACE = 0;
+  }
+  TraceType trace_type = 1;
+}

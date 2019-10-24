@@ -81,12 +81,17 @@ type TraceReader interface {
 	Discard(n int) (discarded int, err error)
 }
 
+// AddEventCallback is the type of the callback used by TraceParser.ParseTrace()
+// and is called whenever an event is found. For more detail, see ParseTrace's
+// comment.
+type AddEventCallback = func(*TraceEvent) (bool, error)
+
 // ParseTrace accepts a TraceReader (such as a bufio.Reader) from which raw trace data may be read,
 // the number of the CPU whose buffer is being read, and a callback that will take TraceEvents
 // parsed from that raw trace data.  If the callback returns false or has a non-nil error,
 // ParseTrace will return. If an error is returned by ParseTrace, the raw trace should be considered
 // to be corrupted.
-func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback func(*TraceEvent) (bool, error)) error {
+func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEventCallback) error {
 	if tp.Endianness == nil {
 		if err := tp.SetNativeEndian(); err != nil {
 			return err

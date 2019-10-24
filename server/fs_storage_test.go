@@ -47,15 +47,20 @@ var (
 
 // TODO(tracked) Consider using schedtestcommon.TestTrace1(t) here
 // as a lighter-weight alternative.
-var fh = func(t *testing.T) io.Reader {
+func getTestTarFile(t *testing.T, name string) io.Reader {
 	t.Helper()
 	// Bazel stores test location in these environment variables
 	runFiles := path.Join(os.Getenv("TEST_SRCDIR"), os.Getenv("TEST_WORKSPACE"))
-	file, err := os.Open(path.Join(runFiles, "server", "testdata", "test.tar.gz"))
+	file, err := os.Open(path.Join(runFiles, "server", "testdata", name))
 	if err != nil {
 		t.Fatalf("error fetching test tar: %s", err)
 	}
 	return file
+}
+
+var fh = func(t *testing.T) io.Reader {
+	t.Helper()
+	return getTestTarFile(t, "test.tar.gz")
 }
 
 func createCollectionDir() (string, error) {
@@ -89,42 +94,46 @@ func TestFsStorage_UploadFile(t *testing.T) {
 	defer cleanup(t, tmpDir)
 	fsStorage := createFSStorage(t, tmpDir, 1)
 
-	collectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
-	if err != nil {
-		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
-	}
+	readers := []io.Reader{fh(t), getTestTarFile(t, "test_no_metadata.tar.gz")}
 
-	cachedValue, err := fsStorage.GetCollection(ctx, collectionName)
-	if err != nil {
-		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
-	}
+	for _, reader := range readers {
+		collectionName, err := fsStorage.UploadFile(ctx, colRequest, reader)
+		if err != nil {
+			t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
+		}
 
-	rawEvents, err := cachedValue.Collection.GetRawEvents()
-	if err != nil {
-		t.Fatalf("unexpected error thrown while checking number of raw events: %s", err)
-	}
-	if len(rawEvents) != 28922 {
-		t.Errorf("wrong number of events in event set. got: %d, want: %d", len(rawEvents), 28922)
-	}
-	gotStart, gotEnd := cachedValue.Collection.Interval()
-	if gotStart != 0 {
-		t.Errorf("wrong start time of collection. got: %d, want: %d", gotStart, 0)
-	}
-	if gotEnd != 2009150555 {
-		t.Errorf("wrong end time of collection. got: %d, want: %d", gotEnd, 2009150555)
-	}
+		cachedValue, err := fsStorage.GetCollection(ctx, collectionName)
+		if err != nil {
+			t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
+		}
 
-	wantLogicalCores := []models.LogicalCore{{
-		SocketID:   0,
-		DieID:      0,
-		ThreadID:   0,
-		NumaNodeID: 0,
-		CPUID:      0,
-		CoreID:     0,
-	}}
+		rawEvents, err := cachedValue.Collection.GetRawEvents()
+		if err != nil {
+			t.Fatalf("unexpected error thrown while checking number of raw events: %s", err)
+		}
+		if len(rawEvents) != 28922 {
+			t.Errorf("wrong number of events in event set. got: %d, want: %d", len(rawEvents), 28922)
+		}
+		gotStart, gotEnd := cachedValue.Collection.Interval()
+		if gotStart != 0 {
+			t.Errorf("wrong start time of collection. got: %d, want: %d", gotStart, 0)
+		}
+		if gotEnd != 2009150555 {
+			t.Errorf("wrong end time of collection. got: %d, want: %d", gotEnd, 2009150555)
+		}
 
-	if diff := cmp.Diff(cachedValue.SystemTopology.LogicalCores, wantLogicalCores); diff != "" {
-		t.Errorf("wrong system topology returned; Diff -want +got %v", diff)
+		wantLogicalCores := []models.LogicalCore{{
+			SocketID:   0,
+			DieID:      0,
+			ThreadID:   0,
+			NumaNodeID: 0,
+			CPUID:      0,
+			CoreID:     0,
+		}}
+
+		if diff := cmp.Diff(cachedValue.SystemTopology.LogicalCores, wantLogicalCores); diff != "" {
+			t.Errorf("wrong system topology returned; Diff -want +got %v", diff)
+		}
 	}
 }
 

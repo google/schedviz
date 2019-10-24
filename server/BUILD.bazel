@@ -57,6 +57,7 @@ go_test(
     srcs = ["server_test.go"],
     data = [
         "testdata/test.tar.gz",
+        "testdata/test_no_metadata.tar.gz",
         "//client:app_fileset",
     ],
     embed = [":server"],
@@ -107,6 +108,7 @@ go_test(
     srcs = ["fs_storage_test.go"],
     data = [
         "testdata/test.tar.gz",
+        "testdata/test_no_metadata.tar.gz",
     ],
     embed = [":storageservice"],
     deps = [
