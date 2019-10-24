@@ -36,6 +36,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
   -cs|-capture_seconds) capture_seconds="$2"; shift;;
   -bs|-buffer_size) BUFSIZEK="$2"; shift;;
   -ct|-copy_timeout) COPYTIME="$2"; shift;;
+  -h|-help) echo "$USAGE"; exit 0;;
   *) echo "Unknown parameter passed: $1"; echo ${USAGE}; exit 1;;
 esac; shift; done
 

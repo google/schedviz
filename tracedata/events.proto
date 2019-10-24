@@ -140,6 +140,8 @@ message ArchiveMetadataConfig {
   enum TraceType {
     // Trace was recorded using FTrace
     FTRACE = 0;
+    // Trace was recorded using eBPF
+    EBPF = 1;
   }
   TraceType trace_type = 1;
 }

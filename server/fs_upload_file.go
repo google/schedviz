@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"github.com/google/uuid"
+	"github.com/google/schedviz/ebpf/schedbt"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 
 	"github.com/google/schedviz/server/models"
@@ -171,6 +172,8 @@ func readTar(inputTar io.Reader, failOnUnknownEventFormat bool) (*eventpb.EventS
 	switch config.TraceType {
 	case eventpb.ArchiveMetadataConfig_FTRACE:
 		return parseFTraceTar(tmpDir, failOnUnknownEventFormat)
+	case eventpb.ArchiveMetadataConfig_EBPF:
+		return parseEBPFTar(tmpDir)
 	default:
 		return nil, nil, status.Errorf(codes.Internal, "unknown trace type %s", config.TraceType)
 	}
@@ -444,6 +447,35 @@ func readFTraceTraces(traceDir string, traceParser *traceparser.TraceParser, cal
 	}
 
 	return nil
+}
+
+func parseEBPFTar(dir string) (*eventpb.EventSet, *models.SystemTopology, error) {
+	traceParser := schedbt.NewParser()
+
+	filePath := path.Join(dir, "ebpf_trace")
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error opening %s for reading: %s", filePath, err)
+	}
+
+	if err := traceParser.Parse(bufio.NewReader(file)); err != nil {
+		return nil, nil, fmt.Errorf("error parsing ebpf trace: %s", err)
+	}
+	eventSet, err := traceParser.EventSet()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Read topology
+	topology, err := readTopology(path.Join(dir, "topology"))
+	if err != nil {
+		log.Warningf("error reading topology. Using empty topology. error: %s", err)
+		topology = &models.SystemTopology{
+			LogicalCores: []models.LogicalCore{},
+		}
+	}
+
+	return eventSet, topology, nil
 }
 
 func readString(r io.Reader) (string, error) {

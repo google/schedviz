@@ -94,10 +94,91 @@ func TestFsStorage_UploadFile(t *testing.T) {
 	defer cleanup(t, tmpDir)
 	fsStorage := createFSStorage(t, tmpDir, 1)
 
-	readers := []io.Reader{fh(t), getTestTarFile(t, "test_no_metadata.tar.gz")}
+	tests := []struct {
+		file               io.Reader
+		wantNumEvents      int
+		wantStart          trace.Timestamp
+		wantEnd            trace.Timestamp
+		wantSystemTopology models.SystemTopology
+	}{
+		{
+			file:          getTestTarFile(t, "test.tar.gz"),
+			wantNumEvents: 28922,
+			wantStart:     0,
+			wantEnd:       2009150555,
+			wantSystemTopology: models.SystemTopology{
+				LogicalCores: []models.LogicalCore{{
+					SocketID:   0,
+					DieID:      0,
+					ThreadID:   0,
+					NumaNodeID: 0,
+					CPUID:      0,
+					CoreID:     0,
+				}},
+			},
+		},
+		{
+			file:          getTestTarFile(t, "test_no_metadata.tar.gz"),
+			wantNumEvents: 28922,
+			wantStart:     0,
+			wantEnd:       2009150555,
+			wantSystemTopology: models.SystemTopology{
+				LogicalCores: []models.LogicalCore{{
+					SocketID:   0,
+					DieID:      0,
+					ThreadID:   0,
+					NumaNodeID: 0,
+					CPUID:      0,
+					CoreID:     0,
+				}},
+			},
+		},
+		{
+			file:          getTestTarFile(t, "ebpf_trace.tar.gz"),
+			wantNumEvents: 991,
+			wantStart:     0,
+			wantEnd:       12321353,
+			wantSystemTopology: models.SystemTopology{
+				LogicalCores: []models.LogicalCore{
+					{
+						SocketID:   0,
+						DieID:      0,
+						ThreadID:   2,
+						NumaNodeID: 0,
+						CPUID:      0,
+						CoreID:     0,
+					},
+					{
+						SocketID:   0,
+						DieID:      0,
+						ThreadID:   2,
+						NumaNodeID: 0,
+						CPUID:      1,
+						CoreID:     1,
+					},
+					{
+						SocketID:   0,
+						DieID:      0,
+						ThreadID:   1,
+						NumaNodeID: 0,
+						CPUID:      2,
+						CoreID:     0,
+					},
+					{
+						SocketID:   0,
+						DieID:      0,
+						ThreadID:   1,
+						NumaNodeID: 0,
+						CPUID:      3,
+						CoreID:     1,
+					},
+				},
+			},
+		},
+	}
 
-	for _, reader := range readers {
-		collectionName, err := fsStorage.UploadFile(ctx, colRequest, reader)
+	for _, test := range tests {
+		collectionName, err := fsStorage.UploadFile(ctx, colRequest, test.file)
 		if err != nil {
 			t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
 		}
@@ -111,27 +192,18 @@ func TestFsStorage_UploadFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error thrown while checking number of raw events: %s", err)
 		}
-		if len(rawEvents) != 28922 {
-			t.Errorf("wrong number of events in event set. got: %d, want: %d", len(rawEvents), 28922)
+		if len(rawEvents) != test.wantNumEvents {
+			t.Errorf("wrong number of events in event set. got: %d, want: %d", len(rawEvents), test.wantNumEvents)
 		}
 		gotStart, gotEnd := cachedValue.Collection.Interval()
-		if gotStart != 0 {
-			t.Errorf("wrong start time of collection. got: %d, want: %d", gotStart, 0)
+		if gotStart != test.wantStart {
+			t.Errorf("wrong start time of collection. got: %d, want: %d", gotStart, test.wantStart)
 		}
-		if gotEnd != 2009150555 {
-			t.Errorf("wrong end time of collection. got: %d, want: %d", gotEnd, 2009150555)
+		if gotEnd != test.wantEnd {
+			t.Errorf("wrong end time of collection. got: %d, want: %d", gotEnd, test.wantEnd)
 		}
 
-		wantLogicalCores := []models.LogicalCore{{
-			SocketID:   0,
-			DieID:      0,
-			ThreadID:   0,
-			NumaNodeID: 0,
-			CPUID:      0,
-			CoreID:     0,
-		}}
-
-		if diff := cmp.Diff(cachedValue.SystemTopology.LogicalCores, wantLogicalCores); diff != "" {
+		if diff := cmp.Diff(cachedValue.SystemTopology, test.wantSystemTopology); diff != "" {
 			t.Errorf("wrong system topology returned; Diff -want +got %v", diff)
 		}
 	}

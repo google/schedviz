@@ -15,11 +15,11 @@ tracepoint:sched:sched_switch {
 	if (@cmds[args->prev_pid] == 0) {
 		printf("P:%x:%x:%x:%s\n", nsecs-@start, args->prev_pid, args->prev_prio, args->prev_comm);
 		@cmds[args->prev_pid] = 1;
-	};
+	}
 	if (@cmds[args->next_pid] == 0) {
 		printf("P:%x:%x:%x:%s\n", nsecs-@start, args->next_pid, args->next_prio, args->next_comm);
 		@cmds[args->next_pid] = 1;
-	};
+	}
 	printf("S:%x:%x:%x:%x:%x\n", nsecs-@start, cpu, args->prev_pid, args->prev_state, args->next_pid);
 }
 
@@ -29,7 +29,7 @@ tracepoint:sched:sched_migrate_task {
 	if (@cmds[args->pid] == 0) {
 		printf("P:%x:%x:%x:%s\n", nsecs-@start, args->pid, args->prio, args->comm);
 		@cmds[args->pid] = 1;
-	};
+	}
 	printf("M:%x:%x:%x:%x:%x\n", nsecs-@start, cpu, args->orig_cpu, args->dest_cpu, args->pid);
 }
 
@@ -39,7 +39,7 @@ tracepoint:sched:sched_wakeup {
 	if (@cmds[args->pid] == 0) {
 		printf("P:%x:%x:%x:%s\n", nsecs-@start, args->pid, args->prio, args->comm);
 		@cmds[args->pid] = 1;
-	};
+	}
 	printf("W:%x:%x:%x:%x\n", nsecs-@start, cpu, args->target_cpu, args->pid);
 }
 
