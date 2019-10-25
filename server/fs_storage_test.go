@@ -203,6 +203,10 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			t.Errorf("wrong end time of collection. got: %d, want: %d", gotEnd, test.wantEnd)
 		}
 
+		sort.Slice(cachedValue.SystemTopology.LogicalCores, func(i, j int) bool {
+			lc := cachedValue.SystemTopology.LogicalCores
+			return lc[i].CPUID < lc[j].CPUID
+		})
 		if diff := cmp.Diff(cachedValue.SystemTopology, test.wantSystemTopology); diff != "" {
 			t.Errorf("wrong system topology returned; Diff -want +got %v", diff)
 		}
