@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/sysinfo.h>
 #include <unistd.h>
 
 #include <filesystem>
@@ -359,7 +358,7 @@ Status FTraceTracer::CollectTrace(const int capture_seconds) {
     }
   }
 
-  const auto& cpu_count = get_nprocs();
+  const auto& cpu_count = sysconf(_SC_NPROCESSORS_CONF);
   ClearCPUFDs();
   fds_.reserve(cpu_count);
   for (int i = 0; i < cpu_count; i++) {
@@ -374,7 +373,7 @@ Status FTraceTracer::CollectTrace(const int capture_seconds) {
           absl::StrCat("Unable to open ", cpuPath.string()));
     }
     int out_fd =
-        open(outPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC | O_LARGEFILE, 0644);
+        open(outPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (out_fd == -1) {
       return Status::InternalError(
           absl::StrCat("Unable to create ", outPath.string()));
@@ -421,7 +420,7 @@ Status FTraceTracer::CopyCPUBuffers() {
   if (!is_tracing_) {
     return Status::InternalError("Not currently in a trace");
   }
-  const auto& cpu_count = get_nprocs();
+  const auto& cpu_count = sysconf(_SC_NPROCESSORS_CONF);
   for (int i = 0; i < cpu_count; i++) {
     const auto& cpu_fds = fds_[i];
     const auto& status = CopyCPUBuffer(cpu_fds.first, cpu_fds.second);
