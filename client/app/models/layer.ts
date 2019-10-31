@@ -20,6 +20,7 @@ import {Interval} from './interval';
 
 /**
  * Client-side collection interval representation, for rendering.
+ * TODO(tracked) Make templated and remove casts of intervals member
  */
 export class Layer {
   // Flag used to indicate when a Layer is new and has no initial render data

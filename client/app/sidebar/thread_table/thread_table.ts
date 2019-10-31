@@ -19,7 +19,6 @@ import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, In
 import {FormControl} from '@angular/forms';
 import {ErrorStateMatcher} from '@angular/material/core';
 import {BehaviorSubject, Observable} from 'rxjs';
-import {debounceTime, filter, map} from 'rxjs/operators';
 
 import {FtraceInterval, Interval, Layer, Thread, ThreadInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
@@ -75,10 +74,10 @@ export class ThreadTable extends SelectableTable implements OnInit,
   @Input() expandedThread!: BehaviorSubject<string|undefined>;
   @Input() expandedFtraceIntervals!: BehaviorSubject<FtraceInterval[]>;
   @Input() expandedThreadAntagonists!: BehaviorSubject<ThreadInterval[]>;
+  @Input() expandedThreadIntervals!: BehaviorSubject<ThreadInterval[]>;
   @Input() filter!: BehaviorSubject<string>;
   @Input() tab!: BehaviorSubject<number>;
   @Input() jumpToTimeInput = new BehaviorSubject<string>('');
-  @Input() antagonistJumpToTimeEnabled = new BehaviorSubject<boolean>(true);
   jumpToTimeNs = new Observable<number>();
   jumpToTimeMatcher = new ImmediateErrorStateMatcher();
   aggregateWakeups = 0;
@@ -127,6 +126,9 @@ export class ThreadTable extends SelectableTable implements OnInit,
     }
     if (!this.expandedThreadAntagonists) {
       throw new Error('Missing Observable for expanded thread antagonists');
+    }
+    if (!this.expandedThreadIntervals) {
+      throw new Error('Missing Observable for expanded thread intervals');
     }
     this.dataSource.filterPredicate = this.filterPredicate;
     // Subscribe to filter changes

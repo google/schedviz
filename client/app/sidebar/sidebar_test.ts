@@ -27,6 +27,7 @@ import {BehaviorSubject, throwError} from 'rxjs';
 
 import {CollectionParameters, Interval, Layer} from '../models';
 import {LocalMetricsService, MetricsService} from '../services/metrics_service';
+import {LocalRenderDataService, RenderDataService} from '../services/render_data_service';
 import {SystemTopology, Viewport} from '../util';
 
 import {Sidebar} from './sidebar';
@@ -78,6 +79,19 @@ function mockMetricServiceHttpError(
       .and.returnValue(throwError(new HttpErrorResponse({error})));
 }
 
+function mockRenderDataServiceHttpError(
+    functionToMock: keyof RenderDataService, error: string): jasmine.Spy {
+  // Set up failing request
+
+  // Not deprecated until Angular 9.0.0, which isn't GA yet.
+  // tslint:disable:deprecation
+  const renderDataService =
+      TestBed.get('RenderDataService') as RenderDataService;
+  // tslint:enable:deprecation
+  return spyOn(renderDataService, functionToMock)
+      .and.returnValue(throwError(new HttpErrorResponse({error})));
+}
+
 describe('Sidebar', () => {
   beforeEach(async () => {
     document.body.style.width = '500px';
@@ -90,6 +104,7 @@ describe('Sidebar', () => {
           ],
           providers: [
             {provide: 'MetricsService', useClass: LocalMetricsService},
+            {provide: 'RenderDataService', useClass: LocalRenderDataService},
           ],
         })
         .compileComponents();
@@ -135,16 +150,35 @@ describe('Sidebar', () => {
     const component = fixture.componentInstance;
     await fixture.whenStable();
 
-    // Simulate thread expansion
     const expandedFtraceIntervalsSpy =
         jasmine.createSpy('expandedFtraceIntervalsSpy');
     component.expandedFtraceIntervals.subscribe(expandedFtraceIntervalsSpy);
+
+    const expandedThreadIntervalsSpy =
+        jasmine.createSpy('expandedThreadIntervalsSpy');
+    component.expandedThreadIntervals.subscribe(expandedThreadIntervalsSpy);
+
+    const expandedThreadAntagonistsSpy =
+        jasmine.createSpy('expandedThreadAntagonistsSpy');
+    component.expandedThreadAntagonists.subscribe(expandedThreadAntagonistsSpy);
+
+    // Simulate thread expansion
     const threadToExpand = component.threads.value[3];
     component.expandedThread.next(threadToExpand.label);
 
     expect(expandedFtraceIntervalsSpy).toHaveBeenCalled();
     expect(expandedFtraceIntervalsSpy)
         .toHaveBeenCalledWith(jasmine.arrayContaining(threadToExpand.events));
+
+    expect(expandedThreadIntervalsSpy).toHaveBeenCalled();
+    expect(expandedThreadIntervalsSpy)
+        .toHaveBeenCalledWith(
+            jasmine.arrayContaining(threadToExpand.intervals));
+
+    expect(expandedThreadAntagonistsSpy).toHaveBeenCalled();
+    expect(expandedThreadAntagonistsSpy)
+        .toHaveBeenCalledWith(
+            jasmine.arrayContaining(threadToExpand.antagonists));
   });
 
   it('should surface error message upon failure of thread summary request',
@@ -194,6 +228,32 @@ describe('Sidebar', () => {
        expect(actualError)
            .toContain(
                `Failed to get thread events for PID: ${threadToExpand.pid}`);
+     });
+
+  it('should surface error message upon failure of thread intervals request',
+     async () => {
+       const fixture = createSidebarWithMockData();
+       const component = fixture.componentInstance;
+       await fixture.whenStable();
+
+       const error = 'lorem ipsum';
+       mockRenderDataServiceHttpError('getPidIntervals', error);
+
+       // Not deprecated until Angular 9.0.0, which isn't GA yet.
+       // tslint:disable-next-line:deprecation
+       const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
+       const snackBarSpy = spyOn(snackBar, 'open');
+
+       // Failed request should occur during thread expansion
+       const threadToExpand = component.threads.value[2];
+       component.expandedThread.next(threadToExpand.label);
+
+       expect(snackBarSpy).toHaveBeenCalledTimes(1);
+       const actualError = snackBarSpy.calls.mostRecent().args[0];
+       expect(actualError).toContain(error);
+       expect(actualError)
+           .toContain(
+               `Failed to get thread intervals for PID: ${threadToExpand.pid}`);
      });
 
   it('should surface error message upon failure of thread antagonists request',

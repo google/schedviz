@@ -10,6 +10,7 @@ ng_module(
     srcs = [
         "antagonist_table.ts",
         "event_table.ts",
+        "interval_table.ts",
         "jump_to_time.ts",
         "layer_toggle.ts",
         "sched_events_table.ts",
@@ -20,6 +21,7 @@ ng_module(
     assets = [
         "antagonist_table.ng.html",
         "event_table.ng.html",
+        "interval_table.ng.html",
         "layer_toggle.css",
         "sched_events_table.ng.html",
         "thread_table.ng.html",
@@ -46,6 +48,7 @@ ts_library(
     srcs = [
         "antagonist_table_test.ts",
         "event_table_test.ts",
+        "interval_table_test.ts",
         "jump_to_time_test.ts",
         "sched_events_table_test.ts",
         "table_helpers_test.ts",
@@ -54,6 +57,7 @@ ts_library(
     deps = [
         ":thread_table",
         "//client/app/models",
+        "//client/app/models:service_models",
         "@npm//@angular/core",
         "@npm//@angular/forms",
         "@npm//@angular/material",

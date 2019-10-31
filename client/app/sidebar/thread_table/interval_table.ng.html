@@ -1,0 +1,79 @@
+<div class="table-container-events">
+  <button mat-icon-button
+          (click)="toggleFiltering()"
+          aria-label="Invert Filter"
+          matTooltip="Invert Filter">
+    <mat-icon class="search-icon"
+              color="accent"
+              [class.inverted]="hideResults"
+              [class.active]="filter.value.length">
+      search
+    </mat-icon>
+  </button>
+  <mat-form-field class="thread-filter">
+    <input #filterInput class="filter-input" matInput
+           [ngModel]="filter.value"
+           (ngModelChange)="filter.next($event)"
+           placeholder="Filter State">
+  </mat-form-field>
+  <button *ngIf="filter.value.length"
+          mat-icon-button
+          (click)="clearFilter()"
+          aria-label="Clear Filter"
+          matTooltip="Clear Filter">
+    <mat-icon color="accent">
+      highlight_off
+    </mat-icon>
+  </button>
+
+  <mat-table class="embedded-table" matSort [dataSource]="dataSource" (mouseout)="previewRow();">
+    <!-- CPU Column -->
+    <ng-container matColumnDef="cpu">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>CPU</mat-header-cell>
+      <mat-cell *matCellDef="let thread"> {{thread.cpu}} </mat-cell>
+    </ng-container>
+
+    <!-- State Column -->
+    <ng-container matColumnDef="state">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>State</mat-header-cell>
+      <mat-cell *matCellDef="let thread"> {{thread.threadStatesToString()}} </mat-cell>
+    </ng-container>
+
+    <!-- Start Time Column -->
+    <ng-container matColumnDef="startTimeNs">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>Start Time</mat-header-cell>
+      <mat-cell *matCellDef="let thread"> {{formatTime(thread.startTimeNs)}} </mat-cell>
+    </ng-container>
+
+    <!-- End Time Column -->
+    <ng-container matColumnDef="endTimeNs">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>End Time</mat-header-cell>
+      <mat-cell *matCellDef="let thread"> {{formatTime(thread.endTimeNs)}} </mat-cell>
+    </ng-container>
+
+    <!-- Duration Column -->
+    <ng-container matColumnDef="duration">
+      <mat-header-cell *matHeaderCellDef mat-sort-header>Duration</mat-header-cell>
+      <mat-cell *matCellDef="let thread"> {{formatTime(thread.duration)}} </mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef="displayedColumns; sticky: true">
+    </mat-header-row>
+    <mat-row *matRowDef="let interval; columns: displayedColumns;"
+             class="selectable-row"
+             (mouseenter)="previewRow(interval)"
+             (mouseout)="$event.stopPropagation();">
+    </mat-row>
+  </mat-table>
+  <div *ngIf="data.value.length == 0" class="spinner-container">
+    <mat-progress-spinner *ngIf="dataPending; else noData"
+                          color="primary"
+                          mode="indeterminate">
+    </mat-progress-spinner>
+    <ng-template #noData>
+      <i>No data to display</i>
+    </ng-template>
+  </div>
+  <mat-paginator [pageSize]="pageSize" showFirstLastButtons>
+  </mat-paginator>
+</div>

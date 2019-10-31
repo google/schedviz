@@ -29,6 +29,7 @@ import {findIndex} from '../../util/helpers';
 /**
  * Base class for table of SchedViz data for which dedicated layers can be
  * toggled on/off.
+ * TODO(tracked) Make templated and remove casts of data member
  */
 @Component({
   selector: 'selectable-table',

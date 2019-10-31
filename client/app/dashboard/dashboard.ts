@@ -63,7 +63,6 @@ export class Dashboard implements OnInit, OnDestroy {
   collectionParameters =
       new BehaviorSubject<CollectionParameters|undefined>(undefined);
   systemTopology?: SystemTopology;
-  intervals: Interval[] = [];
   title = 'SchedViz';
   tabs = [
     'threads',

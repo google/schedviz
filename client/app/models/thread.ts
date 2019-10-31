@@ -28,6 +28,7 @@ import {ThreadInterval} from './thread_intervals';
 export class Thread extends Interval {
   events: FtraceInterval[] = [];
   antagonists: ThreadInterval[] = [];
+  intervals: ThreadInterval[] = [];
   constructor(
       public parameters: CollectionParameters,
       public pid: number,
@@ -41,6 +42,7 @@ export class Thread extends Interval {
       public unknowntime: number,
       public eventsPending = false,
       public antagonistsPending = false,
+      public intervalsPending = false,
   ) {
     super(parameters, pid);
     // Add a full-width interval for each CPU, for preview rendering.

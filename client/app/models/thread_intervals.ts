@@ -93,7 +93,7 @@ export class ThreadInterval extends Interval {
    * Get a string representation of the current thread state (if there's only
    * one) or a distribution of thread states (if there's more than one).
    */
-  private threadStatesToString(): string {
+  threadStatesToString(): string {
     if (this.threadResidencies.length === 1) {
       return threadStateToString(this.state);
     }

@@ -152,30 +152,40 @@
                   Invalid time format
                 </mat-error>
               </mat-form-field>
-              <mat-slide-toggle [checked]="antagonistJumpToTimeEnabled.value"
-                                (change)="antagonistJumpToTimeEnabled.next($event.checked)"
-                                matTooltip="Enable advancing the antagonists table as well. This will sort the table by start time whenever the jump time is changed.">
-                Advance antagonists
-              </mat-slide-toggle>
             </div>
             <div class="expanded-details">
-              <event-table class="detail-table"
-                           [data]="expandedFtraceIntervals"
-                           [preview]="preview"
-                           [layers]="layers"
-                           [sort]="sort"
-                           [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
-                           [dataPending]="thread.eventsPending">
-              </event-table>
-              <antagonist-table class="detail-table"
-                                [data]="expandedThreadAntagonists"
-                                [preview]="preview"
-                                [layers]="layers"
-                                [sort]="sort"
-                                [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
-                                [jumpToTimeEnabled]="antagonistJumpToTimeEnabled"
-                                [dataPending]="thread.antagonistsPending">
-              </antagonist-table>
+              <mat-tab-group>
+                <mat-tab label="Raw Events">
+                  <event-table class="detail-table"
+                               [data]="expandedFtraceIntervals"
+                               [preview]="preview"
+                               [layers]="layers"
+                               [sort]="sort"
+                               [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
+                               [dataPending]="thread.eventsPending">
+                  </event-table>
+                </mat-tab>
+                <mat-tab label="Intervals">
+                  <interval-table class="detail-table"
+                                  [data]="expandedThreadIntervals"
+                                  [preview]="preview"
+                                  [layers]="layers"
+                                  [sort]="sort"
+                                  [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
+                                  [dataPending]="thread.intervalsPending">
+                  </interval-table>
+                </mat-tab>
+                <mat-tab label="Antagonists">
+                  <antagonist-table class="detail-table"
+                                    [data]="expandedThreadAntagonists"
+                                    [preview]="preview"
+                                    [layers]="layers"
+                                    [sort]="sort"
+                                    [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
+                                    [dataPending]="thread.antagonistsPending">
+                  </antagonist-table>
+                </mat-tab>
+              </mat-tab-group>
             </div>
           </div>
         </div>

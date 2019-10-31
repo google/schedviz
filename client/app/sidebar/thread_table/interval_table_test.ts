@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, TestBed, ComponentFixture} from '@angular/core/testing';
+import {async, ComponentFixture, TestBed} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -23,13 +23,13 @@ import {Sort} from '@angular/material/sort';
 import {MatTableModule} from '@angular/material/table';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
+import * as jumpToTime from './jump_to_time';
 import {BehaviorSubject, ReplaySubject} from 'rxjs';
 
 import {Interval, Layer} from '../../models';
 
-import {AntagonistTable} from './antagonist_table';
-import * as jumpToTime from './jump_to_time';
-import {mockThreads, verifySorting, verifyPreviewOnHover, verifyLayerToggle} from './table_helpers_test';
+import {IntervalTable} from './interval_table';
+import {mockThreadIntervals, verifySorting} from './table_helpers_test';
 import {ThreadTableModule} from './thread_table_module';
 
 try {
@@ -40,11 +40,11 @@ try {
 }
 
 /**
- * Initializes the properties for a given AntagonistTable.
+ * Initializes the properties for a given IntervalTable.
  *
  * @param component is the table component to initialize.
  */
-export function setupAntagonistTable(component: AntagonistTable) {
+export function setupIntervalTable(component: IntervalTable) {
   component.data = new BehaviorSubject<Interval[]>([]);
   component.preview = new BehaviorSubject<Interval|undefined>(undefined);
   component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
@@ -53,17 +53,17 @@ export function setupAntagonistTable(component: AntagonistTable) {
   component.jumpToTimeNs = new ReplaySubject<number>();
 }
 
-function createTableWithMockData(): ComponentFixture<AntagonistTable> {
-  const fixture = TestBed.createComponent(AntagonistTable);
+function createTableWithMockData(): ComponentFixture<IntervalTable> {
+  const fixture = TestBed.createComponent(IntervalTable);
   const component = fixture.componentInstance;
-  setupAntagonistTable(component);
-  component.data.next(mockThreads());
+  setupIntervalTable(component);
+  component.data.next(mockThreadIntervals());
   fixture.detectChanges();
 
   return fixture;
 }
 
-describe('AntagonistTable', () => {
+describe('IntervalTable', () => {
   beforeEach(async(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
@@ -99,20 +99,30 @@ describe('AntagonistTable', () => {
     expect(jumpSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('should create layer on toggle click', () => {
-    const fixture = createTableWithMockData();
-    verifyLayerToggle(fixture.nativeElement, fixture.componentInstance);
-  });
 
-  it('should update preview on row hover', () => {
+  it('should filter', () => {
     const fixture = createTableWithMockData();
-    verifyPreviewOnHover(fixture.nativeElement, fixture.componentInstance);
+    const component = fixture.componentInstance;
+    expect(component.dataSource.data.length)
+        .toBeGreaterThanOrEqual(component.pageSize);
+
+    const rowCount = component.dataSource.filteredData.length;
+
+    component.filter.next('Running');
+    fixture.detectChanges();
+    const filteredRowCount = component.dataSource.filteredData.length;
+
+    component.toggleFiltering();
+    fixture.detectChanges();
+
+    const inverseFilterRowCount = component.dataSource.filteredData.length;
+    expect(filteredRowCount + inverseFilterRowCount).toBe(rowCount);
   });
 
   it('should allow sorting', () => {
     const fixture = createTableWithMockData();
     const expectedColumns =
-        ['selected', 'pid', 'command', 'startTimeNs', 'endTimeNs', 'duration'];
+        ['cpu', 'state', 'startTimeNs', 'endTimeNs', 'duration'];
     verifySorting(
         fixture.nativeElement, fixture.componentInstance.dataSource,
         expectedColumns);

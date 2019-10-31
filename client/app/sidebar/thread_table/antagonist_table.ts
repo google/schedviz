@@ -33,7 +33,6 @@ import {SelectableTable} from './selectable_table';
 })
 export class AntagonistTable extends SelectableTable implements OnInit,
                                                                 OnDestroy {
-  @Input() jumpToTimeEnabled!: BehaviorSubject<boolean>;
   @Input() jumpToTimeNs!: ReplaySubject<number>;
   private readonly unsub$ = new Subject<void>();
 
@@ -47,18 +46,13 @@ export class AntagonistTable extends SelectableTable implements OnInit,
   ngOnInit() {
     super.ngOnInit();
 
-    if (!this.jumpToTimeEnabled) {
-      throw new Error('Missing Observable for jump to time enabled');
-    }
     if (!this.jumpToTimeNs) {
       throw new Error('Missing Observable for jump to time');
     }
 
-    combineLatest(this.jumpToTimeEnabled, this.jumpToTimeNs)
-        .pipe(takeUntil(this.unsub$), filter(([enabled]) => enabled))
-        .subscribe(([_, timeNs]) => {
-          jumpToTime(this.dataSource, timeNs);
-        });
+    this.jumpToTimeNs.pipe(takeUntil(this.unsub$)).subscribe((timeNs) => {
+      jumpToTime(this.dataSource, timeNs);
+    });
   }
 
   ngOnDestroy() {

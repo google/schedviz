@@ -39,7 +39,6 @@ ts_library(
     ],
     deps = [
         ":metrics_overlay",
-        "//client/app/heatmap",
         "//client/app/models",
         "//client/app/services",
         "//client/app/util",
