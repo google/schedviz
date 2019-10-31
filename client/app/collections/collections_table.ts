@@ -24,6 +24,7 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {MatSort} from '@angular/material/sort';
 import {MatTableDataSource} from '@angular/material/table';
 import {Router} from '@angular/router';
+import {csvFormat} from 'd3';
 import {BehaviorSubject, forkJoin, Subject} from 'rxjs';
 import {debounceTime, takeUntil} from 'rxjs/operators';
 
@@ -207,6 +208,37 @@ export class CollectionsTable implements OnInit, OnDestroy {
                 this.snackBar.open(errMsg, 'Dismiss');
               });
     });
+  }
+
+  downloadCollectionsList() {
+    type SerializedCollectionMetadata = {
+      [K in Exclude<keyof CollectionMetadata, 'creationTime'>]?:
+          CollectionMetadata[K];
+    }&{creationTime: Date | string | undefined};
+    // Serialize dates in the collection list.
+    const data =
+        this.dataSource.sortData(this.dataSource.filteredData, this.matSort)
+            .map(row => {
+              const creationTime = row.creationTime;
+              let newRow: SerializedCollectionMetadata = row;
+              if (creationTime != null) {
+                newRow = {
+                  ...row,
+                  creationTime: formatDate(creationTime, 'medium', this.locale)
+                };
+              }
+              return newRow;
+            });
+
+    const csvOutput = csvFormat(data);
+    const dataURL =
+        `data:text/csv;charset=utf-8,${encodeURIComponent(csvOutput)}`;
+
+    const anchor = document.createElement('a');
+    anchor.download = 'collections.csv';
+    anchor.target = '_blank';
+    anchor.href = dataURL;
+    anchor.click();
   }
 
   getCollectionUrl(name: string): string {

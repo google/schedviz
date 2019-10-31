@@ -203,4 +203,20 @@ describe('Collections', () => {
     expect(mock.global.history.replaceState)
         .toHaveBeenCalledWith(null, '', '/collections#creationTime=mar%202');
   });
+
+  it('should generate CSV file', () => {
+    const spyObj = jasmine.createSpyObj('a', ['click']);
+    spyOn(document, 'createElement').and.returnValue(spyObj);
+
+    collectionsTable.downloadCollectionsList();
+
+    expect(document.createElement).toHaveBeenCalled();
+    expect(document.createElement).toHaveBeenCalledWith('a');
+
+    const expectedDataURL =
+        'data:text/csv;charset=utf-8,name%2Ccreator%2Cowners%2Ctags%2Cdescription%2CcreationTime%2CeventNames%2CtargetMachine%0Acoll%2Cjoe%2Cjohn%2Cabc%2Cdef%2C%22Feb%201%2C%202001%2C%2012%3A00%3A00%20AM%22%2Cswitch%2Cmach%0Acoll2%2Cjoe%2Cjohn%2Cabc%2Cdef%2C%22Feb%201%2C%202000%2C%2012%3A00%3A00%20AM%22%2Cswitch%2Cmach';
+    expect(spyObj.href).toBe(expectedDataURL);
+    expect(spyObj.download).toBe('collections.csv');
+    expect(spyObj.click).toHaveBeenCalled();
+  });
 });

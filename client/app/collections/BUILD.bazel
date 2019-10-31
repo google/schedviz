@@ -35,6 +35,7 @@ ng_module(
         "@npm//@angular/platform-browser",
         "@npm//@angular/router",
         "@npm//@types/node",
+        "@npm//d3",
         "@npm//rxjs",
     ],
 )

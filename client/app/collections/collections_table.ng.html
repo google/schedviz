@@ -10,6 +10,12 @@
             matTooltip="Delete Collections">
       <mat-icon>delete</mat-icon>
     </button>
+    <button mat-button
+            color="basic"
+            (click)="downloadCollectionsList()"
+            matTooltip="Download Collections List">
+      <mat-icon>cloud_download</mat-icon>
+    </button>
   </div>
   <mat-table [dataSource]="dataSource" matSort multiTemplateDataRow>
 
