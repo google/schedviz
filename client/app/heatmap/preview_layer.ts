@@ -111,8 +111,13 @@ export class PreviewLayer implements OnInit {
    * @return the relative position for the given interval's CPU preview
    */
   getPreviewPos(preview: Interval) {
-    return preview.y(this.sortedFilteredCpus) +
-        preview.rowHeight(this.sortedFilteredCpus) / 4;
+    const visibleRows = this.sortedFilteredCpus;
+    if (!visibleRows.length) {
+      return 0;
+    }
+    const rowY = visibleRows.indexOf(preview.cpu) / visibleRows.length;
+    const rowHeight = visibleRows.length ? 1.0 / visibleRows.length : 0;
+    return rowY + rowHeight / 2;
   }
 
   /**
