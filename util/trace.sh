@@ -108,7 +108,7 @@ mkdir "${TMP}/traces"
 mkdir "${TMP}/topology"
 
 # Save the metadata file
-echo "trace_type: FTRACE" > "${TMP}/metadata.textproto"
+echo -e "trace_type: FTRACE\nrecorder: \"trace.sh\"" > "${TMP}/metadata.textproto"
 
 # Save the event formats
 for event in "${events[@]}"

@@ -112,7 +112,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 		pageHeader, err := tp.readPageHeader(reader, commitSize)
 		if err != nil {
 			if err != io.EOF {
-				err = addParseErrorContext(err.Error(), numPagesRead, 0, 0, -1, nil)
+				err = addParseErrorContext(err.Error(), cpu, numPagesRead, 0, 0, -1, nil)
 				return err
 			}
 			return nil
@@ -122,7 +122,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 		page, err := tp.readPageData(reader, pageHeader.Size())
 		if err != nil {
 			if err != io.EOF {
-				err = addParseErrorContext(err.Error(), numPagesRead, pageHeader.Timestamp(), 0, -1, nil)
+				err = addParseErrorContext(err.Error(), cpu, numPagesRead, pageHeader.Timestamp(), 0, -1, nil)
 				return fmt.Errorf("failed to read page. caused by: %s", err)
 			}
 			return nil
@@ -137,13 +137,13 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 			traceEvent := NewTraceEvent(cpu)
 			rbEvent, err := tp.readEvent(&page)
 			if err != nil {
-				err := addParseErrorContext(err.Error(), numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, nil)
+				err := addParseErrorContext(err.Error(), cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, nil)
 				return err
 			}
 
 			rawTypeLen, err := rbEvent.TypeLen()
 			if err != nil {
-				err := addParseErrorContext(err.Error(), numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
+				err := addParseErrorContext(err.Error(), cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
 				return err
 			}
 			typeLen := ringBufferType(rawTypeLen)
@@ -152,7 +152,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 			if typeLen == ringbufTypeTimeExtend {
 				delta, err := rbEvent.TimestampOrExtendedTimeDelta()
 				if err != nil {
-					err := addParseErrorContext(err.Error(), numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
+					err := addParseErrorContext(err.Error(), cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
 					return err
 				}
 				timeStamp += delta
@@ -161,7 +161,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 				// Sync time stamp with external clock.
 				newTimestamp, err := rbEvent.TimestampOrExtendedTimeDelta()
 				if err != nil {
-					err := addParseErrorContext(err.Error(), numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
+					err := addParseErrorContext(err.Error(), cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
 					return err
 				}
 				timeStamp = newTimestamp
@@ -179,7 +179,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 			if evtFmt == nil {
 				err := addParseErrorContext(
 					fmt.Sprintf("no format found with id: %d", id),
-					numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
+					cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
 				if tp.failOnUnknownEventFormat {
 					return err
 				}
@@ -192,7 +192,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 
 			timeDelta, err := rbEvent.TimeDelta()
 			if err != nil {
-				err := addParseErrorContext(err.Error(), numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
+				err := addParseErrorContext(err.Error(), cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, -1, &rbEvent)
 				return err
 			}
 			timeStamp += uint64(timeDelta)
@@ -202,7 +202,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 			for fieldIdx, field := range append(eFormat.CommonFields[1:], eFormat.Fields...) {
 				buf := eventData[field.Offset:(field.Offset + field.Size)]
 				if err := traceEvent.SaveFieldValue(field, buf, tp.Endianness); err != nil {
-					err := addParseErrorContext(err.Error(), numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, fieldIdx, &rbEvent)
+					err := addParseErrorContext(err.Error(), cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, fieldIdx, &rbEvent)
 					return err
 				}
 				if field.IsDynamicArray {
@@ -219,7 +219,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 						IsDynamicArray: true,
 					}
 					if err := traceEvent.SaveFieldValue(dynArrField, dynArrBuf, tp.Endianness); err != nil {
-						err := addParseErrorContext(err.Error(), numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, fieldIdx, &rbEvent)
+						err := addParseErrorContext(err.Error(), cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, fieldIdx, &rbEvent)
 						return err
 					}
 				}
@@ -228,7 +228,7 @@ func (tp *TraceParser) ParseTrace(reader TraceReader, cpu int64, callback AddEve
 			if cont, err := callback(traceEvent); !cont {
 				err := addParseErrorContext(
 					fmt.Sprintf("Callback error: %s\nParsed Event: %v\n", err, traceEvent),
-					numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, 0, &rbEvent)
+					cpu, numPagesRead, pageHeader.Timestamp(), numEventsReadOnPage, 0, &rbEvent)
 				return err
 			}
 			numEventsReadOnPage++
@@ -313,10 +313,10 @@ func (tp *TraceParser) skipToNextPage(reader TraceReader, headerFormat Format, b
 	return nil
 }
 
-func addParseErrorContext(message string, pageIndex, timestamp, eventIndex uint64, fieldIndex int, event *ringBufferEvent) error {
+func addParseErrorContext(message string, cpu int64, pageIndex, timestamp, eventIndex uint64, fieldIndex int, event *ringBufferEvent) error {
 	errStr := fmt.Sprintf(
-		"%s\nPage: %d Page Timestamp: %d Event Index: %d ",
-		message, pageIndex, timestamp, eventIndex)
+		"%s\nCPU: %d, Page: %d Page Timestamp: %d Event Index: %d ",
+		message, cpu, pageIndex, timestamp, eventIndex)
 	if fieldIndex > -1 {
 		errStr += fmt.Sprintf("Field Index: %d", fieldIndex)
 	}

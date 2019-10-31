@@ -154,8 +154,8 @@ Status FTraceTracer::Trace(int capture_seconds) {
 
   Status status;
   // Write metadata file
-  status =
-      WriteString(temp_path_ / "metadata.textproto", "trace_type: FTRACE\n");
+  status = WriteString(temp_path_ / "metadata.textproto",
+                       "trace_type: FTRACE\nrecorder: \"trace.cc\"\n");
   if (!status.ok()) {
     return status;
   }
@@ -249,6 +249,12 @@ Status FTraceTracer::EnableEvents() {
   if (fd < 0) {
     return Status::InternalError(
         absl::StrCat("Could not open ", events_path.string()));
+  }
+  // Disable all events
+  if ((unsigned)write(fd, "\n", 1) != 1) {
+    close(fd);
+    return Status::InternalError(
+        absl::StrCat("Failed to disable all events in ", events_path.string()));
   }
   for (const auto& event : events_) {
     if ((unsigned)write(fd, event.c_str(), event.size()) != event.size()) {

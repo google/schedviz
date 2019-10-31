@@ -144,4 +144,5 @@ message ArchiveMetadataConfig {
     EBPF = 1;
   }
   TraceType trace_type = 1;
+  string recorder = 2;
 }
