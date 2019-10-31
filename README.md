@@ -49,7 +49,7 @@ start the server:
 yarn bazel run server -- -- -storage_path="Path to a folder to store traces in"
 ```
 
-The sever binary takes several options:
+The server binary takes several options:
 
 | Name           | Type   | Description                                                                                                                                                                           |
 | -------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
