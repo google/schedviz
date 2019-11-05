@@ -30,7 +30,7 @@ import {BrowserModule} from '@angular/platform-browser';
 import {BehaviorSubject, throwError} from 'rxjs';
 
 import {HeatmapModule} from '../heatmap/heatmap_module';
-import {Checkpoint, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../models';
+import {Checkpoint, CpuIdleWaitLayer, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../models';
 
 import {LocalCollectionDataService} from '../services/collection_data_service';
 import {ColorService} from '../services/color_service';
@@ -52,6 +52,7 @@ describe('Dashboard', () => {
     collectionName?: string;
     cpuRunLayer = new CpuRunningLayer();
     cpuWaitQueueLayer = new CpuWaitQueueLayer();
+    cpuIdleWaitLayer = new CpuIdleWaitLayer();
     cpuFilter = new BehaviorSubject<string>('');
     filter = new BehaviorSubject<string>('');
     layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);

@@ -21,10 +21,10 @@ import * as d3 from 'd3';
 import {BehaviorSubject, from, merge, Subscription} from 'rxjs';
 import {buffer, debounceTime, mergeMap, pairwise, take} from 'rxjs/operators';
 
-import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
+import {CollectionParameters, CpuIdleWaitLayer, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
 import {ThreadState} from '../models/render_data_services';
 import {RenderDataService} from '../services/render_data_service';
-import {ShortcutId, ShortcutService, DeregistrationCallback} from '../services/shortcut_service';
+import {DeregistrationCallback, ShortcutId, ShortcutService} from '../services/shortcut_service';
 import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
 import {copyToClipboard} from '../util/clipboard';
 import {nearlyEquals} from '../util/helpers';
@@ -77,6 +77,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
 
   cpuRunLayer!: BehaviorSubject<CpuRunningLayer>;
   cpuWaitQueueLayer!: BehaviorSubject<CpuWaitQueueLayer>;
+  cpuIdleWaitLayer!: BehaviorSubject<CpuIdleWaitLayer>;
   // Subscriptions listen for data from the SchedViz backend
   cpuIntervalSubscription?: Subscription;
   pidIntervalSubscription?: Subscription;
@@ -182,6 +183,16 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
       this.layers.value.push(
           this.cpuRunLayer as unknown as BehaviorSubject<Layer>);
     }
+
+    const cpuIdleWaitLayer = this.layers.value.find(
+        layer => layer.value instanceof CpuIdleWaitLayer);
+    if (cpuIdleWaitLayer) {
+      this.cpuIdleWaitLayer = cpuIdleWaitLayer;
+    } else {
+      this.cpuIdleWaitLayer = new BehaviorSubject(new CpuIdleWaitLayer());
+      this.layers.value.push(this.cpuIdleWaitLayer);
+    }
+
     const cpuWaitQueueLayer = this.layers.value.find(
         layer => layer.value instanceof CpuWaitQueueLayer);
     if (cpuWaitQueueLayer) {
@@ -190,6 +201,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
       this.cpuWaitQueueLayer = new BehaviorSubject(new CpuWaitQueueLayer());
       this.layers.value.push(this.cpuWaitQueueLayer);
     }
+
     this.layers.subscribe(layers => {
       // TODO(sainsley): Try to remove this call to change detection.
       // (Used to create the interval-layers)
@@ -263,6 +275,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
     // Close all Subjects to prevent leaks.
     this.cpuRunLayer.complete();
     this.cpuWaitQueueLayer.complete();
+    this.cpuIdleWaitLayer.complete();
     this.visibleCpus.complete();
     // TODO(sainsley): Use switchMap to avoid manually managing subscriptions
     if (this.cpuIntervalSubscription) {
@@ -454,17 +467,30 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   setCpuIntervals(intervals: CpuIntervalCollection[]) {
     const cpuRunLayer = this.cpuRunLayer.value;
     const cpuWaitLayer = this.cpuWaitQueueLayer.value;
+    const cpuIdleWaitLayer = this.cpuIdleWaitLayer.value;
     cpuRunLayer.initialized = true;
     cpuWaitLayer.initialized = true;
+    cpuIdleWaitLayer.initialized = true;
     // Store new set of running CPU intervals
     cpuRunLayer.intervals = intervals.reduce(
         (acc, i) => [...acc, ...i.running], new Array<CpuInterval>());
     // Filter out and store new set of waiting CPU intervals
     cpuWaitLayer.intervals = intervals.reduce(
         (acc, i) => [...acc, ...i.waiting], new Array<WaitingCpuInterval>());
+    // Filter out and store new set of waiting-while-idle CPU intervals
+    cpuIdleWaitLayer.intervals =
+        (cpuWaitLayer.intervals as WaitingCpuInterval[]).filter(interval => {
+          // Show queuing due to task throttling in a different color.
+          // When a task is throttled (i.e. not allocated CPU) it will appear to
+          // be in the waiting state with nothing running. This is in contrast
+          // to being in competition with another task, in which case something
+          // else will be running while the task is waiting.
+          return interval.waiting.length && !interval.running.length;
+        });
     // Mark layer as ready for redraw.
     this.cpuRunLayer.next(cpuRunLayer);
     this.cpuWaitQueueLayer.next(cpuWaitLayer);
+    this.cpuIdleWaitLayer.next(cpuIdleWaitLayer);
   }
 
   /**

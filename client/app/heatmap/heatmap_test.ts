@@ -22,7 +22,7 @@ import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import * as d3 from 'd3';
 import {BehaviorSubject, of} from 'rxjs';
 
-import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval} from '../models';
+import {CollectionParameters, CpuIdleWaitLayer, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval} from '../models';
 import * as services from '../models/render_data_services';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService, RenderDataService} from '../services/render_data_service';
@@ -59,6 +59,7 @@ function setupHeatmap(component: Heatmap) {
   component.preview = new BehaviorSubject<Interval|undefined>(undefined);
   component.layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([
     new BehaviorSubject(new CpuRunningLayer() as unknown as Layer),
+    new BehaviorSubject(new CpuIdleWaitLayer() as unknown as Layer),
     new BehaviorSubject(new CpuWaitQueueLayer() as unknown as Layer),
   ]);
   component.viewport = new BehaviorSubject<Viewport>(new Viewport());
@@ -202,14 +203,14 @@ describe('Heatmap', () => {
     fixture.detectChanges();
     const element = fixture.nativeElement;
     const layers = component.layers.value;
-    expect(layers.length).toEqual(2);
+    expect(layers.length).toEqual(3);
     expect(layers[0].value.intervals.length).toBeGreaterThan(1);
     const renderedLayers = element.querySelectorAll('.layersGroup');
-    expect(renderedLayers.length).toEqual(2);
+    expect(renderedLayers.length).toEqual(3);
     // Check layers render in reverse order, with expected interval count drawn
     let intervalCount = renderedLayers[0].querySelectorAll('rect').length;
-    expect(intervalCount).toEqual(layers[1].value.intervals.length);
-    intervalCount = renderedLayers[1].querySelectorAll('rect').length;
+    expect(intervalCount).toEqual(layers[2].value.intervals.length);
+    intervalCount = renderedLayers[2].querySelectorAll('rect').length;
     expect(intervalCount).toEqual(layers[0].value.intervals.length);
     // TODO(sainsley): Check base intervals set
   });
@@ -427,9 +428,9 @@ describe('Heatmap', () => {
     component.layers.next(layers);
     await fixture.whenStable();
     const fetchedIntervalCount = newLayer.value.intervals.length;
-    expect(fetchedIntervalCount).toBe(1728);
+    expect(fetchedIntervalCount).toBe(1296);
     const renderedLayers = element.querySelectorAll('.layersGroup');
-    expect(renderedLayers.length).toEqual(3);
+    expect(renderedLayers.length).toEqual(4);
     // Query interval count for newest (top-most) layer
     const drawnIntervals = renderedLayers[0].querySelectorAll('rect');
     expect(fetchedIntervalCount).toEqual(drawnIntervals.length);
@@ -478,7 +479,7 @@ describe('Heatmap', () => {
     const fetchedIntervalCount = newLayer.value.intervals.length;
     expect(fetchedIntervalCount).toBeGreaterThan(0);
     const renderedLayers = element.querySelectorAll('.layersGroup');
-    expect(renderedLayers.length).toEqual(3);
+    expect(renderedLayers.length).toEqual(4);
     // Query interval count for newest (top-most) layer
     const drawnIntervals = renderedLayers[0].querySelectorAll('rect');
     expect(fetchedIntervalCount).toEqual(drawnIntervals.length);
@@ -730,7 +731,7 @@ describe('Heatmap', () => {
        const element = fixture.nativeElement;
        let renderedLayers = element.querySelectorAll('.layersGroup');
        const preZoomIntervalCount =
-           renderedLayers[1].querySelectorAll('rect').length;
+           renderedLayers[2].querySelectorAll('rect').length;
        // Zoom
        const viewport = new Viewport();
        viewport.left = 0.25;
@@ -740,7 +741,7 @@ describe('Heatmap', () => {
        expect(spy.calls.count()).toBe(1);
        renderedLayers = element.querySelectorAll('.layersGroup');
        const zoomedIntervalCount =
-           renderedLayers[1].querySelectorAll('rect').length;
+           renderedLayers[2].querySelectorAll('rect').length;
        expect(zoomedIntervalCount).not.toEqual(preZoomIntervalCount);
      }));
 

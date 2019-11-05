@@ -113,6 +113,13 @@
           <div class="layer-fixed">
             {{layer.value.name}}
           </div>
+          <input class="color-input"
+                 type="color"
+                 *ngIf="shouldShowColorPicker(layer)"
+                 [ngModel]="layer.value.color"
+                 (ngModelChange)="updateLayerColor(layer, $event)"
+                 #ctrl="ngModel"
+                 matTooltip="Select Color">
           <button (click)="hideLayer(layer)"
                   mat-icon-button
                   aria-label="hide-layer">

@@ -23,7 +23,7 @@ import {MatInputModule} from '@angular/material/input';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {BehaviorSubject} from 'rxjs';
 
-import {CollectionParameters, Layer} from '../../models';
+import {CollectionParameters, CpuIdleWaitLayer, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../../models';
 import {Viewport} from '../../util';
 
 import {SettingsMenu} from './settings_menu';
@@ -266,4 +266,18 @@ describe('SettingsMenu', () => {
        expect(component.viewport.value.left).toBe(0.025);
        expect(component.viewport.value.right).toBe(1.0);
      }));
+
+  it('should show fixed layers separately', async () => {
+    // Set up menu
+    const layers = [
+      new BehaviorSubject(new CpuRunningLayer() as unknown as Layer),
+      new BehaviorSubject(new CpuIdleWaitLayer() as unknown as Layer),
+      new BehaviorSubject(new CpuWaitQueueLayer() as unknown as Layer),
+    ].concat(mockLayers());
+    const fixture = await createSettingsMenuWithMockData(layers);
+    const component = fixture.componentInstance;
+
+    expect(component.fixedLayers).toEqual(layers.slice(0, 3));
+    expect(component.adjustableLayers).toEqual(layers.slice(3));
+  });
 });

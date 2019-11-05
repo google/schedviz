@@ -21,7 +21,7 @@ import {Sort, SortDirection} from '@angular/material/sort';
 import {BehaviorSubject, merge} from 'rxjs';
 import {switchMap} from 'rxjs/operators';
 
-import {Checkpoint, CheckpointValue, CollectionParameters, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer} from '../models';
+import {Checkpoint, CheckpointValue, CollectionParameters, CpuIdleWaitLayer, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer} from '../models';
 import {CollectionDataService} from '../services/collection_data_service';
 import {ColorService} from '../services/color_service';
 import {compress, createHttpErrorMessage, decompress, parseHashFragment, serializeHashFragment, SystemTopology, Viewport} from '../util';
@@ -58,6 +58,7 @@ export class Dashboard implements OnInit, OnDestroy {
   // End Global State
 
   cpuRunLayer = new CpuRunningLayer();
+  cpuIdleWaitLayer = new CpuIdleWaitLayer();
   cpuWaitQueueLayer = new CpuWaitQueueLayer();
   collectionName?: string;
   collectionParameters =
@@ -139,6 +140,7 @@ export class Dashboard implements OnInit, OnDestroy {
                     layer.value.color, [], layer.value.visible))));
     const layers = this.layers.value;
     layers.push(new BehaviorSubject(this.cpuRunLayer as unknown as Layer));
+    layers.push(new BehaviorSubject(this.cpuIdleWaitLayer));
     layers.push(new BehaviorSubject(this.cpuWaitQueueLayer));
     this.layers.next(layers);
   }
@@ -197,6 +199,8 @@ export class Dashboard implements OnInit, OnDestroy {
                 this.cpuRunLayer.visible = layer.visible;
               } else if (layer.name === this.cpuWaitQueueLayer.name) {
                 this.cpuWaitQueueLayer.visible = layer.visible;
+              } else if (layer.name === this.cpuIdleWaitLayer.name) {
+                this.cpuIdleWaitLayer.visible = layer.visible;
               } else {
                 // Create new layer
                 layerSubjects.push(new BehaviorSubject(new Layer(

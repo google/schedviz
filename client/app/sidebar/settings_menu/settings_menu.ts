@@ -22,7 +22,7 @@ import {BehaviorSubject, merge} from 'rxjs';
 import {switchMap} from 'rxjs/operators';
 
 
-import {CollectionParameters, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../../models';
+import {CollectionParameters, CpuIdleWaitLayer, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../../models';
 import {ColorService} from '../../services/color_service';
 import {Viewport} from '../../util';
 import {getHumanReadableDurationFromNs, timeInputToNs} from '../../util/duration';
@@ -99,13 +99,20 @@ export class SettingsMenu implements OnInit {
   get fixedLayers() {
     return this.layers.value.filter(
         layer => layer.value instanceof CpuRunningLayer ||
-            layer.value instanceof CpuWaitQueueLayer);
+            layer.value instanceof CpuWaitQueueLayer ||
+            layer.value instanceof CpuIdleWaitLayer);
   }
 
   get adjustableLayers() {
     return this.layers.value.filter(
         layer => !(layer.value instanceof CpuRunningLayer) &&
-            !(layer.value instanceof CpuWaitQueueLayer));
+            !(layer.value instanceof CpuWaitQueueLayer) &&
+            !(layer.value instanceof CpuIdleWaitLayer));
+  }
+
+  shouldShowColorPicker(layer: BehaviorSubject<Layer>) {
+    return !(layer.value instanceof CpuRunningLayer) &&
+        !(layer.value instanceof CpuWaitQueueLayer);
   }
 
   drop(event: CdkDragDrop<string[]>) {
