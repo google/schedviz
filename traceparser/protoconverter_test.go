@@ -214,7 +214,7 @@ func TestEventSetBuilder(t *testing.T) {
 
 	got := esb.EventSet
 
-	if diff := cmp.Diff(eventSet, got); diff != "" {
+	if diff := cmp.Diff(eventSet, got, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder: Diff -want +got:\n%s", diff)
 	}
 }
@@ -244,10 +244,10 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 		t.Fatalf("error during clone's EventSet(): %s", err)
 	}
 
-	if diff := cmp.Diff(eventSet, original); diff != "" {
+	if diff := cmp.Diff(eventSet, original, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder_Clone: Diff -want +got:\n%s", diff)
 	}
-	if diff := cmp.Diff(cloned, want); diff != "" {
+	if diff := cmp.Diff(cloned, want, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder_Clone: Diff -want +got:\n%s", diff)
 	}
 }
