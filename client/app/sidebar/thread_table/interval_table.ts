@@ -89,7 +89,7 @@ export class IntervalTable extends SelectableTable implements OnInit,
    * @param durationNs the duration value in nanoseconds
    */
   formatTime(durationNs: number) {
-    return Duration.getHumanReadableDurationFromNs(durationNs, 'ms');
+    return Duration.getHumanReadableDurationFromNs(durationNs);
   }
 
   /**

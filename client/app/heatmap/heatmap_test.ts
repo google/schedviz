@@ -303,11 +303,11 @@ describe('Heatmap', () => {
             '  (50.0%) 1:test2 (P:100)\n' +
             'CPU: 0\n' +
             'Start Time: 500 msec\n' +
-            'End Time: 2500 msec\n' +
-            'Duration: 2000 msec\n' +
-            'Idle Time: (0.00%) 0.00 msec\n' +
-            'Running Time: (100%) 2000 msec\n' +
-            'Waiting Time:  (200%) 4000 msec\n' +
+            'End Time: 2.5 sec\n' +
+            'Duration: 2 sec\n' +
+            'Idle Time: (0.00%) 0 nsec\n' +
+            'Running Time: (100%) 2 sec\n' +
+            'Waiting Time:  (200%) 4 sec\n' +
             'Waiting PID Count: 2\n' +
             'Waiting: \n' +
             '  (100%) 2:<script>expect("xss").toBeNull()</script> (P:120)\n' +

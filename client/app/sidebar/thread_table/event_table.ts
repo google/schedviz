@@ -64,6 +64,6 @@ export class EventTable extends SelectableTable implements OnInit, OnDestroy {
    * @param durationNs the duration value in nanoseconds
    */
   formatTime(durationNs: number) {
-    return Duration.getHumanReadableDurationFromNs(durationNs, 'ms');
+    return Duration.getHumanReadableDurationFromNs(durationNs);
   }
 }
