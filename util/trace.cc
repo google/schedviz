@@ -165,6 +165,11 @@ Status FTraceTracer::Trace(int capture_seconds) {
     return status;
   }
 
+  status = CopyOptions();
+  if (!status.ok()) {
+    return status;
+  }
+
   status = CopyFormats();
   if (!status.ok()) {
     return status;
@@ -222,6 +227,11 @@ Status FTraceTracer::ConfigureFTrace() {
   if (!status.ok()) {
     return status;
   }
+  // Remove newest events when the buffer overflows instead of oldest.
+  status = WriteString(kernel_trace_root_ / "trace_options", "nooverwrite");
+  if (!status.ok()) {
+    return status;
+  }
 
   // Set buffer size.
   status = WriteString(kernel_trace_root_ / "buffer_size_kb",
@@ -265,6 +275,28 @@ Status FTraceTracer::EnableEvents() {
   }
   close(fd);
 
+  return Status::OkStatus();
+}
+
+Status FTraceTracer::CopyOptions() {
+  if (is_tracing_) {
+    return Status::InternalError("Already Tracing");
+  }
+  const std::filesystem::path& options_root = kernel_trace_root_ / "options";
+  const auto& out = temp_path_ / "options";
+  if (!std::filesystem::create_directories(out)) {
+    return Status::InternalError(
+        absl::StrCat("Unable to create directories for path: ", out.string()));
+  }
+
+  for (const auto& option_file_entry :
+       std::filesystem::directory_iterator(options_root)) {
+    const auto& option_filename = option_file_entry.path().filename();
+    const auto& status = CopyFakeFile(option_file_entry, out / option_filename);
+    if (!status.ok()) {
+      return status;
+    }
+  }
   return Status::OkStatus();
 }
 

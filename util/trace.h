@@ -63,6 +63,12 @@ class FTraceTracer {
   Status StopTrace(bool final_copy);
 
   /**
+   * Copies the trace options to the temp directory.
+   * @return Status if successful or not.
+   */
+  Status CopyOptions();
+
+  /**
    * Copies the format files for the provided events to the temp directory.
    * @return Status if successful or not.
    */

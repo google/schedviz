@@ -37,7 +37,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
   -bs|-buffer_size) BUFSIZEK="$2"; shift;;
   -ct|-copy_timeout) COPYTIME="$2"; shift;;
   -h|-help) echo "$USAGE"; exit 0;;
-  *) echo "Unknown parameter passed: $1"; echo ${USAGE}; exit 1;;
+  *) echo "Unknown parameter passed: $1"; echo "${USAGE}"; exit 1;;
 esac; shift; done
 
 if [[ -z "${COPYTIME}" ]]; then
@@ -47,7 +47,7 @@ if [[ -z "${BUFSIZEK}" ]]; then
   BUFSIZEK=4096
 fi
 
-if [[ "$((${capture_seconds} + 0))" != "${capture_seconds}" ]]; then
+if [[ "$((capture_seconds + 0))" != "${capture_seconds}" ]]; then
   echo "capture_seconds must be a number"
   exit 1
 fi
@@ -87,12 +87,17 @@ trace_set() {
 trace_set 0
 echo "Trace date ${date}: capture for ${capture_seconds} seconds, send output to ${OUT}"
 
+# Remove all tracers
 echo nop > /sys/kernel/debug/tracing/current_tracer
+# Set buffer size
 echo ${BUFSIZEK} > /sys/kernel/debug/tracing/buffer_size_kb
+# Remove newest events when the buffer overflows instead of oldest.
+echo "nooverwrite" > /sys/kernel/debug/tracing/trace_options
+# Enable events
 echo > /sys/kernel/debug/tracing/set_event
 for event in "${events[@]}"
 do
-  echo ${event} >> /sys/kernel/debug/tracing/set_event
+  echo "${event}" >> /sys/kernel/debug/tracing/set_event
 done
 
 trace_set 1
@@ -106,14 +111,18 @@ trace_set 0
 mkdir "${TMP}"
 mkdir "${TMP}/traces"
 mkdir "${TMP}/topology"
+mkdir "${TMP}/options"
 
 # Save the metadata file
 echo -e "trace_type: FTRACE\nrecorder: \"trace.sh\"" > "${TMP}/metadata.textproto"
 
+# Copy the trace options
+cp /sys/kernel/debug/tracing/options/* "${TMP}/options/."
+
 # Save the event formats
 for event in "${events[@]}"
 do
-  event_format_path=`echo ${event} | sed -r 's/:/\//'`
+  event_format_path=$(echo "${event}" | sed -r 's/:/\//')
   mkdir -p "${TMP}/formats/${event_format_path}"
   cat "/sys/kernel/debug/tracing/events/${event_format_path}/format" >> "${TMP}/formats/${event_format_path}/format"
 done
@@ -144,12 +153,12 @@ kill_spawned
 echo "Creating tar file"
 rm -f "${OUT}/trace.tar.gz"
 chmod -R a+rwX "${TMP}"
-pushd ${OUT} > /dev/null
-ABS_OUT=`pwd`
-popd > /dev/null
-pushd "${TMP}" > /dev/null
-tar -zcf "${ABS_OUT}/trace.tar.gz" *
-popd > /dev/null
+pushd "${OUT}" > /dev/null || exit
+ABS_OUT=$(pwd)
+popd > /dev/null || exit
+pushd "${TMP}" > /dev/null || exit
+tar -zcf "${ABS_OUT}/trace.tar.gz" -- *
+popd > /dev/null || exit
 rm -rf "${TMP}"
 chmod a+rw "${OUT}/trace.tar.gz"
 
