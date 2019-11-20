@@ -43,6 +43,7 @@ type EventSetBuilder struct {
 	eventDescriptorMap   map[uint16]*pb.EventDescriptor
 	eventDescriptorTable map[*pb.EventDescriptor]int64
 	strTable             map[string]int64
+	overwrite            bool
 }
 
 // NewEventSetBuilder constructs a new builder for making EventSet proto
@@ -65,6 +66,11 @@ func NewEventSetBuilder(tp *TraceParser) *EventSetBuilder {
 		eventDescriptorTable: make(map[*pb.EventDescriptor]int64),
 		// Map of string to ID in string table. Will be transformed into actual string table later.
 		strTable: make(map[string]int64),
+		// If true (default) then the oldest events might have been discarded by the
+		// kernel if the trace was longer than the buffers could contain.
+		// If false, then the newest events might have been discarded instead.
+		// Corresponds with the "overwrite" FTrace option.
+		overwrite: true,
 	}
 	// Add an empty string to the start of the string table so that an omitted string
 	// (default value "") is in parity with an omitted string index (default value 0)
@@ -84,6 +90,11 @@ func NewEventSetBuilder(tp *TraceParser) *EventSetBuilder {
 		}
 	}
 	return &esb
+}
+
+// SetOverwrite configures the overwrite property of the eventSetBuilder
+func (esb *EventSetBuilder) SetOverwrite(option bool) {
+	esb.overwrite = option
 }
 
 // AddFormat adds a new event descriptor based off of the EventFormat to the EventSet being built

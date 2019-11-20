@@ -563,3 +563,90 @@ func TestConvertIntRangeToList(t *testing.T) {
 		})
 	}
 }
+
+func TestReadOptions(t *testing.T) {
+	tests := []struct {
+		file        io.Reader
+		wantOptions map[string]bool
+		wantErr     string
+	}{
+		{
+			file: getTestTarFile(t, "test.tar.gz"),
+			wantOptions: map[string]bool{
+				"annotate":           true,
+				"bin":                false,
+				"blk_cgname":         false,
+				"blk_cgroup":         false,
+				"blk_classic":        false,
+				"block":              false,
+				"context-info":       true,
+				"disable_on_free":    true,
+				"display-graph":      false,
+				"event-fork":         false,
+				"func_stack_trace":   false,
+				"funcgraph-abstime":  false,
+				"funcgraph-cpu":      true,
+				"funcgraph-duration": true,
+				"funcgraph-irqs":     true,
+				"funcgraph-overhead": true,
+				"funcgraph-overrun":  false,
+				"funcgraph-proc":     false,
+				"funcgraph-tail":     false,
+				"function-fork":      false,
+				"function-trace":     true,
+				"graph-time":         true,
+				"hex":                false,
+				"irq-info":           true,
+				"latency-format":     false,
+				"markers":            true,
+				"overwrite":          false,
+				"print-parent":       true,
+				"printk-msg-only":    false,
+				"raw":                false,
+				"record-cmd":         true,
+				"record-tgid":        false,
+				"sleep-time":         true,
+				"stacktrace":         false,
+				"sym-addr":           false,
+				"sym-offset":         false,
+				"sym-userobj":        false,
+				"test_nop_accept":    false,
+				"test_nop_refuse":    false,
+				"trace_printk":       true,
+				"userstacktrace":     false,
+				"verbose":            false,
+			},
+		},
+		{
+			file:        getTestTarFile(t, "test_no_metadata.tar.gz"),
+			wantOptions: nil,
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("TestReadOptions Case: %d", i), func(t *testing.T) {
+			tmpDir, err := ioutil.TempDir("", "testreadoptionstar")
+			if err != nil {
+				t.Fatalf("failed to create temp directory: %s", err)
+			}
+			defer func() {
+				// Clean up temp directory after parsing or on error.
+				if err := os.RemoveAll(tmpDir); err != nil {
+					t.Fatalf("failed to clean up temp directory while parsing tar: %s", err)
+				}
+			}()
+
+			if err := untar(test.file, tmpDir); err != nil {
+				t.Fatalf("failed to untar test file: %s", err)
+			}
+			gotOptions, err := readOptions(path.Join(tmpDir, "options"))
+			if test.wantErr != "" && err == nil {
+				t.Errorf("Expected %q error, but no error was thrown", test.wantErr)
+			} else if err != nil && err.Error() != test.wantErr {
+				t.Errorf("Expected %q error, but got %q error instead", test.wantErr, err)
+			} else if diff := cmp.Diff(gotOptions, test.wantOptions); diff != "" {
+				t.Errorf("readOptions(%d): Diff -want +got: \n%s", i, diff)
+			}
+		})
+	}
+}

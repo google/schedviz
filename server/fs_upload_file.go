@@ -312,6 +312,13 @@ func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSe
 		}
 	}
 
+	// Read options
+	options, err := readOptions(path.Join(dir, "options"))
+	if err != nil {
+		log.Warning("error reading options, using empty options")
+		options = nil
+	}
+
 	traceParser, err := traceparser.New(headerFormat, eventFormats)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse formats: %s", err)
@@ -319,6 +326,11 @@ func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSe
 	traceParser.SetFailOnUnknownEventFormat(failOnUnknownEventFormat)
 
 	eventSetBuilder := traceparser.NewEventSetBuilder(&traceParser)
+	if options != nil {
+		if overwrite, ok := options["overwrite"]; ok {
+			eventSetBuilder.SetOverwrite(overwrite)
+		}
+	}
 
 	addTraceEvent := func(traceEvent *traceparser.TraceEvent) (bool, error) {
 		if err := eventSetBuilder.AddTraceEvent(traceEvent); err != nil {
@@ -408,6 +420,40 @@ func readTopology(topoDir string) (*models.SystemTopology, error) {
 	}
 
 	return tb.FullTopology(), nil
+}
+
+// readOptions reads the option files located in the tar and returns them in the
+// form of a map from option name to boolean true/false value
+func readOptions(optionsDir string) (map[string]bool, error) {
+	if _, err := os.Stat(optionsDir); os.IsNotExist(err) {
+		log.Warning("Options directory does not exist, returning nil options")
+		return nil, nil
+	}
+	options := map[string]bool{}
+	err := filepath.Walk(optionsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			// Do nothing
+			return nil
+		}
+
+		optionsFileContents, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("error opening %s for reading: %s", path, err)
+		}
+		optionValue, err := strconv.ParseInt(strings.TrimSpace(string(optionsFileContents)), 10, 64)
+		if err != nil || (optionValue != 0 && optionValue != 1) {
+			return fmt.Errorf("error parsing option file at %q. expected value to be either \"0\" or \"1\"\n%s", path, err)
+		}
+		options[info.Name()] = !(optionValue == 0)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return options, nil
 }
 
 // readFTraceTraces reads the trace files contained in an FTrace tar and

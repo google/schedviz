@@ -236,13 +236,13 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 	original := esb.EventSet
 
 	clonedEsb, err := esb.Clone()
+	if err != nil {
+		t.Fatalf("error cloning event set builder: %s", err)
+	}
 	if err := clonedEsb.AddTraceEvent(traceEvents[0]); err != nil {
 		t.Fatalf("error in AddTraceEvent: %s", err)
 	}
 	cloned := clonedEsb.EventSet
-	if err != nil {
-		t.Fatalf("error during clone's EventSet(): %s", err)
-	}
 
 	if diff := cmp.Diff(eventSet, original, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder_Clone: Diff -want +got:\n%s", diff)
