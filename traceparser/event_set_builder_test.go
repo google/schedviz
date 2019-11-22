@@ -25,45 +25,48 @@ import (
 	pb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 )
 
-var tp = &TraceParser{
-	Formats: map[uint16]*EventFormat{
-		314: {
-			Name: "sched_switch",
-			ID:   314,
-			Format: Format{
-				CommonFields: []*FormatField{
-					{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Size: 2, NumElements: 1, ElementSize: 2},
-					{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1},
-					{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1},
-					{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+func testEventSetBuilder() *EventSetBuilder {
+	var tp = &TraceParser{
+		Formats: map[uint16]*EventFormat{
+			314: {
+				Name: "sched_switch",
+				ID:   314,
+				Format: Format{
+					CommonFields: []*FormatField{
+						{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Size: 2, NumElements: 1, ElementSize: 2},
+						{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1},
+						{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1},
+						{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+					},
+					Fields: []*FormatField{
+						{FieldType: "char prev_comm[16]", Name: "prev_comm", ProtoType: "string", Offset: 8, Size: 16, NumElements: 16, ElementSize: 1, Signed: true},
+						{FieldType: "pid_t prev_pid", Name: "prev_pid", ProtoType: "int64", Offset: 24, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+						{FieldType: "int prev_prio", Name: "prev_prio", ProtoType: "int64", Offset: 28, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+						{FieldType: "long prev_prio", Name: "prev_state", ProtoType: "int64", Offset: 32, Size: 8, NumElements: 1, ElementSize: 8, Signed: true},
+						{FieldType: "char next_comm[16]", Name: "next_comm", ProtoType: "string", Offset: 40, Size: 16, NumElements: 16, ElementSize: 1, Signed: true},
+						{FieldType: "pid_t next_pid", Name: "next_pid", ProtoType: "int64", Offset: 56, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+						{FieldType: "int next_prio", Name: "next_prio", ProtoType: "int64", Offset: 60, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+					},
 				},
-				Fields: []*FormatField{
-					{FieldType: "char prev_comm[16]", Name: "prev_comm", ProtoType: "string", Offset: 8, Size: 16, NumElements: 16, ElementSize: 1, Signed: true},
-					{FieldType: "pid_t prev_pid", Name: "prev_pid", ProtoType: "int64", Offset: 24, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
-					{FieldType: "int prev_prio", Name: "prev_prio", ProtoType: "int64", Offset: 28, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
-					{FieldType: "long prev_prio", Name: "prev_state", ProtoType: "int64", Offset: 32, Size: 8, NumElements: 1, ElementSize: 8, Signed: true},
-					{FieldType: "char next_comm[16]", Name: "next_comm", ProtoType: "string", Offset: 40, Size: 16, NumElements: 16, ElementSize: 1, Signed: true},
-					{FieldType: "pid_t next_pid", Name: "next_pid", ProtoType: "int64", Offset: 56, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
-					{FieldType: "int next_prio", Name: "next_prio", ProtoType: "int64", Offset: 60, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+			},
+			1942: {
+				Name: "special_event",
+				ID:   1942,
+				Format: Format{
+					CommonFields: []*FormatField{
+						{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Offset: 0, Size: 2, NumElements: 1, ElementSize: 2, Signed: false, IsDynamicArray: false},
+						{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
+						{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
+						{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true, IsDynamicArray: false},
+					},
+					Fields: []*FormatField{
+						{FieldType: "__data_loc uint8[] event", Name: "event", ProtoType: "string", Offset: 8, Size: 4, NumElements: 1, ElementSize: 4, Signed: false, IsDynamicArray: true},
+					},
 				},
 			},
 		},
-		1942: {
-			Name: "special_event",
-			ID:   1942,
-			Format: Format{
-				CommonFields: []*FormatField{
-					{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Offset: 0, Size: 2, NumElements: 1, ElementSize: 2, Signed: false, IsDynamicArray: false},
-					{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
-					{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
-					{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true, IsDynamicArray: false},
-				},
-				Fields: []*FormatField{
-					{FieldType: "__data_loc uint8[] event", Name: "event", ProtoType: "string", Offset: 8, Size: 4, NumElements: 1, ElementSize: 4, Signed: false, IsDynamicArray: true},
-				},
-			},
-		},
-	},
+	}
+	return NewEventSetBuilder(tp)
 }
 
 var traceEvents = []*TraceEvent{
@@ -205,7 +208,7 @@ var eventSet = &pb.EventSet{
 }
 
 func TestEventSetBuilder(t *testing.T) {
-	esb := NewEventSetBuilder(tp)
+	esb := testEventSetBuilder()
 	for _, traceEvent := range traceEvents {
 		if err := esb.AddTraceEvent(traceEvent); err != nil {
 			t.Fatalf("error in AddTraceEvent: %s", err)
@@ -226,7 +229,7 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 	}
 	want.Event = append(want.Event, want.Event[0])
 
-	esb := NewEventSetBuilder(tp)
+	esb := testEventSetBuilder()
 	for _, traceEvent := range traceEvents {
 		if err := esb.AddTraceEvent(traceEvent); err != nil {
 			t.Fatalf("error in AddTraceEvent: %s", err)

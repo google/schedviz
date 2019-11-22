@@ -14,14 +14,12 @@
 // limitations under the License.
 //
 //
-// Package traceparser contains a utility to convert FTrace buffers into protos
 package traceparser
 
 // formatparser contains a parser for TraceFS format files
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -47,40 +45,6 @@ const (
 	findField
 	done
 )
-
-// TraceParser contains format information for a trace.
-type TraceParser struct {
-	HeaderFormat             Format
-	Formats                  map[uint16]*EventFormat
-	Endianness               binary.ByteOrder
-	failOnUnknownEventFormat bool
-}
-
-// New parses trace formats and returns a new TraceParser.
-func New(headerFormat string, formatFiles []string) (TraceParser, error) {
-	header, err := parseHeaderFormat(headerFormat)
-	if err != nil {
-		return TraceParser{}, err
-	}
-
-	formats, err := parseRegularFormats(formatFiles)
-	if err != nil {
-		return TraceParser{}, err
-	}
-
-	return TraceParser{
-		HeaderFormat:             *header,
-		Formats:                  formats,
-		failOnUnknownEventFormat: true,
-	}, nil
-}
-
-// SetFailOnUnknownEventFormat configures behavior when encountering an unknown
-// event format.  If the provided bool is true, parsing fails on unknown events;
-// otherwise unknown events are logged and ignored.
-func (tp *TraceParser) SetFailOnUnknownEventFormat(option bool) {
-	tp.failOnUnknownEventFormat = option
-}
 
 // parseRegularFormats parses TraceFS Formats into an EventFormat structs.
 // formatFiles is list of contents of format files.
