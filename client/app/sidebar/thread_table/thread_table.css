@@ -7,9 +7,15 @@
   width: 100%;
 }
 
-.mat-table {
+.thread-table-container {
   height: calc(100% - 95px);
   overflow: auto;
+  width: 100%;
+  display: block;
+}
+
+.mat-table {
+  width: 100%;
 }
 
 .sched-events-mat-table {
