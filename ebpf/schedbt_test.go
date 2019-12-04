@@ -73,7 +73,7 @@ M:a:0:0:1:64`,
 			if err != nil {
 				t.Fatalf("EventSet() yielded unexpected error %v", err)
 			}
-			if d := cmp.Diff(test.want, got); d != "" {
+			if d := cmp.Diff(test.want, got, cmp.Comparer(proto.Equal)); d != "" {
 				t.Errorf("Parser produced %s, diff(want->got) %s", proto.MarshalTextString(got), d)
 			}
 		})
