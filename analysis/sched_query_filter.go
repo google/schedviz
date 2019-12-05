@@ -77,29 +77,55 @@ func TimeRange(startTimestamp, endTimestamp trace.Timestamp) func(*filter) {
 	}
 }
 
-// EventTypes filters to the specified event types.
+// EventTypes filters to the specified event types, overriding any previous
+// event type filtering.
 func EventTypes(eventTypes ...string) func(*filter) {
 	return func(f *filter) {
+		f.eventTypes = map[string]struct{}{}
 		for _, eventType := range eventTypes {
 			f.eventTypes[eventType] = struct{}{}
 		}
 	}
 }
 
-// CPUs filters to the specified CPUs.
+// CPUs filters to the specified CPUs, overriding any previous CPU filtering.
 func CPUs(cpus ...CPUID) func(*filter) {
 	return func(f *filter) {
+		f.cpus = map[CPUID]struct{}{}
 		for _, cpu := range cpus {
 			f.cpus[cpu] = struct{}{}
 		}
 	}
 }
 
-// PIDs filters to the specified PIDs.
+// PIDs filters to the specified PIDs, overriding any previous PID filtering.
 func PIDs(pids ...PID) func(*filter) {
 	return func(f *filter) {
+		f.pids = map[PID]struct{}{}
 		for _, pid := range pids {
 			f.pids[pid] = struct{}{}
+		}
+	}
+}
+
+// duplicateFilter duplicates the provided filter.
+func duplicateFilter(inF *filter) func(*filter) {
+	return func(outF *filter) {
+		outF.truncateToTimeRange = inF.truncateToTimeRange
+		outF.minIntervalDuration = inF.minIntervalDuration
+		outF.startTimestamp = inF.startTimestamp
+		outF.endTimestamp = inF.endTimestamp
+		outF.eventTypes = map[string]struct{}{}
+		for et := range inF.eventTypes {
+			outF.eventTypes[et] = struct{}{}
+		}
+		outF.cpus = map[CPUID]struct{}{}
+		for cpuid := range inF.cpus {
+			outF.cpus[cpuid] = struct{}{}
+		}
+		outF.pids = map[PID]struct{}{}
+		for pid := range inF.pids {
+			outF.pids[pid] = struct{}{}
 		}
 	}
 }

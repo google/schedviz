@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/google/schedviz/analysis/schedtestcommon"
 	"github.com/google/schedviz/tracedata/eventsetbuilder"
 	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 	"github.com/google/schedviz/tracedata/trace"
@@ -401,6 +402,35 @@ func TestSearchBeforeAndAfterTimestamp(t *testing.T) {
 				}
 			} else if test.wantEventIndexAfter >= 0 {
 				t.Errorf("Expected EventIndexOnCPUAfter() to find %d, but it found nothing", test.wantEventIndexAfter)
+			}
+
+		})
+	}
+}
+
+func TestSchedCollection(t *testing.T) {
+	c, err := NewCollection(schedtestcommon.TestTrace1(t), NormalizeTimestamps(false))
+	if err != nil {
+		t.Fatalf("Failed to construct Collection: %s", err)
+	}
+	pcc, err := NewPerCPUCollection(c /*cpuLookupFunc*/, nil)
+	if err != nil {
+		t.Fatalf("Failed to construct PerCPUCollection: %s", err)
+	}
+	tests := []struct {
+		description      string
+		cpus             []CPUID
+		wantEventIndices []int
+	}{{
+		description:      "All CPUs",
+		cpus:             []CPUID{0, 1, 2},
+		wantEventIndices: []int{1, 2, 3, 4, 5, 6, 7, 8},
+	}}
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			gotEventIndices := pcc.EventIndices(CPUs(test.cpus...))
+			if diff := cmp.Diff(test.wantEventIndices, gotEventIndices); diff != "" {
+				t.Errorf("EventIndices() = %#v; diff (want->got) %s", gotEventIndices, diff)
 			}
 
 		})

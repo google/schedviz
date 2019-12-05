@@ -368,3 +368,81 @@ func TestUtilizationMetrics(t *testing.T) {
 		})
 	}
 }
+
+// TestThreadStats tests the aggregate thread statistics.
+func TestThreadStats(t *testing.T) {
+	c, err := NewCollection(schedtestcommon.TestTrace1(t), NormalizeTimestamps(false))
+	if err != nil {
+		t.Fatalf("Broken collection, can't proceed: `%s'", err)
+	}
+	tests := []struct {
+		description     string
+		PIDs            []PID
+		CPUs            []CPUID
+		startTimestamp  trace.Timestamp
+		endTimestamp    trace.Timestamp
+		wantThreadStats *ThreadStatistics
+	}{{
+		description:    "everything",
+		startTimestamp: trace.UnknownTimestamp,
+		endTimestamp:   trace.UnknownTimestamp,
+		wantThreadStats: &ThreadStatistics{
+			WaitTime:           80,  // 10 (PID 100) + 60 (PID 200) + 10 (PID 300)
+			PostWakeupWaitTime: 80,  // All waits
+			RunTime:            200, // All the time on CPUs 1 and 2
+			SleepTime:          120, // 40 (PID 200) + 80 (PID 300)
+			Wakeups:            5,   // PID 100 at start and end, PID 200 at 1040, PID 300 at 1090, PID 400 at end
+			Migrations:         1,   // PID 200
+		},
+	}, {
+		description:    "CPU 2",
+		CPUs:           []CPUID{2},
+		startTimestamp: trace.UnknownTimestamp,
+		endTimestamp:   trace.UnknownTimestamp,
+		wantThreadStats: &ThreadStatistics{
+			WaitTime:           20, // PID 200
+			PostWakeupWaitTime: 20,
+			RunTime:            100,
+			SleepTime:          0,
+			Wakeups:            2, // PID 400 at end, PID 200 at 1080 when it arrived
+			Migrations:         0, // No migrations among only 1 CPU
+		},
+	}, {
+		description:    "PID 200",
+		PIDs:           []PID{200},
+		startTimestamp: trace.UnknownTimestamp,
+		endTimestamp:   trace.UnknownTimestamp,
+		wantThreadStats: &ThreadStatistics{
+			WaitTime:           60,
+			PostWakeupWaitTime: 60,
+			RunTime:            0,
+			SleepTime:          40,
+			Wakeups:            1, // At 1040
+			Migrations:         1,
+		},
+	}, {
+		description:    "Time filtered",
+		startTimestamp: 1045,
+		endTimestamp:   1090,
+		wantThreadStats: &ThreadStatistics{
+			WaitTime:           45, // PID 200
+			PostWakeupWaitTime: 45, // All waits
+			RunTime:            90, // all the time on CPUs 1 and 2
+			SleepTime:          45, // PID 300
+			Wakeups:            2,  // PID 200 at its initial point, PID 300 at 1090
+			Migrations:         1,  // PID 200
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			gotThreadStats, err := c.ThreadStats(PIDs(test.PIDs...), CPUs(test.CPUs...), TimeRange(test.startTimestamp, test.endTimestamp))
+			if err != nil {
+				t.Fatalf("Unexpected error %s", err)
+			}
+			diff := cmp.Diff(gotThreadStats, test.wantThreadStats)
+			if len(diff) > 0 {
+				t.Errorf("c.ThreadStats() = %v, diff(got->want) %v", gotThreadStats, diff)
+			}
+		})
+	}
+}
