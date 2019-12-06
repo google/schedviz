@@ -18,6 +18,7 @@ import {ChangeDetectorRef, Component, Input, OnDestroy, OnInit} from '@angular/c
 import {BehaviorSubject, combineLatest, ReplaySubject, Subject} from 'rxjs';
 import {filter, takeUntil} from 'rxjs/operators';
 
+import {ThreadInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
 
 import {jumpToTime} from './jump_to_time';
@@ -50,6 +51,9 @@ export class AntagonistTable extends SelectableTable implements OnInit,
       throw new Error('Missing Observable for jump to time');
     }
 
+    this.dataSource.sortingDataAccessor = (data, sortHeaderId) =>
+        this.getSortingValue(data as ThreadInterval, sortHeaderId);
+
     this.jumpToTimeNs.pipe(takeUntil(this.unsub$)).subscribe((timeNs) => {
       jumpToTime(this.dataSource, timeNs);
     });
@@ -58,5 +62,25 @@ export class AntagonistTable extends SelectableTable implements OnInit,
   ngOnDestroy() {
     this.unsub$.next();
     this.unsub$.complete();
+  }
+
+  getSortingValue(thread: ThreadInterval, sortHeaderId: string): string|number {
+    switch (sortHeaderId) {
+      case 'selected':
+        return thread.selected ? 1 : 0;
+      case 'pid':
+        return thread.pid;
+      case 'command':
+        return thread.command;
+      case 'startTimeNs':
+        return thread.startTimeNs;
+      case 'endTimeNs':
+        return thread.endTimeNs;
+      case 'duration':
+        return thread.duration;
+      default:
+        this.outputErrorThrottled(`Unknown header: ${sortHeaderId}`);
+        return '';
+    }
   }
 }

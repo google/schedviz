@@ -31,7 +31,7 @@ import {debounceTime, takeUntil} from 'rxjs/operators';
 import {CollectionMetadata} from '../models';
 import {CollectionsFilter} from '../models/collections_filter';
 import {CollectionDataService} from '../services/collection_data_service';
-import {createHttpErrorMessage, Reflect} from '../util/helpers';
+import {createHttpErrorMessage, Reflect, throttle} from '../util/helpers';
 
 /**
  * The CollectionsTable displays collection info in a sortable, searchable,
@@ -55,6 +55,9 @@ export class CollectionsTable implements OnInit, OnDestroy {
   ];
 
   private unsub$ = new Subject<void>();
+  private readonly outputErrorThrottled = throttle((message) => {
+    console.error(message);
+  }, 500);
 
   displayedColumns = ['select', 'creator', ...this.columns];
   rowHeightPx = 37;
@@ -106,6 +109,8 @@ export class CollectionsTable implements OnInit, OnDestroy {
     this.dataSource.sort.sort(
         {id: 'creationTime', start: 'desc', disableClear: false});
     this.dataSource.filterPredicate = this.filterPredicate;
+    this.dataSource.sortingDataAccessor = (data, sortHeaderId) =>
+        this.getSortingValue(data, sortHeaderId);
 
     this.filter.changes.pipe(debounceTime(500)).subscribe(() => {
       this.dataSource.filter = JSON.stringify(this.filter);
@@ -245,6 +250,29 @@ export class CollectionsTable implements OnInit, OnDestroy {
     return this.router
         .createUrlTree(['/dashboard'], {fragment: `collection=${name}`})
         .toString();
+  }
+
+  getSortingValue(collectionMetadata: CollectionMetadata, sortHeaderId: string):
+      string|number {
+    switch (sortHeaderId) {
+      case 'creator':
+        return collectionMetadata.creator;
+      case 'targetMachine':
+        return collectionMetadata.targetMachine;
+      case 'creationTime':
+        return collectionMetadata.creationTime ?
+            collectionMetadata.creationTime.valueOf() :
+            '';
+      case 'tags':
+        return collectionMetadata.tags.join();
+      case 'description':
+        return collectionMetadata.description;
+      case 'name':
+        return collectionMetadata.name;
+      default:
+        this.outputErrorThrottled(`Unknown header: ${sortHeaderId}`);
+        return '';
+    }
   }
 }
 

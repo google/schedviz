@@ -66,6 +66,8 @@ export class IntervalTable extends SelectableTable implements OnInit,
       throw new Error('Missing Observable for jump to time');
     }
 
+    this.dataSource.sortingDataAccessor = (data, sortHeaderId) =>
+        this.getSortingValue(data as ThreadInterval, sortHeaderId);
     this.dataSource.filterPredicate = this.filterPredicate;
 
     this.jumpToTimeNs.pipe(takeUntil(this.unsub$)).subscribe((timeNs) => {
@@ -105,5 +107,24 @@ export class IntervalTable extends SelectableTable implements OnInit,
    */
   clearFilter() {
     this.filter.next('');
+  }
+
+  getSortingValue(interval: ThreadInterval, sortHeaderId: string): string
+      |number {
+    switch (sortHeaderId) {
+      case 'cpu':
+        return interval.cpu;
+      case 'state':
+        return interval.state;
+      case 'startTimeNs':
+        return interval.startTimeNs;
+      case 'endTimeNs':
+        return interval.endTimeNs;
+      case 'duration':
+        return interval.duration;
+      default:
+        this.outputErrorThrottled(`Unknown header: ${sortHeaderId}`);
+        return '';
+    }
   }
 }

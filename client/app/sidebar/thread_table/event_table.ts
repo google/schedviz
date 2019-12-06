@@ -18,6 +18,7 @@ import {ChangeDetectorRef, Component, Input, OnDestroy, OnInit} from '@angular/c
 import {ReplaySubject, Subject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
+import {FtraceInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
 import * as Duration from '../../util/duration';
 
@@ -49,6 +50,9 @@ export class EventTable extends SelectableTable implements OnInit, OnDestroy {
       throw new Error('Missing Observable for jump to time');
     }
 
+    this.dataSource.sortingDataAccessor = (data, sortHeaderId) =>
+        this.getSortingValue(data as FtraceInterval, sortHeaderId);
+
     this.jumpToTimeNs.pipe(takeUntil(this.unsub$)).subscribe((timeNs) => {
       jumpToTime(this.dataSource, timeNs);
     });
@@ -65,5 +69,16 @@ export class EventTable extends SelectableTable implements OnInit, OnDestroy {
    */
   formatTime(durationNs: number) {
     return Duration.getHumanReadableDurationFromNs(durationNs);
+  }
+
+  getSortingValue(interval: FtraceInterval, sortHeaderId: string): string
+      |number {
+    switch (sortHeaderId) {
+      case 'startTimeNs':
+        return interval.startTimeNs;
+      default:
+        this.outputErrorThrottled(`Unknown header: ${sortHeaderId}`);
+        return '';
+    }
   }
 }

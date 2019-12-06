@@ -24,7 +24,7 @@ import {BehaviorSubject} from 'rxjs';
 import {Interval, Layer} from '../../models';
 import {ColorService} from '../../services/color_service';
 import * as Duration from '../../util/duration';
-import {findIndex} from '../../util/helpers';
+import {findIndex, throttle} from '../../util/helpers';
 
 /**
  * Base class for table of SchedViz data for which dedicated layers can be
@@ -61,6 +61,10 @@ export class SelectableTable implements OnInit {
   dataSource: MatTableDataSource<Interval>;
   layersArray: Layer[] = [];
   pageSize = 10;
+
+  protected readonly outputErrorThrottled = throttle((message) => {
+    console.error(message);
+  }, 500);
 
   constructor(
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {

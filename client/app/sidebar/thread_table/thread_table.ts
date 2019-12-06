@@ -131,6 +131,9 @@ export class ThreadTable extends SelectableTable implements OnInit,
       throw new Error('Missing Observable for expanded thread intervals');
     }
     this.dataSource.filterPredicate = this.filterPredicate;
+    this.dataSource.sortingDataAccessor = (data, sortHeaderId) =>
+        this.getSortingValue(data as Thread, sortHeaderId);
+
     // Subscribe to filter changes
     this.filter.subscribe((filter: string) => {
       this.dataSource.filter = filter;
@@ -238,6 +241,32 @@ export class ThreadTable extends SelectableTable implements OnInit,
     const expandedThreadLabel =
         this.expandedThread.value === thread.label ? undefined : thread.label;
     this.expandedThread.next(expandedThreadLabel);
+  }
+
+  getSortingValue(interval: Thread, sortHeaderId: string): string|number {
+    switch (sortHeaderId) {
+      case 'selected':
+        return interval.selected ? 1 : 0;
+      case 'pid':
+        return interval.pid;
+      case 'command':
+        return interval.command;
+      case 'wakeups':
+        return interval.wakeups;
+      case 'migrations':
+        return interval.migrations;
+      case 'waittime':
+        return interval.waittime;
+      case 'runtime':
+        return interval.runtime;
+      case 'sleeptime':
+        return interval.sleeptime;
+      case 'unknowntime':
+        return interval.unknowntime;
+      default:
+        this.outputErrorThrottled(`Unknown header: ${sortHeaderId}`);
+        return '';
+    }
   }
 
 }

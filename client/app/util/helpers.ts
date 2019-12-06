@@ -22,6 +22,7 @@
  * https://github.com/google/closure-library/blob/de66a8ac885a31778404af842ad0f1f9dd595609/closure/goog/math/math.js
  * https://github.com/google/closure-library/blob/de66a8ac885a31778404af842ad0f1f9dd595609/closure/goog/crypt/base64.js
  * https://github.com/google/closure-library/blob/de66a8ac885a31778404af842ad0f1f9dd595609/closure/goog/string/string.js
+ * https://github.com/google/closure-library/blob/de66a8ac885a31778404af842ad0f1f9dd595609/closure/goog/functions/functions.js
  */
 
 import {HttpErrorResponse} from '@angular/common/http';
@@ -347,3 +348,40 @@ export const Reflect = {
     return (obj as {[k: string]: string})[key];
   }
 };
+
+/**
+ * Wraps a function to allow it to be called, at most, once per interval
+ * (specified in milliseconds). If the wrapper function is called N times in
+ * that interval, both the 1st and the Nth calls will go through.
+ *
+ * @param func is the function to throttle
+ * @param intervalMs is the interval to throttle the function against
+ */
+export function throttle<T extends(...args: unknown[]) => void>(
+    func: T, intervalMs: number): T {
+  let timeout = 0;
+  let shouldFire = false;
+  let latestArgs: unknown = [];
+
+  const handleTimeout = () => {
+    timeout = 0;
+    if (shouldFire) {
+      shouldFire = false;
+      fire();
+    }
+  };
+
+  const fire = () => {
+    timeout = setTimeout(handleTimeout, intervalMs);
+    func(latestArgs);
+  };
+
+  return ((args) => {
+           latestArgs = args;
+           if (!timeout) {
+             fire();
+           } else {
+             shouldFire = true;
+           }
+         }) as T;
+}
