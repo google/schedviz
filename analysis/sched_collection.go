@@ -158,10 +158,7 @@ func (c *Collection) buildSpansByPID(es *eventpb.EventSet, eventLoaders map[stri
 	if ts == nil {
 		return status.Errorf(codes.InvalidArgument, "no usable events in collection")
 	}
-	// End any still-open per-thread spans with a Timestamp just past the last
-	// unclipped Timestamp observed in the trace.  This indicates that the
-	// behavior in the span is ongoing past the end of the trace.
-	c.spansByPID, err = ts.threadSpans(c.endTimestamp + 1)
+	c.spansByPID, err = ts.threadSpans(c.endTimestamp)
 	c.droppedEventCountsByID = ts.droppedEventCountsByID
 	c.syntheticTransitionCount = ts.syntheticTransitionCount
 	return err

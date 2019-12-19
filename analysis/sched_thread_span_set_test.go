@@ -17,7 +17,6 @@
 package sched
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -124,7 +123,7 @@ func TestSpanDistributionByPID(t *testing.T) {
 				withState(RunningState).
 				withTreeID(3),
 			emptySpan(100).
-				withTimeRange(1100, 1100).
+				withTimeRange(1100, 1101).
 				withCPU(1).
 				withState(WaitingState).
 				withTreeID(4),
@@ -151,7 +150,7 @@ func TestSpanDistributionByPID(t *testing.T) {
 				withState(WaitingState).
 				withTreeID(8),
 			emptySpan(200).
-				withTimeRange(1100, 1100).
+				withTimeRange(1100, 1101).
 				withCPU(2).
 				withState(RunningState).
 				withTreeID(9),
@@ -178,7 +177,7 @@ func TestSpanDistributionByPID(t *testing.T) {
 				withState(WaitingState).
 				withTreeID(13),
 			emptySpan(300).
-				withTimeRange(1100, 1100).
+				withTimeRange(1100, 1101).
 				withCPU(1).
 				withState(RunningState).
 				withTreeID(14),
@@ -190,7 +189,7 @@ func TestSpanDistributionByPID(t *testing.T) {
 				withState(RunningState).
 				withTreeID(15),
 			emptySpan(400).
-				withTimeRange(1100, 1100).
+				withTimeRange(1100, 1101).
 				withCPU(2).
 				withState(WaitingState).
 				withTreeID(16),
@@ -206,7 +205,7 @@ func TestSpanDistributionByPID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error from threadSpans: %s", err)
 	}
-	if !reflect.DeepEqual(gotSpans, wantSpans) {
-		t.Fatalf("threadSpans = \n%#v; want\n%#v", gotSpans, wantSpans)
+	if diff := cmp.Diff(gotSpans, wantSpans, cmp.AllowUnexported(threadSpan{})); diff != "" {
+		t.Errorf("Unexpected threadSpans output; Diff -want +got %v", diff)
 	}
 }

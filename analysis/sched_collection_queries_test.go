@@ -450,8 +450,8 @@ func TestSwitchOnly(t *testing.T) {
 					syntheticThreadResidency(thread1, Duration(15), SleepingState),
 				),
 				interval(
-					1, trace.Timestamp(1030), Duration(1), CPUID(1),
-					threadResidency(thread1, Duration(1), RunningState),
+					1, trace.Timestamp(1030), Duration(0), CPUID(1),
+					threadResidency(thread1, Duration(0), RunningState),
 				),
 			},
 		}, {
@@ -466,8 +466,8 @@ func TestSwitchOnly(t *testing.T) {
 					threadResidency(thread2, Duration(20), RunningState),
 				),
 				interval(
-					1, trace.Timestamp(1020), Duration(11), CPUID(0),
-					threadResidency(thread2, Duration(11), SleepingState),
+					1, trace.Timestamp(1020), Duration(10), CPUID(0),
+					threadResidency(thread2, Duration(10), SleepingState),
 				),
 			},
 		}, {
@@ -488,8 +488,8 @@ func TestSwitchOnly(t *testing.T) {
 					syntheticThreadResidency(thread3, Duration(5), WaitingState),
 				),
 				interval(
-					1, trace.Timestamp(1020), Duration(11), CPUID(0),
-					threadResidency(thread3, Duration(11), RunningState),
+					1, trace.Timestamp(1020), Duration(10), CPUID(0),
+					threadResidency(thread3, Duration(10), RunningState),
 				),
 			},
 		}, {
@@ -504,8 +504,8 @@ func TestSwitchOnly(t *testing.T) {
 					threadResidency(thread4, Duration(20), RunningState),
 				),
 				interval(
-					1, trace.Timestamp(1030), Duration(1), CPUID(1),
-					threadResidency(thread4, Duration(1), WaitingState),
+					1, trace.Timestamp(1030), Duration(0), CPUID(1),
+					threadResidency(thread4, Duration(0), WaitingState),
 				),
 			},
 		}}
