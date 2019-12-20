@@ -104,17 +104,6 @@ go_test(
     ],
 )
 
-go_library(
-    name = "legacyconversion",
-importpath = "github.com/google/schedviz/analysis/legacyconversion",
-
-    deps = [
-        "//server:models",
-        "//tracedata:schedviz_events_go_proto",
-        "@com_github_golang_protobuf//proto:go_default_library",
-    ],
-)
-
 proto_library(
     name = "event_loaders_proto",
     srcs = ["sched_event_loaders.proto"],
