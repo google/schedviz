@@ -509,7 +509,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
     this.pidIntervalSubscription =
         merge(...layerSubjs)
             .pipe(
-                buffer(merge(...layerSubjs).pipe(debounceTime(100))),
+                buffer(merge(...layerSubjs).pipe(debounceTime(250))),
                 mergeMap(layers => {
                   layers = layers
                                .map(layer => {
