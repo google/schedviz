@@ -122,9 +122,6 @@ func (c *Collection) buildSpansByPID(es *eventpb.EventSet, eventLoaders map[stri
 	}
 	c.TraceCollection = coll
 	var ts *threadSpanSet
-	if err := c.setTimestampNormalize(coll); err != nil {
-		return err
-	}
 	for eventIndex := 0; eventIndex < coll.EventCount(); eventIndex++ {
 		ev, err := coll.EventByIndex(eventIndex)
 		if err != nil {
@@ -134,22 +131,33 @@ func (c *Collection) buildSpansByPID(es *eventpb.EventSet, eventLoaders map[stri
 		if ev.Clipped {
 			continue
 		}
-		// Adjust the event's timestamp.
-		ev.Timestamp = ev.Timestamp - c.normalizationOffset
-		c.endTimestamp = ev.Timestamp
-		// Initialize the threadIntervalBuilder on first use.
-		if ts == nil {
-			c.startTimestamp = ev.Timestamp
-			ts = newThreadSpanSet(c.startTimestamp, c.options)
-		}
 		// Translate the event into ThreadTransitions.
 		tts, err := eventLoader.threadTransitions(ev)
 		if err != nil {
 			return err
 		}
+		// Skip events that do not make transitions.
+		if len(tts) == 0 {
+			continue
+		}
+		// If the normalization offset hasn't yet been set, do so.
+		if c.normalizationOffset == UnknownTimestamp {
+			if c.options.normalizeTimestamps {
+				c.normalizationOffset = ev.Timestamp
+			} else {
+				c.normalizationOffset = 0
+			}
+			c.startTimestamp = ev.Timestamp - c.NormalizationOffset()
+		}
+		// Initialize the threadIntervalBuilder on first use.
+		if ts == nil {
+			ts = newThreadSpanSet(c.startTimestamp, c.options)
+		}
+		c.endTimestamp = ev.Timestamp - c.NormalizationOffset()
 		c.ThreadTransitions = tts
 		// Add those transitions to the threadIntervalBuilder.
 		for _, tt := range tts {
+			tt.Timestamp -= c.normalizationOffset
 			if err := ts.addTransition(tt); err != nil {
 				return err
 			}
@@ -239,40 +247,10 @@ func (c *Collection) GetRawEvents(filters ...Filter) ([]*trace.Event, error) {
 	return events, nil
 }
 
-func (c *Collection) setTimestampNormalize(coll *trace.Collection) error {
-	if coll.EventCount() == 0 {
-		return nil
-	}
-	if c.normalizationOffset != Unknown {
-		return nil
-	}
-	// If the normalization offset is Unknown, set it.
-	if !c.options.normalizeTimestamps {
-		c.normalizationOffset = 0
-		return nil
-	}
-
-	for index := 0; index < coll.EventCount(); index++ {
-		ev, err := coll.EventByIndex(index)
-		if err != nil {
-			return err
-		}
-		// Timestamp normalization is to the first unclipped event in the collection.
-		if ev.Clipped {
-			continue
-		}
-
-		c.normalizationOffset = ev.Timestamp
-		return nil
-	}
-	return nil
-}
-
 // Interval returns the first and last timestamps of the events present in this Collection.
 // Only valid if tc.Valid() is true.
 func (c *Collection) Interval(filters ...Filter) (startTS, endTS trace.Timestamp) {
 	f := buildFilter(c, filters)
-
 	return f.startTimestamp, f.endTimestamp
 }
 

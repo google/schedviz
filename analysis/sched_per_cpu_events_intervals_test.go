@@ -152,9 +152,15 @@ func typeFilteringCPULookupFunc(eventType string) CPULookupFunc {
 
 func perCPUEventsIntervalsCollection(t *testing.T, normalizeTimestamps bool) *Collection {
 	t.Helper()
+	f := func(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
+		ttsb.WithTransition(ev.Index, ev.Timestamp, PID(ev.NumberProperties[intervalIDLabel])).
+			WithPrevCPU(CPUID(ev.CPU)).
+			WithNextCPU(CPUID(ev.CPU))
+		return nil
+	}
 	evtLoaders := map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
-		intervalStartLabel: func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
-		intervalEndLabel:   func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
+		intervalStartLabel: f,
+		intervalEndLabel:   f,
 	}
 
 	// An EventSet with two CPUs and two intervals on each:

@@ -72,7 +72,9 @@ func UnpopulatedBuilder() *eventsetbuilder.Builder {
 			"sched_stat_runtime",
 			eventsetbuilder.Number("pid"),
 			eventsetbuilder.Text("comm"),
-			eventsetbuilder.Number("runtime"))
+			eventsetbuilder.Number("runtime")).
+		WithEventDescriptor(
+			"non_sched_event")
 }
 
 // Used to set switching-out threads' states.
@@ -155,6 +157,8 @@ func TestTrace1(t *testing.T) *eventpb.EventSet {
 			// PID 600 wakes up on CPU 3 at time 500, but this is clipped.
 			WithEvent("sched_wakeup", 3, 500, true,
 				600, "Process6", 50, 1).
+			// An unclipped non-sched event occurs at time 900.
+			WithEvent("non_sched_event", 1, 900, false).
 			// PID 300 switches in on CPU 1 at time 1000, PID 200 switches out SLEEPING
 			WithEvent("sched_switch", 1, 1000, false,
 				200, "Process2", 50, Interruptible,

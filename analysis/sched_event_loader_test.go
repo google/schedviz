@@ -214,68 +214,68 @@ func TestTestTrace1Transitions(t *testing.T) {
 	process3ID := sb.stringIDByString("Process3")
 	process4ID := sb.stringIDByString("Process4")
 	wantTts := []*threadTransition{
-		emptyTransition(1, 1000, 300).
+		emptyTransition(2, 1000, 300).
 			withCommands(process3ID, process3ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withStates(UnknownState, RunningState),
-		emptyTransition(1, 1000, 200).
+		emptyTransition(2, 1000, 200).
 			withCommands(process2ID, process2ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withStates(RunningState, SleepingState),
-		emptyTransition(2, 1000, 100).
+		emptyTransition(3, 1000, 100).
 			withCommands(process1ID, process1ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withStates(UnknownState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
-		emptyTransition(3, 1010, 100).
+		emptyTransition(4, 1010, 100).
 			withCommands(process1ID, process1ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withStates(UnknownState, RunningState),
-		emptyTransition(3, 1010, 300).
+		emptyTransition(4, 1010, 300).
 			withCommands(process3ID, process3ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withStates(RunningState, SleepingState),
-		emptyTransition(4, 1040, 200).
+		emptyTransition(5, 1040, 200).
 			withCommands(process2ID, process2ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withStates(UnknownState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
-		emptyTransition(5, 1080, 200).
+		emptyTransition(6, 1080, 200).
 			withCommands(process2ID, process2ID).
 			withPriorities(50, 50).
 			withCPUs(1, 2).
 			withStates(UnknownState, UnknownState),
-		emptyTransition(6, 1090, 300).
+		emptyTransition(7, 1090, 300).
 			withCommands(process3ID, process3ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withStates(UnknownState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
-		emptyTransition(7, 1100, 200).
+		emptyTransition(8, 1100, 200).
 			withCommands(process2ID, process2ID).
 			withPriorities(50, 50).
 			withCPUs(2, 2).
 			withStates(UnknownState, RunningState),
-		emptyTransition(7, 1100, 400).
+		emptyTransition(8, 1100, 400).
 			withCommands(process4ID, process4ID).
 			withPriorities(50, 50).
 			withCPUs(2, 2).
 			withStates(RunningState, WaitingState),
-		emptyTransition(8, 1100, 300).
+		emptyTransition(9, 1100, 300).
 			withCommands(process3ID, process3ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withStates(UnknownState, RunningState),
-		emptyTransition(8, 1100, 100).
+		emptyTransition(9, 1100, 100).
 			withCommands(process1ID, process1ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).

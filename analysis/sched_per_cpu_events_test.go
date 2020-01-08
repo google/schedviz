@@ -37,10 +37,16 @@ const (
 )
 
 func perCPUEventsCollection(t *testing.T, normalizeTimestamps bool) *Collection {
+	f := func(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
+		ttsb.WithTransition(ev.Index, ev.Timestamp, PID(ev.CPU)).
+			WithPrevCPU(CPUID(ev.CPU)).
+			WithNextCPU(CPUID(ev.CPU))
+		return nil
+	}
 	evtLoaders := map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
-		simpleNumericEventLabel: func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
-		simpleTextualEventLabel: func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
-		indirectEventLabel:      func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
+		simpleNumericEventLabel: f,
+		simpleTextualEventLabel: f,
+		indirectEventLabel:      f,
 	}
 
 	es := testeventsetbuilder.TestProtobuf(t,
@@ -424,7 +430,7 @@ func TestSchedCollection(t *testing.T) {
 	}{{
 		description:      "All CPUs",
 		cpus:             []CPUID{0, 1, 2},
-		wantEventIndices: []int{1, 2, 3, 4, 5, 6, 7, 8},
+		wantEventIndices: []int{2, 3, 4, 5, 6, 7, 8, 9},
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
