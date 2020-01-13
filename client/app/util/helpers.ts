@@ -113,7 +113,9 @@ export function byteArrayToString(bytes: Uint8Array|number[]): string {
 
   // Special-case the simple case for speed's sake.
   if (bytes.length <= CHUNK_SIZE) {
-    return String.fromCharCode.apply(null, bytes);
+    // TODO(tracked):  Argument of type 'number[] | Uint8Array' is not
+    // assignable to parameter of type 'number[]'.
+    return String.fromCharCode.apply(null, bytes as any);
   }
 
   // The remaining logic splits conversion by chunks since
