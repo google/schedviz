@@ -178,6 +178,7 @@ export interface EditCollectionDialogData {
   owners: string;
 }
 
+
 /**
  * A dialog to edit the collection metadata
  */
