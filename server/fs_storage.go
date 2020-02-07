@@ -24,6 +24,7 @@ import (
 	"path"
 	"strings"
 
+	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 
@@ -107,8 +108,7 @@ func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (
 	if err != nil {
 		return nil, err
 	}
-	collection, err := sched.NewCollection(collectionProto.EventSet,
-		sched.NormalizeTimestamps(true))
+	collection, err := createCollection(collectionProto.EventSet)
 	if err != nil {
 		return nil, err
 	}
@@ -277,6 +277,25 @@ func (fs *FsStorage) GetFtraceEvents(ctx context.Context, req *models.FtraceEven
 // otherwise unknown events are logged and ignored.
 func (fs *FsStorage) SetFailOnUnknownEventFormat(option bool) {
 	fs.failOnUnknownEventFormat = option
+}
+
+// createCollection creates a collection with the default event loader, and
+// will attempt to create a collection with the fault tolerant loader if the
+// default loader failed.
+func createCollection(es *eventpb.EventSet) (*sched.Collection, error) {
+	coll, err := sched.NewCollection(es, sched.NormalizeTimestamps(true))
+	if err == nil {
+		return coll, nil
+	}
+	log.Warning("Failed to load collection with default loader. " +
+		"Retrying with fault tolerant loader.")
+	coll, err = sched.NewCollection(es,
+		sched.NormalizeTimestamps(true),
+		sched.UsingEventLoaders(sched.FaultTolerantEventLoaders()))
+	if err != nil {
+		return nil, err
+	}
+	return coll, nil
 }
 
 func missingFieldError(fieldName string) error {
