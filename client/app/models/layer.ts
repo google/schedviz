@@ -18,11 +18,26 @@ import * as d3 from 'd3';
 
 import {Interval} from './interval';
 
+// Dummy interface to prevent property renaming.
+declare interface LayerProps {
+  name: string;
+  dataType: string;
+  ids: number[];
+  color: string;
+  intervals: Interval[];
+  visible: boolean;
+  interpolate: boolean;
+  borderRadius: number;
+  drawEdges: boolean;
+  parent?: string;
+  initialized: boolean;
+}
+
 /**
  * Client-side collection interval representation, for rendering.
  * TODO(tracked) Make templated and remove casts of intervals member
  */
-export class Layer {
+export class Layer implements LayerProps {
   // Flag used to indicate when a Layer is new and has no initial render data
   initialized = false;
 
@@ -31,7 +46,7 @@ export class Layer {
       public color = '#ffffff', public intervals: Interval[] = [],
       public visible = true, public interpolate = ids.length > 1,
       public borderRadius = 30, public drawEdges = true,
-      public parent ?: string) {}
+      public parent?: string) {}
 
   /**
    * @return the render color to use for the given layer datum.

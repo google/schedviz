@@ -14,10 +14,20 @@
 // limitations under the License.
 //
 //
+// Dummy interface to prevent property renaming.
+declare interface ViewportProps {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  chartWidthPx: number;
+  chartHeightPx: number;
+}
+
 /**
  * A parametric viewport describing the current chart view.
  */
-export class Viewport {
+export class Viewport implements ViewportProps {
   left = 0.0;
   top = 0.0;
   right = 1.0;
