@@ -35,18 +35,24 @@ export function verifySorting(
   expect(table.sort).not.toBeNull();
   const sortButtons = root.querySelectorAll('.mat-sort-header-button');
   expect(sortButtons.length).toEqual(expectedColumns.length);
+  const paginator = table.paginator;
+  expect(paginator).not.toBeNull();
 
   for (let i = 0; i < sortButtons.length; i++) {
     const sortButton = sortButtons[i] as HTMLButtonElement;
     const expectedSortId = expectedColumns[i];
 
+    paginator!.lastPage();
     sortButton.click();
     expect(table.sort!.active).toBe(expectedSortId);
     expect(table.sort!.direction).toBe('asc');
+    expect(paginator!.pageIndex).toBe(0);
 
+    paginator!.lastPage();
     sortButton.click();
     expect(table.sort!.active).toBe(expectedSortId);
     expect(table.sort!.direction).toBe('desc');
+    expect(paginator!.pageIndex).toBe(0);
   }
 }
 

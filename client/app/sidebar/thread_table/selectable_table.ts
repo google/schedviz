@@ -15,11 +15,12 @@
 //
 //
 import {SelectionModel} from '@angular/cdk/collections';
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, OnInit, ViewChild} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {MatPaginator} from '@angular/material/paginator';
 import {MatSort, Sort} from '@angular/material/sort';
 import {MatTableDataSource} from '@angular/material/table';
-import {BehaviorSubject} from 'rxjs';
+import {BehaviorSubject, Subject} from 'rxjs';
+import {takeUntil} from 'rxjs/operators';
 
 import {Interval, Layer} from '../../models';
 import {ColorService} from '../../services/color_service';
@@ -44,7 +45,7 @@ import {findIndex, throttle} from '../../util/helpers';
       `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class SelectableTable implements OnInit {
+export class SelectableTable implements OnInit, OnDestroy {
   @ViewChild(MatSort, {static: true}) matSort!: MatSort;
   @ViewChild(MatPaginator, {static: true}) paginator!: MatPaginator;
   @ViewChild('table', {static: true}) table!: ElementRef;
@@ -61,6 +62,8 @@ export class SelectableTable implements OnInit {
   dataSource: MatTableDataSource<Interval>;
   layersArray: Layer[] = [];
   pageSize = 10;
+
+  protected readonly unsub$ = new Subject<void>();
 
   protected readonly outputErrorThrottled = throttle((message) => {
     console.error(message);
@@ -88,6 +91,9 @@ export class SelectableTable implements OnInit {
     this.dataSource.sort = this.matSort;
     if (this.paginator) {
       this.dataSource.paginator = this.paginator;
+      this.sort.pipe(takeUntil(this.unsub$)).subscribe(() => {
+        this.paginator.firstPage();
+      });
     }
     // Subscribe to data changes
     this.data.subscribe((data: Interval[]) => {
@@ -127,6 +133,11 @@ export class SelectableTable implements OnInit {
         this.onResize();
       });
     }
+  }
+
+  ngOnDestroy(): void {
+    this.unsub$.next();
+    this.unsub$.complete();
   }
 
   onResize() {}

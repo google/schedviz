@@ -162,7 +162,6 @@
                                  [data]="expandedFtraceIntervals"
                                  [preview]="preview"
                                  [layers]="layers"
-                                 [sort]="sort"
                                  [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
                                  [dataPending]="thread.eventsPending">
                     </event-table>
@@ -172,7 +171,6 @@
                                     [data]="expandedThreadIntervals"
                                     [preview]="preview"
                                     [layers]="layers"
-                                    [sort]="sort"
                                     [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
                                     [dataPending]="thread.intervalsPending">
                     </interval-table>
@@ -182,7 +180,6 @@
                                       [data]="expandedThreadAntagonists"
                                       [preview]="preview"
                                       [layers]="layers"
-                                      [sort]="sort"
                                       [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
                                       [dataPending]="thread.antagonistsPending">
                     </antagonist-table>

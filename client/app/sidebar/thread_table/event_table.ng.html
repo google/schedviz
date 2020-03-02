@@ -1,5 +1,11 @@
 <div class="table-container-events">
-  <mat-table class="embedded-table" matSort [dataSource]="dataSource" (mouseout)="previewRow();">
+  <mat-table class="embedded-table"
+             matSort
+             (matSortChange)="this.sort.next($event)"
+             [matSortActive]="sort.value.active"
+             [matSortDirection]="sort.value.direction"
+             [dataSource]="dataSource"
+             (mouseout)="previewRow();">
 
     <!-- TODO(sainsley): Add back select column when event layer persistence is fixed -->
     <!--<ng-container matColumnDef="select">

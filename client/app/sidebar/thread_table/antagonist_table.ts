@@ -14,9 +14,10 @@
 // limitations under the License.
 //
 //
-import {ChangeDetectorRef, Component, Input, OnDestroy, OnInit} from '@angular/core';
-import {BehaviorSubject, combineLatest, ReplaySubject, Subject} from 'rxjs';
-import {filter, takeUntil} from 'rxjs/operators';
+import {ChangeDetectorRef, Component, Input, OnInit} from '@angular/core';
+import {Sort} from '@angular/material/sort';
+import {BehaviorSubject, ReplaySubject} from 'rxjs';
+import {takeUntil} from 'rxjs/operators';
 
 import {ThreadInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
@@ -32,10 +33,9 @@ import {SelectableTable} from './selectable_table';
   styleUrls: ['./thread_table.css'],
   templateUrl: 'antagonist_table.ng.html',
 })
-export class AntagonistTable extends SelectableTable implements OnInit,
-                                                                OnDestroy {
+export class AntagonistTable extends SelectableTable implements OnInit {
   @Input() jumpToTimeNs!: ReplaySubject<number>;
-  private readonly unsub$ = new Subject<void>();
+  sort = new BehaviorSubject<Sort>({active: '', direction: ''});
 
   constructor(
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {
@@ -57,11 +57,6 @@ export class AntagonistTable extends SelectableTable implements OnInit,
     this.jumpToTimeNs.pipe(takeUntil(this.unsub$)).subscribe((timeNs) => {
       jumpToTime(this.dataSource, timeNs);
     });
-  }
-
-  ngOnDestroy() {
-    this.unsub$.next();
-    this.unsub$.complete();
   }
 
   getSortingValue(thread: ThreadInterval, sortHeaderId: string): string|number {

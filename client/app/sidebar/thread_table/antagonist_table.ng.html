@@ -1,5 +1,11 @@
 <div class="table-container">
-  <mat-table class="embedded-table" [dataSource]="dataSource" matSort multiTemplateDataRows>
+  <mat-table class="embedded-table"
+             [dataSource]="dataSource"
+             matSort
+             (matSortChange)="this.sort.next($event)"
+             [matSortActive]="sort.value.active"
+             [matSortDirection]="sort.value.direction"
+             multiTemplateDataRows>
     <!-- Checkbox Column -->
     <ng-container matColumnDef="selected">
       <mat-header-cell mat-header-cell

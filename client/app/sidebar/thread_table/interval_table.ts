@@ -14,8 +14,9 @@
 // limitations under the License.
 //
 //
-import {ChangeDetectorRef, Component, Input, OnDestroy, OnInit} from '@angular/core';
-import {BehaviorSubject, ReplaySubject, Subject} from 'rxjs';
+import {ChangeDetectorRef, Component, Input, OnInit} from '@angular/core';
+import {Sort} from '@angular/material/sort';
+import {BehaviorSubject, ReplaySubject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
 import {Interval, ThreadInterval} from '../../models';
@@ -33,10 +34,9 @@ import {SelectableTable} from './selectable_table';
   styleUrls: ['thread_table.css'],
   templateUrl: 'interval_table.ng.html',
 })
-export class IntervalTable extends SelectableTable implements OnInit,
-                                                              OnDestroy {
+export class IntervalTable extends SelectableTable implements OnInit {
   @Input() jumpToTimeNs!: ReplaySubject<number>;
-  private readonly unsub$ = new Subject<void>();
+  sort = new BehaviorSubject<Sort>({active: '', direction: ''});
 
   filter = new BehaviorSubject<string>('');
   hideResults = false;
@@ -79,11 +79,6 @@ export class IntervalTable extends SelectableTable implements OnInit,
     });
     this.dataSource.sort!.sort(
         {id: 'startTimeNs', start: 'asc', disableClear: false});
-  }
-
-  ngOnDestroy() {
-    this.unsub$.next();
-    this.unsub$.complete();
   }
 
   /**

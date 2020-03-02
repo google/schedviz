@@ -14,8 +14,9 @@
 // limitations under the License.
 //
 //
-import {ChangeDetectorRef, Component, Input, OnDestroy, OnInit} from '@angular/core';
-import {ReplaySubject, Subject} from 'rxjs';
+import {ChangeDetectorRef, Component, Input, OnInit} from '@angular/core';
+import {Sort} from '@angular/material/sort';
+import {BehaviorSubject, ReplaySubject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
 import {FtraceInterval} from '../../models';
@@ -33,9 +34,9 @@ import {SelectableTable} from './selectable_table';
   styleUrls: ['thread_table.css'],
   templateUrl: 'event_table.ng.html',
 })
-export class EventTable extends SelectableTable implements OnInit, OnDestroy {
+export class EventTable extends SelectableTable implements OnInit {
   @Input() jumpToTimeNs!: ReplaySubject<number>;
-  private readonly unsub$ = new Subject<void>();
+  sort = new BehaviorSubject<Sort>({active: '', direction: ''});
 
   constructor(
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {
@@ -56,11 +57,6 @@ export class EventTable extends SelectableTable implements OnInit, OnDestroy {
     this.jumpToTimeNs.pipe(takeUntil(this.unsub$)).subscribe((timeNs) => {
       jumpToTime(this.dataSource, timeNs);
     });
-  }
-
-  ngOnDestroy() {
-    this.unsub$.next();
-    this.unsub$.complete();
   }
 
   /**

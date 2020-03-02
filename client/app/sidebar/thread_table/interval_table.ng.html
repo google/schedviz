@@ -26,7 +26,13 @@
     </mat-icon>
   </button>
 
-  <mat-table class="embedded-table" matSort [dataSource]="dataSource" (mouseout)="previewRow();">
+  <mat-table class="embedded-table"
+             matSort
+             [dataSource]="dataSource"
+             (mouseout)="previewRow();"
+             (matSortChange)="this.sort.next($event)"
+             [matSortActive]="sort.value.active"
+             [matSortDirection]="sort.value.direction">
     <!-- CPU Column -->
     <ng-container matColumnDef="cpu">
       <mat-header-cell *matHeaderCellDef mat-sort-header>CPU</mat-header-cell>
