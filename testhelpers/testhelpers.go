@@ -22,8 +22,8 @@ import (
 	"path"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"github.com/golang/protobuf/proto"
 )
 
 // DiffProto compares the string representations of two protos

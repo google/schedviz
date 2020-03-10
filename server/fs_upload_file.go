@@ -35,9 +35,9 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/google/schedviz/ebpf/schedbt"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"

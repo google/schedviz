@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"github.com/golang/protobuf/proto"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 )

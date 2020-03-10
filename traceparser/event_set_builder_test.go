@@ -19,8 +19,8 @@ package traceparser
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"github.com/golang/protobuf/proto"
 
 	pb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 )
