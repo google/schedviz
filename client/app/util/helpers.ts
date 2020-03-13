@@ -26,6 +26,8 @@
  */
 
 import {HttpErrorResponse} from '@angular/common/http';
+import {merge, fromEvent, of, Observable} from 'rxjs';
+import {map, distinctUntilChanged} from 'rxjs/operators';
 
 /**
  * Tests whether the two values are equal to each other, within a certain
@@ -387,3 +389,19 @@ export function throttle<T extends(...args: unknown[]) => void>(
            }
          }) as T;
 }
+
+/**
+ * isCtrlPressed is an Observable emits true if the control key is currently
+ * being pressed.
+ */
+export const isCtrlPressed: Observable<boolean> = merge(
+  // Trigger the observable immediately instead of waiting for keypress
+  of(false),
+  merge(
+    fromEvent<KeyboardEvent>(document, 'keydown'),
+    fromEvent<KeyboardEvent>(document, 'keyup')
+  ).pipe(
+    map(event => event.ctrlKey),
+    distinctUntilChanged(),
+  )
+);

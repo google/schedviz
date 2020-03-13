@@ -153,14 +153,7 @@ export class TopologicalCpuAxisLayer extends CpuAxisLayer {
           } else {
             filteredCpus = cpus.filter((cpu) => cpu.getNumaNode() === numa);
           }
-          const filterString = filteredCpus.reduce((acc, cpu) => {
-            if (acc.length) {
-              acc += ',';
-            }
-            return `${acc}${cpu.cpuIndex}`;
-          }, '');
-          this.toggleCpuFilter(
-              this.topology.prettifyCpuSelection(filterString));
+          this.toggleCpuFilter(filteredCpus.map(cpu => cpu.cpuIndex));
         });
     dataGroup.exit().remove();
     this.scaleLabels(viewport);

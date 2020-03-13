@@ -18,8 +18,8 @@ import {HttpErrorResponse} from '@angular/common/http';
 import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Inject, Input, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import * as d3 from 'd3';
-import {BehaviorSubject, from, merge, Subscription} from 'rxjs';
-import {buffer, debounceTime, mergeMap, pairwise, take} from 'rxjs/operators';
+import {BehaviorSubject, from, merge, Subscription, combineLatest} from 'rxjs';
+import {buffer, debounceTime, mergeMap, pairwise, take, filter, map} from 'rxjs/operators';
 
 import {CollectionParameters, CpuIdleWaitLayer, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
 import {ThreadState} from '../models/render_data_services';
@@ -27,7 +27,7 @@ import {RenderDataService} from '../services/render_data_service';
 import {DeregistrationCallback, ShortcutId, ShortcutService} from '../services/shortcut_service';
 import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
 import {copyToClipboard} from '../util/clipboard';
-import {nearlyEquals} from '../util/helpers';
+import {nearlyEquals, isCtrlPressed} from '../util/helpers';
 
 const HEATMAP_MARGIN_X = 150;
 const HEATMAP_MARGIN_Y = 100;
@@ -227,7 +227,13 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                              /* Force refresh as base view is invalid */ true);
         });
     // Reset viewport height and force redraw on CPU filter change
-    this.cpuFilter.pipe(pairwise()).subscribe(([oldFilter, newFilter]) => {
+
+
+    combineLatest([this.cpuFilter, isCtrlPressed]).pipe(
+        filter(([, ctrlKey]) => !ctrlKey),
+        map(([filter]) => filter),
+        pairwise(),
+    ).subscribe(([oldFilter, newFilter]) => {
       if (oldFilter === newFilter) {
         return;
       }
