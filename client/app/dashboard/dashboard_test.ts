@@ -161,6 +161,7 @@ describe('Dashboard', () => {
 
     const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
     const snackSpy = spyOn(snackBar, 'open');
+    const consoleSpy = spyOn(console, 'error');
 
     await fixture.whenStable();
 
@@ -168,10 +169,14 @@ describe('Dashboard', () => {
     expect(serviceSpy).toHaveBeenCalled();
 
     expect(snackSpy).toHaveBeenCalledWith(
-        'Failed to get parameters for abc\n' +
+        'Failed to get parameters for abc', 'Dismiss');
+    expect(consoleSpy)
+        .toHaveBeenCalledWith(
+            'Failed to get parameters for abc\n' +
+            'Message:\n' +
+            ' Http failure response for (unknown url): undefined undefined\n' +
             'Reason:\n' +
-            ' err',
-        'Dismiss');
+            ' err');
   });
 
   // TODO(sainsley): Test headmap / sidebar presence / size?

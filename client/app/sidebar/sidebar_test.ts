@@ -71,16 +71,17 @@ function createSidebarWithMockData(): ComponentFixture<Sidebar> {
   return fixture;
 }
 
-function mockMetricServiceHttpError(
-    functionToMock: keyof MetricsService, error: string): jasmine.Spy {
+function mockMetricServiceHttpError(functionToMock: keyof MetricsService):
+    jasmine.Spy {
   // Set up failing request
   const metricsService = TestBed.get('MetricsService') as MetricsService;
   return spyOn(metricsService, functionToMock)
-      .and.returnValue(throwError(new HttpErrorResponse({error})));
+      .and.returnValue(
+          throwError(new HttpErrorResponse({error: 'lorem ipsum'})));
 }
 
 function mockRenderDataServiceHttpError(
-    functionToMock: keyof RenderDataService, error: string): jasmine.Spy {
+    functionToMock: keyof RenderDataService): jasmine.Spy {
   // Set up failing request
 
   // Not deprecated until Angular 9.0.0, which isn't GA yet.
@@ -89,7 +90,8 @@ function mockRenderDataServiceHttpError(
       TestBed.get('RenderDataService') as RenderDataService;
   // tslint:enable:deprecation
   return spyOn(renderDataService, functionToMock)
-      .and.returnValue(throwError(new HttpErrorResponse({error})));
+      .and.returnValue(
+          throwError(new HttpErrorResponse({error: 'lorem ipsum'})));
 }
 
 describe('Sidebar', () => {
@@ -186,8 +188,7 @@ describe('Sidebar', () => {
        const fixture = createSidebarWithMockData();
        const component = fixture.componentInstance;
 
-       const error = 'lorem ipsum';
-       mockMetricServiceHttpError('getThreadSummaries', error);
+       mockMetricServiceHttpError('getThreadSummaries');
        const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
        const snackBarSpy = spyOn(snackBar, 'open');
 
@@ -201,7 +202,6 @@ describe('Sidebar', () => {
        const componentParameters = component.parameters.value;
        expect(componentParameters).toBeTruthy();
        const actualError = snackBarSpy.calls.mostRecent().args[0];
-       expect(actualError).toContain(error);
        expect(actualError)
            .toContain(`Failed to get thread summaries for ${
                componentParameters!.name}`);
@@ -213,8 +213,7 @@ describe('Sidebar', () => {
        const component = fixture.componentInstance;
        await fixture.whenStable();
 
-       const error = 'lorem ipsum';
-       mockMetricServiceHttpError('getPerThreadEvents', error);
+       mockMetricServiceHttpError('getPerThreadEvents');
        const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
        const snackBarSpy = spyOn(snackBar, 'open');
 
@@ -224,7 +223,6 @@ describe('Sidebar', () => {
 
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
        const actualError = snackBarSpy.calls.mostRecent().args[0];
-       expect(actualError).toContain(error);
        expect(actualError)
            .toContain(
                `Failed to get thread events for PID: ${threadToExpand.pid}`);
@@ -236,8 +234,7 @@ describe('Sidebar', () => {
        const component = fixture.componentInstance;
        await fixture.whenStable();
 
-       const error = 'lorem ipsum';
-       mockRenderDataServiceHttpError('getPidIntervals', error);
+       mockRenderDataServiceHttpError('getPidIntervals');
 
        // Not deprecated until Angular 9.0.0, which isn't GA yet.
        // tslint:disable-next-line:deprecation
@@ -250,7 +247,6 @@ describe('Sidebar', () => {
 
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
        const actualError = snackBarSpy.calls.mostRecent().args[0];
-       expect(actualError).toContain(error);
        expect(actualError)
            .toContain(
                `Failed to get thread intervals for PID: ${threadToExpand.pid}`);
@@ -262,8 +258,7 @@ describe('Sidebar', () => {
        const component = fixture.componentInstance;
        await fixture.whenStable();
 
-       const error = 'lorem ipsum';
-       mockMetricServiceHttpError('getThreadAntagonists', error);
+       mockMetricServiceHttpError('getThreadAntagonists');
        const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
        const snackBarSpy = spyOn(snackBar, 'open');
 
@@ -273,7 +268,6 @@ describe('Sidebar', () => {
 
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
        const actualError = snackBarSpy.calls.mostRecent().args[0];
-       expect(actualError).toContain(error);
        expect(actualError)
            .toContain(`Failed to get thread antagonists for PID: ${
                threadToExpand.pid}`);

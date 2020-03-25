@@ -167,6 +167,7 @@ describe('Collections', () => {
 
     const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
     const snackSpy = spyOn(snackBar, 'open');
+    const consoleSpy = spyOn(console, 'error');
 
     await collectionsFixture.whenStable();
 
@@ -177,10 +178,14 @@ describe('Collections', () => {
     expect(uploadSpy).toHaveBeenCalled();
 
     expect(snackSpy).toHaveBeenCalledWith(
-        'Failed to upload trace file file\n' +
+        'Failed to upload trace file file', 'Dismiss');
+    expect(consoleSpy)
+        .toHaveBeenCalledWith(
+            'Failed to upload trace file file\n' +
+            'Message:\n' +
+            ' Http failure response for (unknown url): undefined undefined\n' +
             'Reason:\n' +
-            ' err',
-        'Dismiss');
+            ' err');
   });
 
   it('should parse and load data from the hash fragment in the URL', () => {

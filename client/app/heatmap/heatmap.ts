@@ -18,16 +18,16 @@ import {HttpErrorResponse} from '@angular/common/http';
 import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Inject, Input, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import * as d3 from 'd3';
-import {BehaviorSubject, from, merge, Subscription, combineLatest} from 'rxjs';
-import {buffer, debounceTime, mergeMap, pairwise, take, filter, map} from 'rxjs/operators';
+import {BehaviorSubject, combineLatest, from, merge, Subscription} from 'rxjs';
+import {buffer, debounceTime, filter, map, mergeMap, pairwise, take} from 'rxjs/operators';
 
 import {CollectionParameters, CpuIdleWaitLayer, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
 import {ThreadState} from '../models/render_data_services';
 import {RenderDataService} from '../services/render_data_service';
 import {DeregistrationCallback, ShortcutId, ShortcutService} from '../services/shortcut_service';
-import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
+import {recordHttpErrorMessage, SystemTopology, Viewport} from '../util';
 import {copyToClipboard} from '../util/clipboard';
-import {nearlyEquals, isCtrlPressed} from '../util/helpers';
+import {isCtrlPressed, nearlyEquals} from '../util/helpers';
 
 const HEATMAP_MARGIN_X = 150;
 const HEATMAP_MARGIN_Y = 100;
@@ -260,7 +260,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                 this.cdr.detectChanges();
               },
               (err: HttpErrorResponse) => {
-                const errMsg = createHttpErrorMessage(
+                const errMsg = recordHttpErrorMessage(
                     `Failed to get CPU intervals for ${params.name}`, err);
                 this.snackBar.open(errMsg, 'Dismiss');
               });
@@ -461,7 +461,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                   }
                 },
                 (err: HttpErrorResponse) => {
-                  const errMsg = createHttpErrorMessage(
+                  const errMsg = recordHttpErrorMessage(
                       `Failed to get CPU intervals for ${params.name}`, err);
                   this.snackBar.open(errMsg, 'Dismiss');
                 });
@@ -551,7 +551,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                   }
                 },
                 (err: HttpErrorResponse) => {
-                  const errMsg = createHttpErrorMessage(
+                  const errMsg = recordHttpErrorMessage(
                       `Failed to get PID intervals for ${params.name}`, err);
                   this.snackBar.open(errMsg, 'Dismiss');
                 });
@@ -578,7 +578,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
             .subscribe(
                 layer => this.onLayerDataReady(layers, layer),
                 (err: HttpErrorResponse) => {
-                  const errMsg = createHttpErrorMessage(
+                  const errMsg = recordHttpErrorMessage(
                       `Failed to get get ftrace events for ${params.name}`,
                       err);
                   this.snackBar.open(errMsg, 'Dismiss');

@@ -24,7 +24,7 @@ import {switchMap} from 'rxjs/operators';
 import {Checkpoint, CheckpointValue, CollectionParameters, CpuIdleWaitLayer, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer} from '../models';
 import {CollectionDataService} from '../services/collection_data_service';
 import {ColorService} from '../services/color_service';
-import {compress, createHttpErrorMessage, decompress, parseHashFragment, serializeHashFragment, SystemTopology, Viewport} from '../util';
+import {compress, decompress, parseHashFragment, recordHttpErrorMessage, serializeHashFragment, SystemTopology, Viewport} from '../util';
 import {COLLECTION_NAME_KEY, SHARE_KEY} from '../util/hash_keys';
 
 /**
@@ -232,7 +232,7 @@ export class Dashboard implements OnInit, OnDestroy {
             },
             (err: HttpErrorResponse) => {
               this.loading.next(false);
-              const errMsg = createHttpErrorMessage(
+              const errMsg = recordHttpErrorMessage(
                   `Failed to get parameters for ${collectionName}`, err);
               this.snackBar.open(errMsg, 'Dismiss');
             });

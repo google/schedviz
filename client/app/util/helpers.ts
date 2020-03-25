@@ -44,19 +44,22 @@ export function nearlyEquals(
 }
 
 /**
- * Converts an HttpErrorResponse into a string for suitable for display.
- * @param message A message to prepend to the error
+ * Logs an HttpErrorResponse with a custom message.
+ * @param message A message describing the error
  * @param error An Http Error
+ * @return The input message for further use.
  */
-export function createHttpErrorMessage(
+export function recordHttpErrorMessage(
     message: string, error: HttpErrorResponse) {
   let fullMessage = message;
+  if (error.message) {
+    fullMessage += `\nMessage:\n ${error.message}`;
+  }
   if (error.error) {
     fullMessage += `\nReason:\n ${error.error}`;
-  } else if (error.message) {
-    fullMessage += `\nReason:\n ${error.error}`;
   }
-  return fullMessage;
+  console.error(fullMessage);
+  return message;
 }
 
 /**

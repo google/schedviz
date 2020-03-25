@@ -23,7 +23,7 @@ import {debounceTime} from 'rxjs/operators';
 
 import {CollectionParameters, UtilizationMetrics} from '../../models';
 import {MetricsService} from '../../services/metrics_service';
-import {createHttpErrorMessage, Viewport} from '../../util';
+import {recordHttpErrorMessage, Viewport} from '../../util';
 
 /**
  * The MetricsOverlay shows various metrics about the current collection
@@ -93,7 +93,7 @@ export class MetricsOverlay implements OnInit {
               }
             },
             (err: HttpErrorResponse) => {
-              const errMsg = createHttpErrorMessage(
+              const errMsg = recordHttpErrorMessage(
                   `Failed to get utilization metrics for collection: ${name}`,
                   err);
               this.snackBar.open(errMsg, 'Dismiss');

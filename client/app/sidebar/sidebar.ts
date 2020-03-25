@@ -25,7 +25,7 @@ import {debounceTime} from 'rxjs/operators';
 import {CollectionParameters, FtraceInterval, Interval, Layer, SchedEvent, Thread, ThreadInterval} from '../models';
 import {MetricsService} from '../services/metrics_service';
 import {RenderDataService} from '../services/render_data_service';
-import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
+import {recordHttpErrorMessage, SystemTopology, Viewport} from '../util';
 
 /**
  * The sidebar component holds the thread list and settings tab
@@ -170,7 +170,7 @@ export class Sidebar implements OnInit, OnDestroy {
                   this.threadsPending = false;
                 },
                 (err: HttpErrorResponse) => {
-                  const errMsg = createHttpErrorMessage(
+                  const errMsg = recordHttpErrorMessage(
                       `Failed to get thread summaries for ${parameters.name}`,
                       err);
                   this.snackBar.open(errMsg, 'Dismiss');
@@ -203,7 +203,7 @@ export class Sidebar implements OnInit, OnDestroy {
               },
               (err: HttpErrorResponse) => {
                 thread.eventsPending = false;
-                const errMsg = createHttpErrorMessage(
+                const errMsg = recordHttpErrorMessage(
                     `Failed to get thread events for PID: ${thread.pid}`, err);
                 this.snackBar.open(errMsg, 'Dismiss');
               });
@@ -226,7 +226,7 @@ export class Sidebar implements OnInit, OnDestroy {
               },
               (err: HttpErrorResponse) => {
                 thread.intervalsPending = false;
-                const errMsg = createHttpErrorMessage(
+                const errMsg = recordHttpErrorMessage(
                     `Failed to get thread intervals for PID: ${thread.pid}`,
                     err);
                 this.snackBar.open(errMsg, 'Dismiss');
@@ -247,7 +247,7 @@ export class Sidebar implements OnInit, OnDestroy {
               },
               (err: HttpErrorResponse) => {
                 thread.antagonistsPending = false;
-                const errMsg = createHttpErrorMessage(
+                const errMsg = recordHttpErrorMessage(
                     `Failed to get thread antagonists for PID: ${thread.pid}`,
                     err);
                 this.snackBar.open(errMsg, 'Dismiss');
