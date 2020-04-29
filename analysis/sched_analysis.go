@@ -360,7 +360,7 @@ func (c *Collection) ThreadStats(filters ...Filter) (*ThreadStatistics, error) {
 				stats := &ThreadStatistics{}
 				isPostWakeup := false
 				lastCPU := UnknownCPU
-				lastState := UnknownState
+				lastState := AnyState
 				for _, ival := range ivals {
 					// Since the minimum interval duration is 0, there should be only one
 					// thread residency.

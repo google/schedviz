@@ -78,7 +78,8 @@ func TestEventsAreLoaded(t *testing.T) {
 				WithNextPriority(priority).
 				WithPrevCPU(CPUID(ev.CPU)).
 				WithNextCPU(CPUID(targetCPU)).
-				WithNextState(SleepingState)
+				WithNextState(SleepingState).
+				WithStatePropagatesThrough(false)
 			return nil
 		},
 		"wake-n-switch-in": func(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
@@ -100,7 +101,8 @@ func TestEventsAreLoaded(t *testing.T) {
 				WithPrevCPU(CPUID(ev.CPU)).
 				WithNextCPU(CPUID(ev.CPU)).
 				WithPrevState(SleepingState).
-				WithNextState(RunningState)
+				WithNextState(RunningState).
+				WithStatePropagatesThrough(false)
 			return nil
 		}}
 	eventSetBase := eventsetbuilder.NewBuilder().
@@ -135,12 +137,14 @@ func TestEventsAreLoaded(t *testing.T) {
 					withCommands(sb.stringIDByString("thread 1"), sb.stringIDByString("thread 1")).
 					withPriorities(50, 50).
 					withCPUs(1, 2).
-					withStates(UnknownState, SleepingState),
+					withStates(AnyState, SleepingState).
+					withStatePropagatesThrough(false),
 				emptyTransition(1, 1010, 100).
 					withCommands(sb.stringIDByString("thread 1"), sb.stringIDByString("thread 1")).
 					withPriorities(50, 50).
 					withCPUs(2, 2).
-					withStates(SleepingState, RunningState),
+					withStates(SleepingState, RunningState).
+					withStatePropagatesThrough(false),
 			}
 		},
 	}}
@@ -218,7 +222,7 @@ func TestTestTrace1Transitions(t *testing.T) {
 			withCommands(process3ID, process3ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
-			withStates(UnknownState, RunningState),
+			withStates(SleepingState|WaitingState, RunningState),
 		emptyTransition(2, 1000, 200).
 			withCommands(process2ID, process2ID).
 			withPriorities(50, 50).
@@ -228,14 +232,14 @@ func TestTestTrace1Transitions(t *testing.T) {
 			withCommands(process1ID, process1ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
-			withStates(UnknownState, WaitingState).
+			withStates(AnyState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
 		emptyTransition(4, 1010, 100).
 			withCommands(process1ID, process1ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
-			withStates(UnknownState, RunningState),
+			withStates(SleepingState|WaitingState, RunningState),
 		emptyTransition(4, 1010, 300).
 			withCommands(process3ID, process3ID).
 			withPriorities(50, 50).
@@ -245,26 +249,27 @@ func TestTestTrace1Transitions(t *testing.T) {
 			withCommands(process2ID, process2ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
-			withStates(UnknownState, WaitingState).
+			withStates(AnyState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
 		emptyTransition(6, 1080, 200).
 			withCommands(process2ID, process2ID).
 			withPriorities(50, 50).
 			withCPUs(1, 2).
-			withStates(UnknownState, UnknownState),
+			withStates(AnyState, AnyState).
+		withStatePropagatesThrough(true),
 		emptyTransition(7, 1090, 300).
 			withCommands(process3ID, process3ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
-			withStates(UnknownState, WaitingState).
+			withStates(AnyState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
 		emptyTransition(8, 1100, 200).
 			withCommands(process2ID, process2ID).
 			withPriorities(50, 50).
 			withCPUs(2, 2).
-			withStates(UnknownState, RunningState),
+			withStates(SleepingState|WaitingState, RunningState),
 		emptyTransition(8, 1100, 400).
 			withCommands(process4ID, process4ID).
 			withPriorities(50, 50).
@@ -274,7 +279,7 @@ func TestTestTrace1Transitions(t *testing.T) {
 			withCommands(process3ID, process3ID).
 			withPriorities(50, 50).
 			withCPUs(1, 1).
-			withStates(UnknownState, RunningState),
+			withStates(SleepingState|WaitingState, RunningState),
 		emptyTransition(9, 1100, 100).
 			withCommands(process1ID, process1ID).
 			withPriorities(50, 50).

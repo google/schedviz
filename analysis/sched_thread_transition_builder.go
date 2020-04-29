@@ -17,6 +17,8 @@
 package sched
 
 import (
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -24,6 +26,7 @@ import (
 type ThreadTransitionBuilder struct {
 	threadTransition *threadTransition
 	stringBank       *stringBank
+	err              error
 }
 
 // newThreadTransitionBuilder returns a new, empty ThreadTransitionBuilder.
@@ -39,8 +42,9 @@ func newThreadTransitionBuilder(eventID int, timestamp trace.Timestamp, pid PID,
 			NextPriority:             UnknownPriority,
 			PrevCPU:                  UnknownCPU,
 			NextCPU:                  UnknownCPU,
-			PrevState:                UnknownState,
-			NextState:                UnknownState,
+			PrevState:                AnyState,
+			NextState:                AnyState,
+			StatePropagatesThrough:   false,
 			onForwardsStateConflict:  Fail,
 			onBackwardsStateConflict: Fail,
 			onForwardsCPUConflict:    Fail,
@@ -88,13 +92,26 @@ func (ttb *ThreadTransitionBuilder) WithNextCPU(nextCPU CPUID) *ThreadTransition
 
 // WithPrevState sets the current threadTransition's PrevState.
 func (ttb *ThreadTransitionBuilder) WithPrevState(prevState ThreadState) *ThreadTransitionBuilder {
+	if prevState&UnknownState != 0 {
+		ttb.err = status.Errorf(codes.InvalidArgument, "error handling event %d: WithPrevState cannot include UnknownState", ttb.threadTransition.EventID)
+	}
 	ttb.threadTransition.PrevState = prevState
 	return ttb
 }
 
 // WithNextState sets the current threadTransition's PrevState.
 func (ttb *ThreadTransitionBuilder) WithNextState(nextState ThreadState) *ThreadTransitionBuilder {
+	if nextState&UnknownState != 0 {
+		ttb.err = status.Errorf(codes.InvalidArgument, "error handling event %d: WithNextState cannot include UnknownState", ttb.threadTransition.EventID)
+	}
 	ttb.threadTransition.NextState = nextState
+	return ttb
+}
+
+// WithStatePropagatesThrough sets whether states can propagate through the
+// current threadTransition, during state inferefence.
+func (ttb *ThreadTransitionBuilder) WithStatePropagatesThrough(statePropagatesThrough bool) *ThreadTransitionBuilder {
+	ttb.threadTransition.StatePropagatesThrough = statePropagatesThrough
 	return ttb
 }
 
@@ -153,10 +170,13 @@ func (ttsb *ThreadTransitionSetBuilder) WithTransition(eventID int, timestamp tr
 	return ttb
 }
 
-func (ttsb *ThreadTransitionSetBuilder) transitions() []*threadTransition {
+func (ttsb *ThreadTransitionSetBuilder) transitions() ([]*threadTransition, error) {
 	var ret = []*threadTransition{}
 	for _, ttb := range ttsb.builders {
 		ret = append(ret, ttb.threadTransition)
+		if ttb.err != nil {
+			return nil, ttb.err
+		}
 	}
-	return ret
+	return ret, nil
 }

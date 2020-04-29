@@ -63,17 +63,18 @@ func (tss *threadSpanSet) inferrer(pid PID, command stringID, priority Priority)
 		tss.inferrerByPID[pid] = inferrer
 		// Add an initial transition, starting at the trace start timestamp,
 		inferrer.addTransition(&threadTransition{
-			EventID:      Unknown,
-			Timestamp:    tss.startTimestamp,
-			PID:          pid,
-			PrevCommand:  command,
-			NextCommand:  command,
-			PrevPriority: priority,
-			NextPriority: priority,
-			PrevCPU:      UnknownCPU,
-			NextCPU:      UnknownCPU,
-			PrevState:    UnknownState,
-			NextState:    UnknownState,
+			EventID:                Unknown,
+			Timestamp:              tss.startTimestamp,
+			PID:                    pid,
+			PrevCommand:            command,
+			NextCommand:            command,
+			PrevPriority:           priority,
+			NextPriority:           priority,
+			PrevCPU:                UnknownCPU,
+			NextCPU:                UnknownCPU,
+			PrevState:              AnyState,
+			NextState:              AnyState,
+			StatePropagatesThrough: true,
 		})
 	}
 	return inferrer
@@ -147,16 +148,17 @@ func (tss *threadSpanSet) threadSpans(endTimestamp trace.Timestamp) (map[PID][]*
 			// End any still-open per-thread spans with a Timestamp just past the
 			// last unclipped Timestamp observed in the trace.  This indicates
 			// that the behavior in the span is ongoing past the end of the trace.
-			Timestamp:    endTimestamp + 1,
-			PID:          pid,
-			PrevCommand:  UnknownCommand,
-			NextCommand:  UnknownCommand,
-			PrevPriority: UnknownPriority,
-			NextPriority: UnknownPriority,
-			PrevCPU:      UnknownCPU,
-			NextCPU:      UnknownCPU,
-			PrevState:    UnknownState,
-			NextState:    UnknownState,
+			Timestamp:              endTimestamp + 1,
+			PID:                    pid,
+			PrevCommand:            UnknownCommand,
+			NextCommand:            UnknownCommand,
+			PrevPriority:           UnknownPriority,
+			NextPriority:           UnknownPriority,
+			PrevCPU:                UnknownCPU,
+			NextCPU:                UnknownCPU,
+			PrevState:              AnyState,
+			NextState:              AnyState,
+			StatePropagatesThrough: true,
 		})
 		if err != nil {
 			return nil, err

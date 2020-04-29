@@ -31,7 +31,7 @@ func TestDroppedEvents(t *testing.T) {
 			withCPUs(1, 1),
 		emptyTransition(0, 1000, pid).
 			withCPUs(1, 1).
-			withStates(UnknownState, RunningState),
+			withStates(AnyState, RunningState),
 		// spurious wakeup-while-running
 		emptyTransition(1, 1010, pid).
 			withCPUs(1, 1).
@@ -64,43 +64,44 @@ func TestSpanDistributionByPID(t *testing.T) {
 	transitions := []*threadTransition{
 		emptyTransition(0, 1000, 300).
 			withCPUs(1, 1).
-			withStates(UnknownState, RunningState),
+			withStates(AnyState, RunningState),
 		emptyTransition(0, 1000, 200).
 			withCPUs(1, 1).
 			withStates(RunningState, SleepingState),
 		emptyTransition(1, 1000, 100).
 			withCPUs(1, 1).
-			withStates(UnknownState, WaitingState).
+			withStates(AnyState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Fail, Drop),
 		emptyTransition(2, 1010, 100).
 			withCPUs(1, 1).
-			withStates(UnknownState, RunningState),
+			withStates(AnyState, RunningState),
 		emptyTransition(2, 1010, 300).
 			withCPUs(1, 1).
 			withStates(RunningState, SleepingState),
 		emptyTransition(3, 1040, 200).
 			withCPUs(1, 1).
-			withStates(UnknownState, WaitingState).
+			withStates(AnyState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Fail, Drop),
 		emptyTransition(4, 1080, 200).
 			withCPUs(1, 2).
-			withStates(UnknownState, UnknownState),
+			withStates(AnyState, AnyState).
+			withStatePropagatesThrough(true),
 		emptyTransition(5, 1090, 300).
 			withCPUs(1, 1).
-			withStates(UnknownState, WaitingState).
+			withStates(AnyState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Fail, Drop),
 		emptyTransition(6, 1100, 200).
 			withCPUs(2, 2).
-			withStates(UnknownState, RunningState),
+			withStates(AnyState, RunningState),
 		emptyTransition(6, 1100, 400).
 			withCPUs(2, 2).
 			withStates(RunningState, WaitingState),
 		emptyTransition(7, 1100, 300).
 			withCPUs(1, 1).
-			withStates(UnknownState, RunningState),
+			withStates(AnyState, RunningState),
 		emptyTransition(7, 1100, 100).
 			withCPUs(1, 1).
 			withStates(RunningState, WaitingState),
@@ -205,7 +206,26 @@ func TestSpanDistributionByPID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error from threadSpans: %s", err)
 	}
-	if diff := cmp.Diff(gotSpans, wantSpans, cmp.AllowUnexported(threadSpan{})); diff != "" {
+	if diff := cmp.Diff(gotSpans, wantSpans, cmp.Comparer(func(a, b *threadSpan) bool {
+		// Compare everything except augmented tree IDs.
+		if len(a.droppedEventIDs) != len(b.droppedEventIDs) {
+			return false
+		}
+		for idx := range a.droppedEventIDs {
+			if a.droppedEventIDs[idx] != b.droppedEventIDs[idx] {
+				return false
+			}
+		}
+		return a.pid == b.pid &&
+			a.startTimestamp == b.startTimestamp &&
+			a.endTimestamp == b.endTimestamp &&
+			a.cpu == b.cpu &&
+			a.priority == b.priority &&
+			a.state == b.state &&
+			a.command == b.command &&
+			a.syntheticStart == b.syntheticStart &&
+			a.syntheticEnd == b.syntheticEnd
+	})); diff != "" {
 		t.Errorf("Unexpected threadSpans output; Diff -want +got %v", diff)
 	}
 }

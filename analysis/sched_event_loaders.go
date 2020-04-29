@@ -37,7 +37,8 @@ func LoadSchedMigrateTask(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) err
 		WithPrevPriority(md.Priority).
 		WithNextPriority(md.Priority).
 		WithPrevCPU(md.OrigCPU).
-		WithNextCPU(md.DestCPU)
+		WithNextCPU(md.DestCPU).
+		WithStatePropagatesThrough(true)
 	return nil
 }
 
@@ -58,7 +59,8 @@ func LoadSchedMigrateTaskWithDrops(ev *trace.Event, ttsb *ThreadTransitionSetBui
 		WithPrevCPU(md.OrigCPU).
 		WithNextCPU(md.DestCPU).
 		OnBackwardsCPUConflict(Drop).
-		OnForwardsCPUConflict(Drop)
+		OnForwardsCPUConflict(Drop).
+		WithStatePropagatesThrough(true)
 	return nil
 }
 
@@ -81,6 +83,7 @@ func LoadSchedSwitch(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
 		WithNextPriority(sd.NextPriority).
 		WithPrevCPU(CPUID(ev.CPU)).
 		WithNextCPU(CPUID(ev.CPU)).
+		WithPrevState(WaitingState | SleepingState).
 		WithNextState(RunningState)
 	ttsb.WithTransition(ev.Index, ev.Timestamp, sd.PrevPID).
 		WithPrevCommand(sd.PrevComm).
@@ -128,7 +131,7 @@ func LoadSchedWakeup(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
 		WithNextPriority(priority).
 		WithPrevCPU(CPUID(targetCPU)).
 		WithNextCPU(CPUID(targetCPU)).
-		WithPrevState(UnknownState).
+		WithPrevState(AnyState).
 		WithNextState(WaitingState).
 		OnBackwardsCPUConflict(Drop).
 		OnForwardsCPUConflict(Drop).
@@ -153,7 +156,7 @@ func LoadSchedSwitchWithSynthetics(ev *trace.Event, ttsb *ThreadTransitionSetBui
 		WithNextPriority(sd.NextPriority).
 		WithPrevCPU(CPUID(ev.CPU)).
 		WithNextCPU(CPUID(ev.CPU)).
-		WithPrevState(UnknownState).
+		WithPrevState(SleepingState | WaitingState).
 		WithNextState(RunningState).
 		OnForwardsCPUConflict(InsertSynthetic).
 		OnBackwardsCPUConflict(InsertSynthetic).

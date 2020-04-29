@@ -64,7 +64,7 @@ func (el *eventLoader) threadTransitions(ev *trace.Event) ([]*threadTransition, 
 	if err := loader(ev, ttsb); err != nil {
 		return nil, err
 	}
-	return ttsb.transitions(), nil
+	return ttsb.transitions()
 }
 
 // MissingFieldError is used to report a missing field.

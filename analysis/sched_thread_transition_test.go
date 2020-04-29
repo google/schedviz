@@ -69,8 +69,9 @@ func emptyTransition(eventID int, timestamp trace.Timestamp, pid PID) *threadTra
 		NextPriority:             UnknownPriority,
 		PrevCPU:                  UnknownCPU,
 		NextCPU:                  UnknownCPU,
-		PrevState:                UnknownState,
-		NextState:                UnknownState,
+		PrevState:                AnyState,
+		NextState:                AnyState,
+		StatePropagatesThrough:   false,
 		onForwardsStateConflict:  Fail,
 		onBackwardsStateConflict: Fail,
 		onForwardsCPUConflict:    Fail,
@@ -99,6 +100,11 @@ func (tt *threadTransition) withCPUs(prev, next CPUID) *threadTransition {
 func (tt *threadTransition) withStates(prev, next ThreadState) *threadTransition {
 	tt.PrevState = prev
 	tt.NextState = next
+	return tt
+}
+
+func (tt *threadTransition) withStatePropagatesThrough(statePropagatesThrough bool) *threadTransition {
+	tt.StatePropagatesThrough = statePropagatesThrough
 	return tt
 }
 
@@ -133,7 +139,7 @@ func TestIsForwardBarrier(t *testing.T) {
 		description: "valid forward barrier",
 		transition: emptyTransition(0, 1000, 100).
 			withCPUs(UnknownCPU, 0).
-			withStates(UnknownState, RunningState),
+			withStates(AnyState, RunningState),
 		want: true,
 	}, {
 		description: "valid forward barrier with prior drops",
@@ -146,13 +152,13 @@ func TestIsForwardBarrier(t *testing.T) {
 	}, {
 		description: "missing next CPU",
 		transition: emptyTransition(0, 1000, 100).
-			withStates(UnknownState, RunningState),
+			withStates(AnyState, RunningState),
 		want: false,
 	}, {
 		description: "drop if forward CPU fails",
 		transition: emptyTransition(0, 1000, 100).
 			withCPUs(UnknownCPU, 10).
-			withStates(UnknownState, RunningState).
+			withStates(AnyState, RunningState).
 			withStateConflictPolicies(Fail, Drop),
 		want: false,
 	}}
@@ -176,8 +182,9 @@ func TestThreadTransition(t *testing.T) {
 		wantStateErr   bool
 		wantTransition *threadTransition
 	}{{
-		description:  "infer through forwards",
-		transition:   emptyTransition(0, 1000, 100),
+		description: "infer through forwards",
+		transition: emptyTransition(0, 1000, 100).
+			withStatePropagatesThrough(true),
 		forwards:     true,
 		cpu:          10,
 		wantCPUErr:   false,
@@ -185,12 +192,14 @@ func TestThreadTransition(t *testing.T) {
 		wantStateErr: false,
 		wantTransition: emptyTransition(0, 1000, 100).
 			withCPUs(10, 10).
-			withStates(RunningState, RunningState),
+			withStates(RunningState, RunningState).
+			withStatePropagatesThrough(true),
 	}, {
 		description: "partial inference forwards",
 		transition: emptyTransition(0, 1000, 100).
 			withCPUs(UnknownCPU, 5).
-			withStates(UnknownState, WaitingState),
+			withStates(AnyState, WaitingState).
+			withStatePropagatesThrough(false),
 		forwards:     true,
 		cpu:          10,
 		wantCPUErr:   false,
@@ -198,9 +207,11 @@ func TestThreadTransition(t *testing.T) {
 		wantStateErr: false,
 		wantTransition: emptyTransition(0, 1000, 100).
 			withCPUs(10, 5).
-			withStates(RunningState, WaitingState),
+			withStates(RunningState, WaitingState).
+			withStatePropagatesThrough(false),
 	}, {description: "infer through backwards",
-		transition:   emptyTransition(0, 1000, 100),
+		transition: emptyTransition(0, 1000, 100).
+			withStatePropagatesThrough(true),
 		forwards:     false,
 		cpu:          10,
 		wantCPUErr:   false,
@@ -208,12 +219,14 @@ func TestThreadTransition(t *testing.T) {
 		wantStateErr: false,
 		wantTransition: emptyTransition(0, 1000, 100).
 			withCPUs(10, 10).
-			withStates(RunningState, RunningState),
+			withStates(RunningState, RunningState).
+			withStatePropagatesThrough(true),
 	}, {
 		description: "partial inference backwards",
 		transition: emptyTransition(0, 1000, 100).
 			withCPUs(5, UnknownCPU).
-			withStates(WaitingState, UnknownState),
+			withStates(WaitingState, AnyState).
+			withStatePropagatesThrough(false),
 		forwards:     false,
 		cpu:          10,
 		wantCPUErr:   false,
@@ -221,55 +234,63 @@ func TestThreadTransition(t *testing.T) {
 		wantStateErr: false,
 		wantTransition: emptyTransition(0, 1000, 100).
 			withCPUs(5, 10).
-			withStates(WaitingState, RunningState),
+			withStates(WaitingState, RunningState).
+			withStatePropagatesThrough(false),
 	}, {
 		description: "conflicting backwards CPU fails",
 		transition: emptyTransition(0, 1000, 100).
 			withCPUs(UnknownCPU, 5).
-			withStates(UnknownState, WaitingState),
+			withStates(AnyState, WaitingState).
+			withStatePropagatesThrough(false),
 		forwards:     false,
 		cpu:          10,
 		wantCPUErr:   true,
-		state:        UnknownState,
+		state:        AnyState,
 		wantStateErr: false,
 		wantTransition: emptyTransition(0, 1000, 100).
 			withCPUs(UnknownCPU, 5).
-			withStates(UnknownState, WaitingState),
+			withStates(AnyState, WaitingState),
 	}, {
 		description: "conflicting forwards CPU fails",
 		transition: emptyTransition(0, 1000, 100).
 			withCPUs(5, UnknownCPU).
-			withStates(UnknownState, WaitingState),
+			withStates(AnyState, WaitingState).
+			withStatePropagatesThrough(false),
 		forwards:     true,
 		cpu:          10,
 		wantCPUErr:   true,
-		state:        UnknownState,
+		state:        AnyState,
 		wantStateErr: false,
 		wantTransition: emptyTransition(0, 1000, 100).
 			withCPUs(5, UnknownCPU).
-			withStates(UnknownState, WaitingState),
+			withStates(AnyState, WaitingState).
+			withStatePropagatesThrough(false),
 	}, {
 		description: "conflicting backwards state fails",
 		transition: emptyTransition(0, 1000, 100).
-			withStates(UnknownState, WaitingState),
+			withStates(AnyState, WaitingState).
+			withStatePropagatesThrough(false),
 		forwards:     false,
 		cpu:          UnknownCPU,
 		wantCPUErr:   false,
 		state:        RunningState,
 		wantStateErr: true,
 		wantTransition: emptyTransition(0, 1000, 100).
-			withStates(UnknownState, WaitingState),
+			withStates(AnyState, WaitingState).
+			withStatePropagatesThrough(false),
 	}, {
 		description: "conflicting forwards state fails",
 		transition: emptyTransition(0, 1000, 100).
-			withStates(WaitingState, UnknownState),
+			withStates(WaitingState, AnyState).
+			withStatePropagatesThrough(false),
 		forwards:     true,
 		cpu:          UnknownCPU,
 		wantCPUErr:   false,
 		state:        RunningState,
 		wantStateErr: true,
 		wantTransition: emptyTransition(0, 1000, 100).
-			withStates(WaitingState, UnknownState),
+			withStates(WaitingState, AnyState).
+			withStatePropagatesThrough(false),
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {

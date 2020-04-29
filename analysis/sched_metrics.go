@@ -206,14 +206,14 @@ func (m *metric) recordInterval(filterCPUs map[CPUID]struct{}, startTimestamp, e
 func (m *metric) recordDuration(dur trace.Timestamp, state ThreadState) {
 	duration := Duration(dur)
 	switch state {
-	case UnknownState:
-		m.s.UnknownTimeNs += duration
 	case RunningState:
 		m.s.RunTimeNs += duration
 	case WaitingState:
 		m.s.WaitTimeNs += duration
 	case SleepingState:
 		m.s.SleepTimeNs += duration
+	default:
+		m.s.UnknownTimeNs += duration
 	}
 }
 
