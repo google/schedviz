@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -277,4 +278,38 @@ func TestParseTrace(t *testing.T) {
 		})
 	}
 
+}
+
+type Stats struct {
+	overrun, commitOverrun, droppedEvents string
+}
+
+func createStatsString(stats Stats) string {
+	return fmt.Sprintf(`entries: 1945
+overrun: %s
+commit overrun: %s
+bytes: 128768
+oldest event ts: 2698497.198903
+now ts: 2698499.259470
+dropped events: %s
+read events: 2404`, stats.overrun, stats.commitOverrun, stats.droppedEvents)
+}
+
+func TestReadStats(t *testing.T) {
+	m := map[Stats]bool{
+		{"1", "0", "0"}: true,
+		{"0", "1", "0"}: true,
+		{"0", "0", "1"}: true,
+		{"1", "1", "1"}: true,
+		{"0", "0", "0"}: false,
+	}
+
+	for stats, expected := range m {
+		s := createStatsString(stats)
+		reader := strings.NewReader(s)
+		buffer := bufio.NewReader(reader)
+		if clipped, err := CPUOverflowed(buffer); err != nil || clipped != expected {
+			t.Fatalf("Expected clipping")
+		}
+	}
 }

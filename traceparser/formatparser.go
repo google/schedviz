@@ -275,3 +275,51 @@ func constructFormatField(fieldType string, size uint64) (FormatField, error) {
 
 	return field, nil
 }
+
+// CPUOverflowed reads a per_cpu stats file to decide whether any events overflowed for the cpu.
+// stats files look like this:
+/**
+entries: 1945
+overrun: 0
+commit overrun: 0
+bytes: 128768
+oldest event ts: 2698497.198903
+now ts: 2698499.259470
+dropped events: 0
+read events: 2404
+*/
+// An overflowed cpu is one where the trace buffer ran out of space so events were either
+// overwritten or dropped. This true if any of "overrun", "commit overrun", or "dropped events"
+// are nonzero in the input stats file.
+func CPUOverflowed(reader *bufio.Reader) (bool, error) {
+	m, err := statsBufferToMap(reader)
+	if err != nil {
+		return false, err
+	}
+	if checkNonzeroString(m, "overrun") || checkNonzeroString(m, "commit overrun") || checkNonzeroString(m, "dropped events") {
+		return true, nil
+	}
+	return false, nil
+}
+
+func checkNonzeroString(m map[string]string, key string) bool {
+	if value, ok := m[key]; ok {
+		return value != "0"
+	}
+	return false
+}
+
+// statsBufferToMap converts a stats file to a map. Each line should be of the format "<key>: <value>".
+func statsBufferToMap(reader *bufio.Reader) (map[string]string, error) {
+	r := make(map[string]string)
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		text := scanner.Text()
+		pieces := strings.Split(text, ": ")
+		if len(pieces) != 2 {
+			return nil, fmt.Errorf("bad stat format line: %s", text)
+		}
+		r[pieces[0]] = pieces[1]
+	}
+	return r, nil
+}

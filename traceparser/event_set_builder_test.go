@@ -87,9 +87,10 @@ var traceEvents = []*TraceEvent{
 			"next_prio":  120,
 		},
 		FormatID: 1942,
+		CPU:      1,
 	},
 	{
-		Timestamp: 1040483711613818,
+		Timestamp: 1040483711613819,
 		TextProperties: map[string]string{
 			"common_flags":         "\x01",
 			"common_preempt_count": "",
@@ -141,6 +142,7 @@ var traceEvents = []*TraceEvent{
 			"next_prio":  120,
 		},
 		FormatID: 314,
+		CPU:      1,
 	},
 }
 
@@ -178,7 +180,7 @@ var eventSet = &pb.EventSet{
 	Event: []*pb.Event{
 		{
 			EventDescriptor: 1,
-			Cpu:             0,
+			Cpu:             1,
 			TimestampNs:     1040483711613818,
 			Clipped:         false,
 			Property:        []int64{0, 16, 0, 0, 17, 18},
@@ -186,7 +188,7 @@ var eventSet = &pb.EventSet{
 		{
 			EventDescriptor: 0,
 			Cpu:             0,
-			TimestampNs:     1040483711613818,
+			TimestampNs:     1040483711613819,
 			Clipped:         false,
 			Property:        []int64{0, 16, 0, 0, 19, 0, 120, 0, 20, 166549, 120},
 		},
@@ -199,7 +201,7 @@ var eventSet = &pb.EventSet{
 		},
 		{
 			EventDescriptor: 0,
-			Cpu:             0,
+			Cpu:             1,
 			TimestampNs:     1040483711647349,
 			Clipped:         false,
 			Property:        []int64{0, 16, 0, 0, 19, 0, 120, 0, 20, 166549, 120},
@@ -215,10 +217,48 @@ func TestEventSetBuilder(t *testing.T) {
 		}
 	}
 
-	got := esb.EventSet
+	got := esb.Finalize()
 
 	if diff := cmp.Diff(eventSet, got, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder: Diff -want +got:\n%s", diff)
+	}
+}
+
+func TestEventSetBuilder_ClipStart(t *testing.T) {
+	esb := testEventSetBuilder()
+	esb.SetOverwrite(true)
+	esb.SetOverflowedCPUs(map[int64]struct{}{0: {}, 1: {}})
+	for _, traceEvent := range traceEvents {
+		if err := esb.AddTraceEvent(traceEvent); err != nil {
+			t.Fatalf("error in AddTraceEvent: %s", err)
+		}
+	}
+
+	got := esb.Finalize()
+
+	for idx, event := range got.Event {
+		if event.GetClipped() != (idx == 0) {
+			t.Fatalf("Only the first event should be clipped")
+		}
+	}
+}
+
+func TestEventSetBuilder_ClipEnd(t *testing.T) {
+	esb := testEventSetBuilder()
+	esb.SetOverwrite(false)
+	esb.SetOverflowedCPUs(map[int64]struct{}{0: {}, 1: {}})
+	for _, traceEvent := range traceEvents {
+		if err := esb.AddTraceEvent(traceEvent); err != nil {
+			t.Fatalf("error in AddTraceEvent: %s", err)
+		}
+	}
+
+	got := esb.Finalize()
+
+	for idx, event := range got.Event {
+		if event.GetClipped() != (idx == len(got.Event)-1) {
+			t.Fatalf("Only the last event should be clipped")
+		}
 	}
 }
 
@@ -236,7 +276,7 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 		}
 	}
 
-	original := esb.EventSet
+	original := esb.Finalize()
 
 	clonedEsb, err := esb.Clone()
 	if err != nil {
@@ -245,7 +285,7 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 	if err := clonedEsb.AddTraceEvent(traceEvents[0]); err != nil {
 		t.Fatalf("error in AddTraceEvent: %s", err)
 	}
-	cloned := clonedEsb.EventSet
+	cloned := clonedEsb.Finalize()
 
 	if diff := cmp.Diff(eventSet, original, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder_Clone: Diff -want +got:\n%s", diff)

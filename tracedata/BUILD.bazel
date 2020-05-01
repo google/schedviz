@@ -95,3 +95,22 @@ importpath = "github.com/google/schedviz/tracedata/schedevent",
     visibility = ["//visibility:public"],
     deps = [":trace"],
 )
+
+go_library(
+    name = "clipping",
+importpath = "github.com/google/schedviz/tracedata/clipping",
+
+    srcs = ["clipping.go"],
+    visibility = ["//visibility:public"],
+    deps = [":schedviz_events_go_proto"],
+)
+
+go_test(
+    name = "clipping_test",
+    size = "small",
+    srcs = ["clipping_test.go"],
+    embed = [":clipping"],
+    deps = [
+        ":schedviz_events_go_proto",
+    ],
+)

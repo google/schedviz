@@ -17,6 +17,8 @@ importpath = "github.com/google/schedviz/traceparser/traceparser",
         "traceevent.go",
     ],
     deps = [
+        "//analysis:event_loaders_go_proto",
+        "//tracedata:clipping",
         "//tracedata:schedviz_events_go_proto",
         "//util",
         "@com_github_golang_protobuf//proto:go_default_library",

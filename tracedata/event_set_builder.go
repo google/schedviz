@@ -179,7 +179,7 @@ func (b *Builder) WithEvent(eventName string, cpu int64, timestampNs int64, clip
 // WithDefaultEventLoadersType specifies the default event loaders that should
 // be used to interpret this trace.
 func (b *Builder) WithDefaultEventLoadersType(elt elpb.LoadersType) *Builder {
-	b.esb.EventSet.DefaultLoadersType = elt
+	b.esb.SetDefaultEventLoadersType(elt)
 	return b
 }
 
@@ -187,5 +187,5 @@ func (b *Builder) WithDefaultEventLoadersType(elt elpb.LoadersType) *Builder {
 // encountered in building.  If the errors slice is nonempty, the returned
 // EventSet is invalid.
 func (b *Builder) EventSet() (*eventpb.EventSet, []error) {
-	return b.esb.EventSet, b.errs
+	return b.esb.Finalize(), b.errs
 }

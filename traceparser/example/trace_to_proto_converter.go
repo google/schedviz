@@ -35,6 +35,7 @@ var (
 	formatFilePaths          = flag.String("format_files", "", "Required. Comma separated list of paths to format files. Must include path to header_page file as well.")
 	traceFilesPath           = flag.String("trace_files", "", "Required. Path to the recorded trace files. Should be a folder containing cpu0, cpu1, ... files")
 	outputPath               = flag.String("output_path", "", "Required. Path to the file where the output should be written.")
+	statsFilesPath           = flag.String("stats_files", "", "Optional. Path to the recorded cpu stats. Should be a folder containing cpu0, cpu1, ... files")
 	outputFormat             = flag.String("output_format", "proto", "Optional. Format to write the output in. Can be either \"proto\" or \"textproto\". Will use \"proto\" if not specified")
 	failOnUnknownEventFormat = flag.Bool("fail_on_unknown_event_format", true, "Whether or not to continue parsing when an unknown event is encountered")
 )
@@ -91,7 +92,28 @@ func main() {
 		log.Exitf("Failed to get list of trace files: %s", err)
 	}
 
+	statsFiles := []os.FileInfo{}
+	if *statsFilesPath != "" {
+		statsFiles, err = ioutil.ReadDir(*statsFilesPath)
+		if err != nil {
+			log.Exitf("Failed to get list of stats files: %s", err)
+		}
+	}
+
 	eventSetBuilder := traceparser.NewEventSetBuilder(&traceParser)
+
+	overflowedCPUs := map[int64]struct{}{}
+	for i, statsFilePath := range statsFiles {
+		statsFile, err := os.Open(path.Join(*traceFilesPath, statsFilePath.Name()))
+		if err != nil {
+			log.Exitf("Failed to open trace file: %s", err)
+		}
+		reader := bufio.NewReader(statsFile)
+		if overflowed, err := traceparser.CPUOverflowed(reader); err != nil && overflowed {
+			overflowedCPUs[int64(i)] = struct{}{}
+		}
+	}
+	eventSetBuilder.SetOverflowedCPUs(overflowedCPUs)
 
 	for i, traceFilePath := range traceFiles {
 		traceFile, err := os.Open(path.Join(*traceFilesPath, traceFilePath.Name()))
@@ -109,7 +131,7 @@ func main() {
 		}
 	}
 
-	protos := eventSetBuilder.EventSet
+	protos := eventSetBuilder.Finalize()
 
 	var output []byte
 	switch *outputFormat {

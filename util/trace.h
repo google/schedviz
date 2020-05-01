@@ -102,6 +102,12 @@ class FTraceTracer {
   Status CopyCPUBuffer(int in_fd, int out_fd);
 
   /**
+   * Copies all CPU buffers to the temp directory.
+   * @return Status if successful or not.
+   */
+  Status CopyCPUStats();
+
+  /**
    * Tars and gzips the directory located at "temp_path_" and writes it to
    * "output_path_".
    * @param tar_name The name of the tar file.

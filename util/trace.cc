@@ -185,6 +185,11 @@ Status FTraceTracer::Trace(int capture_seconds) {
     return status;
   }
 
+  status = CopyCPUStats();
+  if (!status.ok()) {
+    return status;
+  }
+
   status = CreateTar("trace.tar.gz");
   if (!status.ok()) {
     return status;
@@ -521,6 +526,35 @@ Status FTraceTracer::CopyCPUBuffer(int in_fd, int out_fd) {
     }
 
     write(out_fd, &trace_data.front(), bytes_read);
+  }
+  return Status::OkStatus();
+}
+
+Status FTraceTracer::CopyCPUStats() {
+  if (is_tracing_) {
+    return Status::InternalError(
+        "Still Tracing. Must complete tracing before copying stats.");
+  }
+  // Prepare
+  const auto& out = temp_path_ / "stats";
+  // Create directories if they don't exist.
+  if (!std::filesystem::exists(out)) {
+    if (!std::filesystem::create_directories(out)) {
+      return Status::InternalError(absl::StrCat(
+          "Unable to create directories for path: ", out.string()));
+    }
+  }
+
+  const auto& cpu_count = sysconf(_SC_NPROCESSORS_CONF);
+  for (int i = 0; i < cpu_count; i++) {
+    const auto& cpuName = "cpu" + std::to_string(i);
+    const auto& cpuPath = kernel_trace_root_ / "per_cpu" / cpuName / "stats";
+    const auto& outPath = out / cpuName;
+
+    auto status = CopyFakeFile(cpuPath, outPath);
+    if (!status.ok()) {
+      return status;
+    }
   }
   return Status::OkStatus();
 }

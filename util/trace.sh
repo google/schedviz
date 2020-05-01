@@ -110,6 +110,7 @@ trace_set 0
 [[ ! -d "${OUT}" ]] && mkdir "${OUT}"
 mkdir "${TMP}"
 mkdir "${TMP}/traces"
+mkdir "${TMP}/stats"
 mkdir "${TMP}/topology"
 mkdir "${TMP}/options"
 
@@ -139,6 +140,8 @@ do
   cpuname="${cf##*/}"
   echo "Copying ${cf}/trace_pipe_raw to ${TMP}/traces/${cpuname}"
   touch "${TMP}/traces/${cpuname}"
+  touch "${TMP}/stats/${cpuname}"
+  cat "${cf}/stats" > "${TMP}/stats/${cpuname}"
   cat "${cf}/trace_pipe_raw" > "${TMP}/traces/${cpuname}" &
   pids+=($!)
   disown

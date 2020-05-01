@@ -295,6 +295,12 @@ traces
   - cpu1
     ...
   - cpuN
+stats [optional]
+  - cpu0
+  - cpu1
+    ...
+  - cpuN
+
 */
 func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSet, *models.SystemTopology, error) {
 	// Read formats
@@ -332,6 +338,11 @@ func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSe
 		}
 	}
 
+	overflowed, err := findOverflowedCPUs(path.Join(dir, "stats"))
+	if err != nil {
+		eventSetBuilder.SetOverflowedCPUs(overflowed)
+	}
+
 	addTraceEvent := func(traceEvent *traceparser.TraceEvent) (bool, error) {
 		if err := eventSetBuilder.AddTraceEvent(traceEvent); err != nil {
 			return false, fmt.Errorf("error in AddTraceEvent: %s", err)
@@ -343,7 +354,7 @@ func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSe
 		return nil, nil, fmt.Errorf("failed to read Ftrace trace files: %s", err)
 	}
 
-	return eventSetBuilder.EventSet, topology, nil
+	return eventSetBuilder.Finalize(), topology, nil
 }
 
 // readFormats reads the formats directory of an FTrace tar and returns the
@@ -459,6 +470,12 @@ func readOptions(optionsDir string) (map[string]bool, error) {
 // readFTraceTraces reads the trace files contained in an FTrace tar and
 // parses them with the provided TraceParser.
 func readFTraceTraces(traceDir string, traceParser *traceparser.TraceParser, callback traceparser.AddEventCallback) error {
+	return walkPerCPUDir(traceDir, func(reader *bufio.Reader, cpu int64) error {
+		return traceParser.ParseTrace(reader, cpu, callback)
+	})
+}
+
+func walkPerCPUDir(traceDir string, process func(reader *bufio.Reader, cpu int64) error) error {
 	err := filepath.Walk(traceDir, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -479,20 +496,37 @@ func readFTraceTraces(traceDir string, traceParser *traceparser.TraceParser, cal
 				return fmt.Errorf("error opening %s for reading: %s", filePath, err)
 			}
 			reader := bufio.NewReader(file)
-			if err := traceParser.ParseTrace(reader, cpu, callback); err != nil {
+			if err := process(reader, cpu); err != nil {
 				return err
 			}
 		} else {
 			return fmt.Errorf("unknown file in trace directory: %s", filePath)
 		}
+		return nil
+	})
+	return err
+}
 
+// findOverflowedCPUs reads the per cpu stats files to find which cpus "overflowed".
+// A cpu is overflowed if the tracer runs out of space in the buffer for its trace, in
+// which case new events were dropped or old events were overwritten depending
+// on the `overwrite` flag.
+func findOverflowedCPUs(traceDir string) (map[int64]struct{}, error) {
+	overflowed := make(map[int64]struct{})
+	err := walkPerCPUDir(traceDir, func(reader *bufio.Reader, cpu int64) error {
+		isOverflowed, err := traceparser.CPUOverflowed(reader)
+		if err != nil {
+			return err
+		}
+		if isOverflowed {
+			overflowed[cpu] = struct{}{}
+		}
 		return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	return nil
+	return overflowed, nil
 }
 
 func parseEBPFTar(dir string) (*eventpb.EventSet, *models.SystemTopology, error) {
