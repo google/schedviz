@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 package(default_visibility = ["//visibility:public"])
 
