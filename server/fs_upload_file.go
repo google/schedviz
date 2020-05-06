@@ -655,9 +655,16 @@ func (tb *topologyBuilder) RecordCPUTopology(r io.Reader, name string, cpuID, nu
 		if err != nil {
 			return err
 		}
-		idx := sort.Search(len(threadSiblings), func(i int) bool {
-			return threadSiblings[i] == cpuID
-		})
+		idx := -1
+		for i, ts := range threadSiblings {
+			if ts == cpuID {
+				idx = i
+				break
+			}
+		}
+		if idx == -1 {
+			return fmt.Errorf("unable to compute hyperthread ID for cpu %d. thread siblings: %v", cpuID, threadSiblings)
+		}
 		lc.ThreadID = int32(idx)
 	}
 

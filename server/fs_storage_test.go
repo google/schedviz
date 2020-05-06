@@ -143,7 +143,7 @@ func TestFsStorage_UploadFile(t *testing.T) {
 					{
 						SocketID:   0,
 						DieID:      0,
-						ThreadID:   2,
+						ThreadID:   0,
 						NumaNodeID: 0,
 						CPUID:      0,
 						CoreID:     0,
@@ -151,7 +151,7 @@ func TestFsStorage_UploadFile(t *testing.T) {
 					{
 						SocketID:   0,
 						DieID:      0,
-						ThreadID:   2,
+						ThreadID:   0,
 						NumaNodeID: 0,
 						CPUID:      1,
 						CoreID:     1,
@@ -207,7 +207,7 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			lc := cachedValue.SystemTopology.LogicalCores
 			return lc[i].CPUID < lc[j].CPUID
 		})
-		if diff := cmp.Diff(cachedValue.SystemTopology, test.wantSystemTopology); diff != "" {
+		if diff := cmp.Diff(test.wantSystemTopology, cachedValue.SystemTopology); diff != "" {
 			t.Errorf("wrong system topology returned; Diff -want +got %v", diff)
 		}
 	}
