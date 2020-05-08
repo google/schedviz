@@ -296,17 +296,24 @@ func CPUOverflowed(reader *bufio.Reader) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	return CPUOverflowedByMap(m), nil
+}
+
+// CPUOverflowedByMap reads a dictionary representation of the per_cpu stats file to decide
+// whether any events are overflowed for the cpu.
+// An overflowed cpu is one where the trace buffer ran out of space so events were either
+// overwritten or dropped. This true if any of "overrun", "commit overrun", or "dropped events"
+// are nonzero in the input stats file.
+func CPUOverflowedByMap(m map[string]string) bool {
 	if checkNonzeroString(m, "overrun") || checkNonzeroString(m, "commit overrun") || checkNonzeroString(m, "dropped events") {
-		return true, nil
+		return true
 	}
-	return false, nil
+	return false
 }
 
 func checkNonzeroString(m map[string]string, key string) bool {
-	if value, ok := m[key]; ok {
-		return value != "0"
-	}
-	return false
+	value := m[key]
+	return value != "" && value != "0"
 }
 
 // statsBufferToMap converts a stats file to a map. Each line should be of the format "<key>: <value>".

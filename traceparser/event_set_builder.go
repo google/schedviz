@@ -97,9 +97,19 @@ func NewEventSetBuilder(tp *TraceParser) *EventSetBuilder {
 	return &esb
 }
 
+// Overwrite gets the value of the overwrite property of the eventSetBuilder
+func (esb *EventSetBuilder) Overwrite() bool {
+	return esb.overwrite
+}
+
 // SetOverwrite configures the overwrite property of the eventSetBuilder
 func (esb *EventSetBuilder) SetOverwrite(option bool) {
 	esb.overwrite = option
+}
+
+// OverflowedCPUs gets the set of overflowed cpus
+func (esb *EventSetBuilder) OverflowedCPUs() map[int64]struct{} {
+	return esb.overflowedCPUs
 }
 
 // SetOverflowedCPUs lets the eventSetBuilder know which CPUs overflowed.
