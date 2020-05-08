@@ -34,16 +34,21 @@ func TestInference(t *testing.T) {
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(WaitingState|SleepingState, RunningState),
-			emptyTransition(1, 1010, pid).withStatePropagatesThrough(true),
+			emptyTransition(1, 1010, pid).
+				withCPUPropagatesThrough(true).
+				withStatePropagatesThrough(true),
 		},
 		wantErr: false,
 		wantTransitions: []*threadTransition{
 			emptyTransition(0, 1000, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(WaitingState|SleepingState, RunningState),
 			emptyTransition(1, 1010, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(RunningState, RunningState).
 				withStatePropagatesThrough(true),
 		},
@@ -51,19 +56,24 @@ func TestInference(t *testing.T) {
 		description: "infer backwards",
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
+				withCPUPropagatesThrough(true).
 				withStatePropagatesThrough(true),
 			emptyTransition(1, 1010, pid).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
+				withCPUPropagatesThrough(true).
 				withStates(RunningState, SleepingState),
 		},
 		wantErr: false,
 		wantTransitions: []*threadTransition{
 			emptyTransition(0, 1000, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(RunningState, RunningState).
 				withStatePropagatesThrough(true),
 			emptyTransition(1, 1010, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(RunningState, SleepingState),
 		},
 	}, {
@@ -80,17 +90,20 @@ func TestInference(t *testing.T) {
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(AnyState, RunningState),
 			emptyTransition(1, 1010, pid).
 				withCPUs(2, UnknownCPU).
 				withCPUConflictPolicies(Drop, Fail),
 			emptyTransition(2, 1020, pid).
+				withCPUPropagatesThrough(true).
 				withStatePropagatesThrough(true),
 		},
 		wantErr: false,
 		wantTransitions: []*threadTransition{
 			emptyTransition(0, 1000, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(AnyState, RunningState),
 			emptyTransition(1, 1010, 100).
 				withCPUs(2, UnknownCPU).
@@ -98,6 +111,7 @@ func TestInference(t *testing.T) {
 				drop(),
 			emptyTransition(2, 1020, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(RunningState, RunningState).
 				withStatePropagatesThrough(true),
 		},
@@ -106,6 +120,7 @@ func TestInference(t *testing.T) {
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(AnyState, RunningState).
 				withCPUConflictPolicies(Fail, InsertSynthetic),
 			emptyTransition(1, 1010, pid).
@@ -117,6 +132,7 @@ func TestInference(t *testing.T) {
 		wantTransitions: []*threadTransition{
 			emptyTransition(0, 1000, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(AnyState, RunningState).
 				withCPUConflictPolicies(Fail, InsertSynthetic),
 			emptyTransition(Unknown, 1005, 100).
@@ -131,13 +147,48 @@ func TestInference(t *testing.T) {
 				withStatePropagatesThrough(true),
 		},
 	}, {
+		description: "state conflict between nonadjacent transitions",
+		transitions: []*threadTransition{
+			emptyTransition(0, 1000, pid).
+				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
+				withStates(AnyState, RunningState).
+				withStateConflictPolicies(Fail, InsertSynthetic),
+			emptyTransition(1, 1005, pid).
+				withCPUs(1, 2).
+				withStatePropagatesThrough(true),
+			emptyTransition(2, 1010, pid).
+				withCPUPropagatesThrough(true).
+				withStates(WaitingState, RunningState).
+				withStateConflictPolicies(Drop, Fail),
+		},
+		wantErr: false,
+		wantTransitions: []*threadTransition{
+			emptyTransition(0, 1000, 100).
+				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
+				withStates(AnyState, RunningState).
+				withStateConflictPolicies(Fail, InsertSynthetic),
+			emptyTransition(1, 1005, 100).
+				withCPUs(1, 2).
+				withStates(RunningState, RunningState).
+				withStatePropagatesThrough(true),
+			emptyTransition(2, 1010, 100).
+				withCPUPropagatesThrough(true).
+				withStates(WaitingState, RunningState).
+				withStateConflictPolicies(Drop, Fail).
+				drop(),
+		},
+	}, {
 		description: "insert synthetic on state conflict",
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(AnyState, RunningState).
 				withStateConflictPolicies(Fail, InsertSynthetic),
 			emptyTransition(1, 1010, pid).
+				withCPUPropagatesThrough(true).
 				withStates(WaitingState, RunningState).
 				withStateConflictPolicies(InsertSynthetic, Fail),
 		},
@@ -145,14 +196,17 @@ func TestInference(t *testing.T) {
 		wantTransitions: []*threadTransition{
 			emptyTransition(0, 1000, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(AnyState, RunningState).
 				withStateConflictPolicies(Fail, InsertSynthetic),
 			emptyTransition(Unknown, 1005, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(RunningState, WaitingState).
 				isSynthetic(),
 			emptyTransition(1, 1010, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(WaitingState, RunningState).
 				withStateConflictPolicies(InsertSynthetic, Fail),
 		},
@@ -161,11 +215,13 @@ func TestInference(t *testing.T) {
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(AnyState, RunningState).
 				withCPUConflictPolicies(Fail, InsertSynthetic).
 				withStateConflictPolicies(Fail, InsertSynthetic),
 			emptyTransition(1, 1010, pid).
 				withCPUs(2, 2).
+				withCPUPropagatesThrough(true).
 				withStates(WaitingState, RunningState).
 				withCPUConflictPolicies(InsertSynthetic, Fail).
 				withStateConflictPolicies(InsertSynthetic, Fail),
@@ -174,6 +230,7 @@ func TestInference(t *testing.T) {
 		wantTransitions: []*threadTransition{
 			emptyTransition(0, 1000, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
 				withStates(AnyState, RunningState).
 				withCPUConflictPolicies(Fail, InsertSynthetic).
 				withStateConflictPolicies(Fail, InsertSynthetic),
@@ -183,6 +240,7 @@ func TestInference(t *testing.T) {
 				isSynthetic(),
 			emptyTransition(1, 1010, 100).
 				withCPUs(2, 2).
+				withCPUPropagatesThrough(true).
 				withStates(WaitingState, RunningState).
 				withCPUConflictPolicies(InsertSynthetic, Fail).
 				withStateConflictPolicies(InsertSynthetic, Fail),

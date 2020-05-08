@@ -90,6 +90,13 @@ func (ttb *ThreadTransitionBuilder) WithNextCPU(nextCPU CPUID) *ThreadTransition
 	return ttb
 }
 
+// WithCPUPropagatesThrough sets whether CPUs can propagate through the
+// current threadTransition, during CPU inferefence.
+func (ttb *ThreadTransitionBuilder) WithCPUPropagatesThrough(cpuPropagatesThrough bool) *ThreadTransitionBuilder {
+	ttb.threadTransition.CPUPropagatesThrough = cpuPropagatesThrough
+	return ttb
+}
+
 // WithPrevState sets the current threadTransition's PrevState.
 func (ttb *ThreadTransitionBuilder) WithPrevState(prevState ThreadState) *ThreadTransitionBuilder {
 	if prevState&UnknownState != 0 {

@@ -92,16 +92,14 @@ func (ts ThreadState) isKnown() bool {
 	return ts == RunningState || ts == WaitingState || ts == SleepingState
 }
 
-// mergeState accepts two ThreadStates, and returns their merger:
-// * if both have the same value, returns that value,
-// * if one is unknown, returns the other,
-// * if both are known and they disagree, returns an error.
-func mergeState(a, b ThreadState) (ThreadState, error) {
+// mergeState accepts two ThreadStates, and returns their intersection.
+// If the intersection is nil, returns false, otherwise returns true.
+func mergeState(a, b ThreadState) (ThreadState, bool) {
 	ret := a & b
 	if ret == 0 {
-		return 0, status.Errorf(codes.Internal, "States %s and %s cannot be merged", a, b)
+		return 0, false
 	}
-	return ret, nil
+	return ret, true
 }
 
 // PID specifies a kernel thread ID.  Valid PIDs are nonnegative.
