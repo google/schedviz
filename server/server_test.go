@@ -677,11 +677,11 @@ func TestGetThreadSummaries(t *testing.T) {
 	want := &models.ThreadSummariesResponse{
 		CollectionName: collectionName,
 		Metrics: []sched.Metrics{{
-			WakeupCount:      270,
-			UnknownTimeNs:    6269650,
+			WakeupCount:      271,
+			UnknownTimeNs:    0,
 			RunTimeNs:        5680247,
 			WaitTimeNs:       2459979,
-			SleepTimeNs:      1994740679,
+			SleepTimeNs:      2001010329,
 			Pids:             []sched.PID{3},
 			Commands:         []string{"ksoftirqd/0"},
 			Priorities:       []sched.Priority{120},

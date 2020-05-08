@@ -236,7 +236,7 @@ func TestTestTrace1Transitions(t *testing.T) {
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withCPUPropagatesThrough(true).
-			withStates(AnyState, WaitingState).
+			withStates(SleepingState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
 		emptyTransition(4, 1010, 100).
@@ -256,7 +256,7 @@ func TestTestTrace1Transitions(t *testing.T) {
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withCPUPropagatesThrough(true).
-			withStates(AnyState, WaitingState).
+			withStates(SleepingState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
 		emptyTransition(6, 1080, 200).
@@ -270,7 +270,7 @@ func TestTestTrace1Transitions(t *testing.T) {
 			withPriorities(50, 50).
 			withCPUs(1, 1).
 			withCPUPropagatesThrough(true).
-			withStates(AnyState, WaitingState).
+			withStates(SleepingState, WaitingState).
 			withCPUConflictPolicies(Drop, Drop).
 			withStateConflictPolicies(Drop, Drop),
 		emptyTransition(8, 1100, 200).

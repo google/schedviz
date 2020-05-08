@@ -49,9 +49,8 @@ func TestPIDSummary(t *testing.T) {
 				Cpus:             []CPUID{1},
 				StartTimestampNs: 0,
 				EndTimestampNs:   100,
-				// Not counted because wakeup is first event, and therefore can't be inferred.
-				WakeupCount: 0,
-				Priorities:  []Priority{50},
+				WakeupCount:      1,
+				Priorities:       []Priority{50},
 			},
 			{
 				// Switch-out SLEEPING at 1000, wakeup at 1040, migrate at 1080, switch-in at 1100.
@@ -112,9 +111,8 @@ func TestPIDSummary(t *testing.T) {
 				Cpus:             []CPUID{1},
 				StartTimestampNs: 0,
 				EndTimestampNs:   100,
-				// Not counted because wakeup is first event, and therefore can't be inferred.
-				WakeupCount: 0,
-				Priorities:  []Priority{50},
+				WakeupCount:      1,
+				Priorities:       []Priority{50},
 			},
 			{
 				// Switch-out and wakeup

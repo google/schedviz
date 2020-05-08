@@ -187,7 +187,7 @@ func TestThreadInterval(t *testing.T) {
 		wantIntervals: []*Interval{
 			interval(
 				1, trace.Timestamp(1000), Duration(0), CPUID(1),
-				threadResidency(thread1, Duration(0), UnknownState),
+				threadResidency(thread1, Duration(0), SleepingState),
 			),
 			interval(
 				1, trace.Timestamp(1000), Duration(10), CPUID(1),

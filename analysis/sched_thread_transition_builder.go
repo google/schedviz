@@ -116,7 +116,9 @@ func (ttb *ThreadTransitionBuilder) WithNextState(nextState ThreadState) *Thread
 }
 
 // WithStatePropagatesThrough sets whether states can propagate through the
-// current threadTransition, during state inferefence.
+// current threadTransition during state inferefence.  This should be true for
+// transitions that do not affect a thread's state (such as migrations) and
+// false for transitions that do affect a thread's state.
 func (ttb *ThreadTransitionBuilder) WithStatePropagatesThrough(statePropagatesThrough bool) *ThreadTransitionBuilder {
 	ttb.threadTransition.StatePropagatesThrough = statePropagatesThrough
 	return ttb

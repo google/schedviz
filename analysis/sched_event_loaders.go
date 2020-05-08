@@ -134,7 +134,7 @@ func LoadSchedWakeup(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
 		WithPrevCPU(CPUID(targetCPU)).
 		WithNextCPU(CPUID(targetCPU)).
 		WithCPUPropagatesThrough(true).
-		WithPrevState(AnyState).
+		WithPrevState(SleepingState).
 		WithNextState(WaitingState).
 		OnBackwardsCPUConflict(Drop).
 		OnForwardsCPUConflict(Drop).
