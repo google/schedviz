@@ -111,6 +111,9 @@ func NormalizationOffset(normalizationOffset Timestamp) func(o *options) {
 // NewCollection builds and returns a new trace.Collection based on the
 // tracepoint event set in es, or nil and an error if one could not be created.
 func NewCollection(es *eventpb.EventSet, opts ...func(o *options)) (*Collection, error) {
+	sort.Slice(es.Event, func(a, b int) bool {
+		return es.Event[a].TimestampNs < es.Event[b].TimestampNs
+	})
 	o := &options{
 		normalizationOffset: 0,
 	}
