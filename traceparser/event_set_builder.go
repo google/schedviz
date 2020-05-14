@@ -250,19 +250,24 @@ func (esb *EventSetBuilder) Clone() (*EventSetBuilder, error) {
 // according to the builder's overwrite value and overflowedCPUs. We cannot know
 // which events must be clipped until after all events are parsed, so this must
 // be called after parsing events.
-func (esb *EventSetBuilder) clip() {
+func (esb *EventSetBuilder) clip() error {
 	if esb.overwrite {
-		clipping.ClipFromStartOfTrace(esb.eventSet, esb.overflowedCPUs)
-	} else {
-		clipping.ClipFromEndOfTrace(esb.eventSet, esb.overflowedCPUs)
+		return clipping.ClipFromStartOfTrace(esb.eventSet, esb.overflowedCPUs)
 	}
+	return clipping.ClipFromEndOfTrace(esb.eventSet, esb.overflowedCPUs)
 }
 
 // Finalize creates and returns the final event set. This method should only be called once after
 // all events and data have been processed.
-func (esb *EventSetBuilder) Finalize() *pb.EventSet {
-	esb.clip()
-	return esb.eventSet
+func (esb *EventSetBuilder) Finalize() (*pb.EventSet, error) {
+	events := esb.eventSet.Event
+	sort.Slice(events, func(i int, j int) bool {
+		return events[i].TimestampNs < events[j].TimestampNs
+	})
+	if err := esb.clip(); err != nil {
+		return nil, err
+	}
+	return esb.eventSet, nil
 }
 
 // convertProtoTypeToFieldType converts TraceEvent's ProtoType into the proto's FieldType enum

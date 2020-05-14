@@ -17,6 +17,7 @@
 package traceparser
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -217,7 +218,11 @@ func TestEventSetBuilder(t *testing.T) {
 		}
 	}
 
-	got := esb.Finalize()
+	got, err := esb.Finalize()
+
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
 
 	if diff := cmp.Diff(eventSet, got, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder: Diff -want +got:\n%s", diff)
@@ -234,7 +239,11 @@ func TestEventSetBuilder_ClipStart(t *testing.T) {
 		}
 	}
 
-	got := esb.Finalize()
+	got, err := esb.Finalize()
+
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
 
 	for idx, event := range got.Event {
 		if event.GetClipped() != (idx == 0) {
@@ -253,7 +262,11 @@ func TestEventSetBuilder_ClipEnd(t *testing.T) {
 		}
 	}
 
-	got := esb.Finalize()
+	got, err := esb.Finalize()
+
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
 
 	for idx, event := range got.Event {
 		if event.GetClipped() != (idx == len(got.Event)-1) {
@@ -268,6 +281,12 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 		t.Fatalf("failed to clone eventSet")
 	}
 	want.Event = append(want.Event, want.Event[0])
+	// Finalize on the esb will sort items, so this is
+	// needed to ensure our expectations are true at the
+	// end of the test.
+	sort.Slice(want.Event, func(i, j int) bool {
+		return want.Event[i].TimestampNs < want.Event[j].TimestampNs
+	})
 
 	esb := testEventSetBuilder()
 	for _, traceEvent := range traceEvents {
@@ -276,7 +295,11 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 		}
 	}
 
-	original := esb.Finalize()
+	original, err := esb.Finalize()
+
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
 
 	clonedEsb, err := esb.Clone()
 	if err != nil {
@@ -285,7 +308,11 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 	if err := clonedEsb.AddTraceEvent(traceEvents[0]); err != nil {
 		t.Fatalf("error in AddTraceEvent: %s", err)
 	}
-	cloned := clonedEsb.Finalize()
+	cloned, err := clonedEsb.Finalize()
+
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
 
 	if diff := cmp.Diff(eventSet, original, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder_Clone: Diff -want +got:\n%s", diff)

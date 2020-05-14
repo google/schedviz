@@ -187,5 +187,10 @@ func (b *Builder) WithDefaultEventLoadersType(elt elpb.LoadersType) *Builder {
 // encountered in building.  If the errors slice is nonempty, the returned
 // EventSet is invalid.
 func (b *Builder) EventSet() (*eventpb.EventSet, []error) {
-	return b.esb.Finalize(), b.errs
+	es, err := b.esb.Finalize()
+	errors := b.errs
+	if err != nil {
+		errors = append(errors, err)
+	}
+	return es, errors
 }

@@ -354,7 +354,11 @@ func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSe
 		return nil, nil, fmt.Errorf("failed to read Ftrace trace files: %s", err)
 	}
 
-	return eventSetBuilder.Finalize(), topology, nil
+	es, err := eventSetBuilder.Finalize()
+	if err != nil {
+		return nil, nil, err
+	}
+	return es, topology, nil
 }
 
 // readFormats reads the formats directory of an FTrace tar and returns the

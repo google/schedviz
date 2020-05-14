@@ -124,4 +124,16 @@ func TestNoEventsFromClippedCPU(t *testing.T) {
 			t.Error("No Events should be clipped.")
 		}
 	}
+
+	es = sampleClippingData()
+	err := ClipFromStartOfTrace(es, map[int64]struct{}{5: {}})
+	if err == nil {
+		t.Error("Expected error when overflowed CPU has no events.")
+	}
+
+	es = sampleClippingData()
+	err = ClipFromEndOfTrace(es, map[int64]struct{}{5: {}})
+	if err == nil {
+		t.Error("Expected error when overflowed CPU has no events.")
+	}
 }

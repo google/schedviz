@@ -131,7 +131,11 @@ func main() {
 		}
 	}
 
-	protos := eventSetBuilder.Finalize()
+	protos, err := eventSetBuilder.Finalize()
+
+	if err != nil {
+		log.Exitf("Failed to finalize events: %s", err)
+	}
 
 	var output []byte
 	switch *outputFormat {
