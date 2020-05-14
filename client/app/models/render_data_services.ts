@@ -215,7 +215,6 @@ export declare interface PidIntervalsRequest {
   minIntervalDurationNs: number;
 }
 
-
 /**
  * ThreadState is an enum describing the state of a thread
  */
@@ -223,19 +222,19 @@ export enum ThreadState {
   /**
    * Unknown thread state
    */
-  UNKNOWN_STATE = -1,
+  UNKNOWN_STATE = 1,
   /**
    * Scheduled and switched-in on a CPU.
    */
-  RUNNING_STATE = 0,
+  RUNNING_STATE = 2,
   /**
    * Not running but runnable.
    */
-  WAITING_STATE = 1,
+  WAITING_STATE = 4,
   /**
    * Neither running nor on the run queue.
    */
-  SLEEPING_STATE = 2,
+  SLEEPING_STATE = 8,
 }
 
 /**

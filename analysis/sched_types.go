@@ -43,6 +43,7 @@ func mergeCPU(a, b CPUID) (CPUID, error) {
 // Unknown thread index, PID, CPU, or priority.
 const Unknown = -1
 
+
 // ThreadState specifies the state of a thread at an instant in time.
 type ThreadState int8
 
@@ -61,6 +62,7 @@ const (
 	// are not switched in.
 	SleepingState
 )
+
 
 // AnyState is the superposition of all possible thread states -- Running,
 // Waiting, and Sleeping.
