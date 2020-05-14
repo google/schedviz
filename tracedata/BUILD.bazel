@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 # A set of types and utilities for working with compacted trace data sets, such
 # as those produced by ../traceparser.
-
 licenses(["notice"])  # Apache License 2.0
 
 go_library(

@@ -96,11 +96,32 @@ func (ev Event) String() string {
 	return strings.Join(out, " ")
 }
 
+type options struct {
+	normalizationOffset Timestamp
+}
+
+// NormalizationOffset specifies the timestamp offset to which all event
+// timestamps should be normalized.
+func NormalizationOffset(normalizationOffset Timestamp) func(o *options) {
+	return func(o *options) {
+		o.normalizationOffset = normalizationOffset
+	}
+}
+
 // NewCollection builds and returns a new trace.Collection based on the
 // tracepoint event set in es, or nil and an error if one could not be created.
-func NewCollection(es *eventpb.EventSet) (*Collection, error) {
-	c := &Collection{}
-	if err := c.init(es); err != nil {
+func NewCollection(es *eventpb.EventSet, opts ...func(o *options)) (*Collection, error) {
+	o := &options{
+		normalizationOffset: 0,
+	}
+	for _, opt := range opts {
+		opt(o)
+	}
+	c := &Collection{
+		eventSet: es,
+		o:        o,
+	}
+	if err := c.init(); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -108,6 +129,7 @@ func NewCollection(es *eventpb.EventSet) (*Collection, error) {
 
 // Collection provides convenience accessors for event traces stored in eventpb.EventSets.
 type Collection struct {
+	o              *options
 	eventSet       *eventpb.EventSet
 	startTimestamp Timestamp
 	endTimestamp   Timestamp
@@ -145,8 +167,7 @@ func (tc *Collection) clear() {
 
 // init initializes the Collection with the provided EventSet, returning an error if the
 // initialization was unsuccessful.
-func (tc *Collection) init(es *eventpb.EventSet) error {
-	tc.eventSet = es
+func (tc *Collection) init() error {
 	// Ensure that the EventSet is well formed, with no duplicate events.  Any
 	// empty event names are ignored.
 	ens := tc.EventNames()
@@ -172,11 +193,13 @@ func (tc *Collection) init(es *eventpb.EventSet) error {
 		return err
 	}
 	tc.startTimestamp = event.Timestamp
+	tc.startTimestamp = tc.startTimestamp - tc.o.normalizationOffset
 	if event, err = tc.EventByIndex(tc.EventCount() - 1); err != nil {
 		tc.clear()
 		return err
 	}
 	tc.endTimestamp = event.Timestamp
+	tc.endTimestamp = tc.endTimestamp - tc.o.normalizationOffset
 	return nil
 }
 
@@ -218,7 +241,7 @@ func (tc Collection) EventByIndex(id int) (*Event, error) {
 		Index:            id,
 		CPU:              ev.Cpu,
 		Name:             tc.stringByID(ed.Name),
-		Timestamp:        Timestamp(ev.TimestampNs),
+		Timestamp:        Timestamp(ev.TimestampNs) - tc.o.normalizationOffset,
 		Clipped:          ev.Clipped,
 		TextProperties:   make(map[string]string),
 		NumberProperties: make(map[string]int64),

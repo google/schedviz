@@ -20,7 +20,7 @@ package schedevent
 
 import (
 	"fmt"
-	"time"
+	"strconv"
 
 	"github.com/google/schedviz/tracedata/trace"
 )
@@ -29,7 +29,7 @@ import (
 // trace.Event is a supported scheduling event, and the raw printed event
 // otherwise.
 func String(ev *trace.Event) string {
-	prefix := fmt.Sprintf("[%3d] %-22s %-10s ", ev.CPU, time.Duration(ev.Timestamp), ev.Name)
+	prefix := fmt.Sprintf("[%3d] %-22s %-10s ", ev.CPU, strconv.Itoa(int(ev.Timestamp)), ev.Name)
 	switch ev.Name {
 	case "sched_switch":
 		return fmt.Sprintf("%s PID %d ('%s', prio %d, task state %d) to PID %d ('%s', prio %d) on CPU %3d",
