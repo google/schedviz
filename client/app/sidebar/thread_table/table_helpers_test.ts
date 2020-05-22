@@ -33,7 +33,7 @@ export function verifySorting(
     root: Element, table: MatTableDataSource<Interval>,
     expectedColumns: string[]) {
   expect(table.sort).not.toBeNull();
-  const sortButtons = root.querySelectorAll('.mat-sort-header-button');
+  const sortButtons = root.querySelectorAll('.mat-sort-header-container');
   expect(sortButtons.length).toEqual(expectedColumns.length);
   const paginator = table.paginator;
   expect(paginator).not.toBeNull();
