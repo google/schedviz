@@ -437,10 +437,24 @@ Status FTraceTracer::CollectTrace(const int capture_seconds) {
   // Wait for trace to end.
   const auto& start_time = absl::Now();
   const auto& interval = absl::Milliseconds(100);
+  const auto& tracing_file_path = kernel_trace_root_ / "tracing_on";
   absl::SleepFor(interval);
   Status failedCopyStatus;
   while (absl::Now() <= start_time + absl::Seconds(capture_seconds)) {
+    // Toggle tracing off before copy
+    status = WriteString(tracing_file_path, "0");
+    if (!status.ok()) {
+      failedCopyStatus = status;
+      break;
+    }
+    // Perform Copy
     status = CopyCPUBuffers();
+    if (!status.ok()) {
+      failedCopyStatus = status;
+      break;
+    }
+    // Toggle tracing on after copy
+    status = WriteString(tracing_file_path, "1");
     if (!status.ok()) {
       failedCopyStatus = status;
       break;
