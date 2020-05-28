@@ -22,3 +22,4 @@ export * from './hash_keys';
 export * from './viewport';
 export * from './util_module';
 export * from './complex_system_topology';
+export * from './error_snackbar';

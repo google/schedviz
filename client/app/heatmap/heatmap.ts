@@ -25,7 +25,7 @@ import {CollectionParameters, CpuIdleWaitLayer, CpuInterval, CpuIntervalCollecti
 import {ThreadState} from '../models/render_data_services';
 import {RenderDataService} from '../services/render_data_service';
 import {DeregistrationCallback, ShortcutId, ShortcutService} from '../services/shortcut_service';
-import {recordHttpErrorMessage, SystemTopology, Viewport} from '../util';
+import {showErrorSnackBar, SystemTopology, Viewport} from '../util';
 import {copyToClipboard} from '../util/clipboard';
 import {isCtrlPressed, nearlyEquals} from '../util/helpers';
 
@@ -260,9 +260,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                 this.cdr.detectChanges();
               },
               (err: HttpErrorResponse) => {
-                const errMsg = recordHttpErrorMessage(
+                showErrorSnackBar(
+                  this.snackBar,
                     `Failed to get CPU intervals for ${params.name}`, err);
-                this.snackBar.open(errMsg, 'Dismiss');
               });
     }
 
@@ -461,9 +461,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                   }
                 },
                 (err: HttpErrorResponse) => {
-                  const errMsg = recordHttpErrorMessage(
+                  showErrorSnackBar(
+                  this.snackBar,
                       `Failed to get CPU intervals for ${params.name}`, err);
-                  this.snackBar.open(errMsg, 'Dismiss');
                 });
   }
 
@@ -551,9 +551,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                   }
                 },
                 (err: HttpErrorResponse) => {
-                  const errMsg = recordHttpErrorMessage(
+                  showErrorSnackBar(
+                  this.snackBar,
                       `Failed to get PID intervals for ${params.name}`, err);
-                  this.snackBar.open(errMsg, 'Dismiss');
                 });
   }
 
@@ -578,10 +578,10 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
             .subscribe(
                 layer => this.onLayerDataReady(layers, layer),
                 (err: HttpErrorResponse) => {
-                  const errMsg = recordHttpErrorMessage(
+                  showErrorSnackBar(
+                  this.snackBar,
                       `Failed to get get ftrace events for ${params.name}`,
                       err);
-                  this.snackBar.open(errMsg, 'Dismiss');
                 });
   }
 

@@ -32,6 +32,7 @@ import {CollectionMetadata} from '../models';
 import {CollectionsFilter} from '../models/collections_filter';
 import {CollectionDataService} from '../services/collection_data_service';
 import {recordHttpErrorMessage, Reflect, throttle} from '../util/helpers';
+import {showErrorSnackBar} from '../util';
 
 /**
  * The CollectionsTable displays collection info in a sortable, searchable,
@@ -148,9 +149,8 @@ export class CollectionsTable implements OnInit, OnDestroy {
         },
         (err: HttpErrorResponse) => {
           this.loading.next(false);
-          const errMsg =
-              recordHttpErrorMessage('Failed to get list of collections', err);
-          this.snackBar.open(errMsg, 'Dismiss');
+          showErrorSnackBar(
+              this.snackBar, 'Failed to get list of collections', err);
         });
   }
 
@@ -208,9 +208,8 @@ export class CollectionsTable implements OnInit, OnDestroy {
               },
               (err: HttpErrorResponse) => {
                 this.loading.next(false);
-                const errMsg =
-                    recordHttpErrorMessage('Failed to delete collection', err);
-                this.snackBar.open(errMsg, 'Dismiss');
+                showErrorSnackBar(
+                    this.snackBar, 'Failed to delete collection', err);
               });
     });
   }

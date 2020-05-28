@@ -44,13 +44,23 @@ export function nearlyEquals(
 }
 
 /**
+ * Type for error messages from SchedViz's server.
+ * Contains a summary (short error message) and a long error message from the
+ * server.
+ */
+export interface SchedVizError {
+  summary: string;
+  error: string;
+}
+
+/**
  * Logs an HttpErrorResponse with a custom message.
  * @param message A message describing the error
  * @param error An Http Error
  * @return The input message for further use.
  */
 export function recordHttpErrorMessage(
-    message: string, error: HttpErrorResponse) {
+    message: string, error: HttpErrorResponse): SchedVizError {
   let fullMessage = message;
   if (error.message) {
     fullMessage += `\nMessage:\n ${error.message}`;
@@ -59,7 +69,7 @@ export function recordHttpErrorMessage(
     fullMessage += `\nReason:\n ${error.error}`;
   }
   console.error(fullMessage);
-  return message;
+  return {summary: message, error: fullMessage};
 }
 
 /**

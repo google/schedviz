@@ -37,7 +37,7 @@ import {ColorService} from '../services/color_service';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService} from '../services/render_data_service';
 import {SidebarModule} from '../sidebar/sidebar_module';
-import {Viewport} from '../util';
+import {ErrorSnackBarComponent, Viewport} from '../util';
 
 import {Dashboard} from './dashboard';
 import {DashboardToolbar} from './dashboard_toolbar';
@@ -160,7 +160,7 @@ describe('Dashboard', () => {
             .and.returnValue(throwError(new HttpErrorResponse({error: 'err'})));
 
     const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
-    const snackSpy = spyOn(snackBar, 'open');
+    const snackSpy = spyOn(snackBar, 'openFromComponent');
     const consoleSpy = spyOn(console, 'error');
 
     await fixture.whenStable();
@@ -168,15 +168,16 @@ describe('Dashboard', () => {
     dashboard.getCollectionParameters('abc');
     expect(serviceSpy).toHaveBeenCalled();
 
+    const fullError = 'Failed to get parameters for abc\n' +
+        'Message:\n' +
+        ' Http failure response for (unknown url): undefined undefined\n' +
+        'Reason:\n' +
+        ' err';
+
     expect(snackSpy).toHaveBeenCalledWith(
-        'Failed to get parameters for abc', 'Dismiss');
+        ErrorSnackBarComponent, {data: {summary: 'Failed to get parameters for abc', error: fullError}});
     expect(consoleSpy)
-        .toHaveBeenCalledWith(
-            'Failed to get parameters for abc\n' +
-            'Message:\n' +
-            ' Http failure response for (unknown url): undefined undefined\n' +
-            'Reason:\n' +
-            ' err');
+        .toHaveBeenCalledWith(fullError);
   });
 
   // TODO(sainsley): Test headmap / sidebar presence / size?

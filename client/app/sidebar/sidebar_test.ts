@@ -190,7 +190,7 @@ describe('Sidebar', () => {
 
        mockMetricServiceHttpError('getThreadSummaries');
        const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
-       const snackBarSpy = spyOn(snackBar, 'open');
+       const snackBarSpy = spyOn(snackBar, 'openFromComponent');
 
        // Failed request should occur during viewport update
        const updatedViewport = new Viewport(component.viewport.value);
@@ -201,7 +201,7 @@ describe('Sidebar', () => {
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
        const componentParameters = component.parameters.value;
        expect(componentParameters).toBeTruthy();
-       const actualError = snackBarSpy.calls.mostRecent().args[0];
+       const actualError = snackBarSpy.calls.mostRecent().args[1].data.summary;
        expect(actualError)
            .toContain(`Failed to get thread summaries for ${
                componentParameters!.name}`);
@@ -215,14 +215,14 @@ describe('Sidebar', () => {
 
        mockMetricServiceHttpError('getPerThreadEvents');
        const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
-       const snackBarSpy = spyOn(snackBar, 'open');
+       const snackBarSpy = spyOn(snackBar, 'openFromComponent');
 
        // Failed request should occur during thread expansion
        const threadToExpand = component.threads.value[0];
        component.expandedThread.next(threadToExpand.label);
 
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
-       const actualError = snackBarSpy.calls.mostRecent().args[0];
+       const actualError = snackBarSpy.calls.mostRecent().args[1].data.summary;
        expect(actualError)
            .toContain(
                `Failed to get thread events for PID: ${threadToExpand.pid}`);
@@ -239,14 +239,14 @@ describe('Sidebar', () => {
        // Not deprecated until Angular 9.0.0, which isn't GA yet.
        // tslint:disable-next-line:deprecation
        const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
-       const snackBarSpy = spyOn(snackBar, 'open');
+       const snackBarSpy = spyOn(snackBar, 'openFromComponent');
 
        // Failed request should occur during thread expansion
        const threadToExpand = component.threads.value[2];
        component.expandedThread.next(threadToExpand.label);
 
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
-       const actualError = snackBarSpy.calls.mostRecent().args[0];
+       const actualError = snackBarSpy.calls.mostRecent().args[1].data.summary;
        expect(actualError)
            .toContain(
                `Failed to get thread intervals for PID: ${threadToExpand.pid}`);
@@ -260,14 +260,14 @@ describe('Sidebar', () => {
 
        mockMetricServiceHttpError('getThreadAntagonists');
        const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
-       const snackBarSpy = spyOn(snackBar, 'open');
+       const snackBarSpy = spyOn(snackBar, 'openFromComponent');
 
        // Failed request should occur during thread expansion
        const threadToExpand = component.threads.value[2];
        component.expandedThread.next(threadToExpand.label);
 
        expect(snackBarSpy).toHaveBeenCalledTimes(1);
-       const actualError = snackBarSpy.calls.mostRecent().args[0];
+       const actualError = snackBarSpy.calls.mostRecent().args[1].data.summary;
        expect(actualError)
            .toContain(`Failed to get thread antagonists for PID: ${
                threadToExpand.pid}`);

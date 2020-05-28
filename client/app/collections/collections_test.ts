@@ -40,6 +40,7 @@ import {routes} from '../app_routing_module';
 import {DashboardModule} from '../dashboard/dashboard_module';
 import {CollectionMetadata, CollectionsFilter, CollectionsFilterJSON} from '../models';
 import {LocalCollectionDataService} from '../services';
+import {ErrorSnackBarComponent} from '../util';
 
 import {Collections} from './collections';
 import {CollectionsTable} from './collections_table';
@@ -166,7 +167,7 @@ describe('Collections', () => {
             .and.returnValue(throwError(new HttpErrorResponse({error: 'err'})));
 
     const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
-    const snackSpy = spyOn(snackBar, 'open');
+    const snackSpy = spyOn(snackBar, 'openFromComponent');
     const consoleSpy = spyOn(console, 'error');
 
     await collectionsFixture.whenStable();
@@ -177,15 +178,17 @@ describe('Collections', () => {
     collections.uploadFile();
     expect(uploadSpy).toHaveBeenCalled();
 
+    const fullError = 'Failed to upload trace file file\n' +
+      'Message:\n' +
+      ' Http failure response for (unknown url): undefined undefined\n' +
+      'Reason:\n' +
+      ' err';
+
+
     expect(snackSpy).toHaveBeenCalledWith(
-        'Failed to upload trace file file', 'Dismiss');
+        ErrorSnackBarComponent, {data: {summary: 'Failed to upload trace file file', error: fullError}});
     expect(consoleSpy)
-        .toHaveBeenCalledWith(
-            'Failed to upload trace file file\n' +
-            'Message:\n' +
-            ' Http failure response for (unknown url): undefined undefined\n' +
-            'Reason:\n' +
-            ' err');
+        .toHaveBeenCalledWith(fullError);
   });
 
   it('should parse and load data from the hash fragment in the URL', () => {

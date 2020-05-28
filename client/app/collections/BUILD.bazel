@@ -50,6 +50,7 @@ ts_library(
         "//client/app/dashboard",
         "//client/app/models",
         "//client/app/services",
+        "//client/app/util",
         "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//@angular/forms",

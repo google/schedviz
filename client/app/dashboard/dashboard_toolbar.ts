@@ -24,7 +24,7 @@ import {catchError, map, switchMap, take} from 'rxjs/operators';
 
 import {CollectionMetadata} from '../models';
 import {CollectionDataService} from '../services/collection_data_service';
-import {parseHashFragment, recordHttpErrorMessage} from '../util';
+import {parseHashFragment, showErrorSnackBar} from '../util';
 import {copyToClipboard} from '../util/clipboard';
 import {COLLECTION_NAME_KEY} from '../util/hash_keys';
 
@@ -73,11 +73,11 @@ export class DashboardToolbar implements OnInit {
                 this.collectionMetadata.next(metadata);
               },
               (err: HttpErrorResponse) => {
-                const errMsg = recordHttpErrorMessage(
+                showErrorSnackBar(
+                  this.snackBar,
                     `Failed to get collection metadata for ${
                         this.collectionName}`,
                     err);
-                this.snackBar.open(errMsg, 'Dismiss');
               });
     }
   }
@@ -151,11 +151,11 @@ export class DashboardToolbar implements OnInit {
             },
             (err: HttpErrorResponse) => {
               if (err.message && err.message !== 'canceled') {
-                const errMsg = recordHttpErrorMessage(
+                showErrorSnackBar(
+                  this.snackBar,
                     `Failed to update collection metadata for ${
                         collectionName}`,
                     err);
-                this.snackBar.open(errMsg, 'Dismiss');
               }
             });
   }
