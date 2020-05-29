@@ -474,41 +474,9 @@ func readOptions(optionsDir string) (map[string]bool, error) {
 // readFTraceTraces reads the trace files contained in an FTrace tar and
 // parses them with the provided TraceParser.
 func readFTraceTraces(traceDir string, traceParser *traceparser.TraceParser, callback traceparser.AddEventCallback) error {
-	return walkPerCPUDir(traceDir, func(reader *bufio.Reader, cpu int64) error {
+	return traceparser.WalkPerCPUDir(traceDir, true, func(reader *bufio.Reader, cpu int64) error {
 		return traceParser.ParseTrace(reader, cpu, callback)
 	})
-}
-
-func walkPerCPUDir(traceDir string, process func(reader *bufio.Reader, cpu int64) error) error {
-	err := filepath.Walk(traceDir, func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			if info.Name() != path.Base(traceDir) {
-				return fmt.Errorf("expected trace directory to be flat, but found a subdirectory: %s", filePath)
-			}
-			return nil
-		}
-		if matches := cpuRe.FindStringSubmatch(info.Name()); matches != nil {
-			cpu, err := strconv.ParseInt(matches[1], 10, 64)
-			if err != nil {
-				return fmt.Errorf("error extracting CPU number from filename (filePath: %s): %s", filePath, err)
-			}
-			file, err := os.Open(filePath)
-			if err != nil {
-				return fmt.Errorf("error opening %s for reading: %s", filePath, err)
-			}
-			reader := bufio.NewReader(file)
-			if err := process(reader, cpu); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("unknown file in trace directory: %s", filePath)
-		}
-		return nil
-	})
-	return err
 }
 
 // findOverflowedCPUs reads the per cpu stats files to find which cpus "overflowed".
@@ -517,7 +485,7 @@ func walkPerCPUDir(traceDir string, process func(reader *bufio.Reader, cpu int64
 // on the `overwrite` flag.
 func findOverflowedCPUs(traceDir string) (map[int64]struct{}, error) {
 	overflowed := make(map[int64]struct{})
-	err := walkPerCPUDir(traceDir, func(reader *bufio.Reader, cpu int64) error {
+	err := traceparser.WalkPerCPUDir(traceDir, true, func(reader *bufio.Reader, cpu int64) error {
 		isOverflowed, err := traceparser.CPUOverflowed(reader)
 		if err != nil {
 			return err
