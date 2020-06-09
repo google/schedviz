@@ -250,15 +250,13 @@ func TestFsStorage_GetCollection(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateFSStorage returned wrong type")
 	}
-
-	origAddToCache := addToCache
-	cacheAdds := 0
-	addToCache = func(sb *storageBase, path string, collection *CachedCollection) {
-		cacheAdds++
-		origAddToCache(sb, path, collection)
+	// checkAddsAndEvictions checks actual cache additions and evictions against expected.
+	checkAddsAndEvictions := func(t *testing.T, fs *FsStorage, wantAdds, wantEvictions int) {
+		t.Helper()
+		if gotAdds, gotEvictions := fs.cacheStats(); gotAdds != wantAdds || gotEvictions != wantEvictions {
+			t.Errorf("Expected %d cache adds and %d cache evictions, got %d adds and %d evictions", wantAdds, wantEvictions, gotAdds, gotEvictions)
+		}
 	}
-	defer func() { addToCache = origAddToCache }()
-
 	// Adds an entry to the cache.
 	firstCollectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
@@ -268,9 +266,7 @@ func TestFsStorage_GetCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if cacheAdds != 1 {
-		t.Errorf("Expected 1 cache adds after first GetCollection, got %d", cacheAdds)
-	}
+	checkAddsAndEvictions(t, fsStorage, 1, 0)
 	// Adds an entry to the cache, evicting the old one.
 	secondCollectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
@@ -281,25 +277,19 @@ func TestFsStorage_GetCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if cacheAdds != 2 {
-		t.Errorf("Expected 2 cache adds after second GetCollection, got %d", cacheAdds)
-	}
+	checkAddsAndEvictions(t, fsStorage, 2, 1)
 	// Adds an entry to the cache, evicting the old one.
 	_, err = fsStorage.GetCollection(ctx, firstCollectionName)
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if cacheAdds != 3 {
-		t.Errorf("Expected 3 cache adds after third GetCollection, got %d", cacheAdds)
-	}
+	checkAddsAndEvictions(t, fsStorage, 3, 2)
 	// Should hit cache
 	_, err = fsStorage.GetCollection(ctx, firstCollectionName)
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if cacheAdds != 3 {
-		t.Errorf("Expected 3 cache adds after fourth GetCollection, got %d", cacheAdds)
-	}
+	checkAddsAndEvictions(t, fsStorage, 3, 2)
 }
 
 func TestFsStorage_GetCollectionMetadata(t *testing.T) {

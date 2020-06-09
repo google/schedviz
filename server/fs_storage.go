@@ -90,7 +90,7 @@ func (fs *FsStorage) getCollectionFromDisk(collectionName string) (*eventpb.Coll
 // shouldCache controls whether or not the fetched collection will be saved in the cache to speed up
 // future requests for the same collection.
 func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (*CachedCollection, error) {
-	cachedCollection, ok, err := fs.getCollectionFromCache(collectionName, true /*= addCollection*/)
+	cachedCollection, ok, _, err := fs.getCollectionFromCache(collectionName, true /*= addCollection*/)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +282,7 @@ func (fs *FsStorage) SetFailOnUnknownEventFormat(option bool) {
 // createCollection creates a collection with the default event loader, and
 // will attempt to create a collection with the fault tolerant loader if the
 // default loader failed.
-func createCollection(es *eventpb.EventSet) (*sched.Collection, error) {
+var createCollection = func(es *eventpb.EventSet) (*sched.Collection, error) {
 	coll, err := sched.NewCollection(es, sched.NormalizeTimestamps(true))
 	if err == nil {
 		return coll, nil

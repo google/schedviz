@@ -22,6 +22,7 @@ import (
 	"io"
 	"sort"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -73,9 +74,12 @@ func (cc *CachedCollection) release() {
 }
 
 type storageBase struct {
-	lruCache                 *simplelru.LRU
-	mu                       sync.Mutex
-	failOnUnknownEventFormat bool
+	lruCache                  *simplelru.LRU
+	mu                        sync.Mutex
+	failOnUnknownEventFormat  bool
+	loadTimes                 map[string]time.Time
+	cacheAdds, cacheEvictions int
+	now                       func() time.Time
 }
 
 func newStorageBase(cacheSize int) (*storageBase, error) {
@@ -84,19 +88,32 @@ func newStorageBase(cacheSize int) (*storageBase, error) {
 		return nil, err
 	}
 	return &storageBase{
-		lruCache: lru,
+		lruCache:  lru,
+		loadTimes: map[string]time.Time{},
+		now:       time.Now,
 	}, nil
 }
 
-// addToCache must only be called when sb.mu is held.
-var addToCache = func(sb *storageBase, collectionName string, collection *CachedCollection) {
-	sb.lruCache.Add(collectionName, collection)
-}
-
-func (sb *storageBase) dropCollectionFromCache(collectionName string) {
-	sb.mu.Lock()
-	defer sb.mu.Unlock()
-	sb.lruCache.Remove(collectionName)
+// addToCache adds the provided collection, keyed by the specified name, to the
+// LRU cache.  If a collection had to be evicted to make room for the new one,
+// its total time in the cache is returned.  sb.mu must be acquired before
+// calling sb.addToCache.
+func (sb *storageBase) addToCache(collectionName string, collection *CachedCollection) time.Duration {
+	oldestCollectionName, _, oldestFound := sb.lruCache.GetOldest()
+	var oldestLoadTime time.Time
+	oldestLoadTimeFound := false
+	if oldestFound {
+		oldestLoadTime, oldestLoadTimeFound = sb.loadTimes[oldestCollectionName.(string)]
+	}
+	evicted := sb.lruCache.Add(collectionName, collection)
+	sb.loadTimes[collectionName] = sb.now()
+	sb.cacheAdds++
+	if evicted && oldestLoadTimeFound {
+		sb.cacheEvictions++
+		delete(sb.loadTimes, oldestCollectionName.(string))
+		return sb.now().Sub(oldestLoadTime)
+	}
+	return 0
 }
 
 // extractEventNames gets a list of all event descriptor names in the event set
@@ -112,32 +129,42 @@ func (sb *storageBase) extractEventNames(es *eventpb.EventSet) ([]string, error)
 	return events, nil
 }
 
+// cacheStats returns cache addition and eviction statistics, for use in testing.
+func (sb *storageBase) cacheStats() (adds, evictins int) {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	return sb.cacheAdds, sb.cacheEvictions
+}
+
 // getCollectionFromCache returns the named collection, if it is stored in the
 // cache.  It also returns a bool signifying whether the collection was in the
-// cache at the start of the call.
+// cache at the start of the call, and a Duration, nonzero if a collection had
+// to be evicted from the cache during this operation, indicating how long the
+// evicted collection had been in the cache.
 // If addCollection is true, a new, empty, CachedCollection will be placed in
 // the cache under the provided name.  Note that if this occurs, the returned
 // bool will still be false, though the returned CachedCollection will be in
 // the cache.  release() should be called on the returned CachedCollection when
 // it will no longer be modified.
-func (sb *storageBase) getCollectionFromCache(collectionName string, addCollection bool) (*CachedCollection, bool, error) {
+func (sb *storageBase) getCollectionFromCache(collectionName string, addCollection bool) (*CachedCollection, bool, time.Duration, error) {
 	sb.mu.Lock()
 	cachedValue, ok := sb.lruCache.Get(collectionName)
 	if !ok && addCollection {
 		defer sb.mu.Unlock()
 		cachedCollection := newCachedCollection()
-		addToCache(sb, collectionName, cachedCollection)
-		return cachedCollection, false, nil
+		evictedDuration := sb.addToCache(collectionName, cachedCollection)
+
+		return cachedCollection, false, evictedDuration, nil
 	}
 	sb.mu.Unlock()
 	var cachedCollection *CachedCollection
 	if ok {
 		cachedCollection, ok = cachedValue.(*CachedCollection)
 		if !ok {
-			return nil, false, status.Error(codes.Internal, "unknown type stored in collection cache")
+			return nil, false, 0, status.Error(codes.Internal, "unknown type stored in collection cache")
 		}
 	}
-	return cachedCollection, ok, nil
+	return cachedCollection, ok, 0, nil
 }
 
 // StorageService is an interface containing the APIs that storage services expose
