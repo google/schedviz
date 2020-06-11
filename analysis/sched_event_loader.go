@@ -147,14 +147,15 @@ func LoadSwitchData(ev *trace.Event) (*SwitchData, error) {
 	}
 	// The new PID's state is assumed to be RUNNING_STATE, and the old PID's task
 	// state will reveal whether it's WAITING_STATE (prev_state == 0,
-	// TASK_RUNNING) or SLEEPING_STATE (otherwise); The possible values of
-	// prevTaskState are defined in sched.h in the kernel.
+	// TASK_RUNNING, or 256, TASK_REPORT_MAX, which can signify a preemption) or
+	// SLEEPING_STATE (otherwise); The possible values of prevTaskState are
+	// defined in sched.h in the kernel.
 	prevTaskState, ok := ev.NumberProperties["prev_state"]
 	if !ok {
 		return nil, MissingFieldError("prev_state", ev)
 	}
 	ret.PrevState = WaitingState
-	if prevTaskState != 0 {
+	if prevTaskState != 0 && prevTaskState != 256 {
 		ret.PrevState = SleepingState
 	}
 	return ret, nil
