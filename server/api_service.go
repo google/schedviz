@@ -32,6 +32,7 @@ import (
 	"github.com/google/schedviz/tracedata/trace"
 )
 
+
 // APIService contains wrappers around the analysis library
 type APIService struct {
 	StorageService storageservice.StorageService
@@ -50,7 +51,6 @@ func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUInterv
 	if err != nil {
 		return nil, err
 	}
-
 	res := &models.CPUIntervalsResponse{
 		CollectionName: req.CollectionName,
 		Intervals:      make([]models.CPUIntervals, len(req.CPUs)),
@@ -89,7 +89,6 @@ func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUInterv
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-
 	return res, nil
 }
 
@@ -99,7 +98,6 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 	if err != nil {
 		return nil, err
 	}
-
 	res := &models.PIDntervalsResponse{
 		CollectionName: req.CollectionName,
 		PIDIntervals:   make([]models.PIDIntervals, len(req.Pids)),
@@ -127,9 +125,7 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-
 	return res, nil
-
 }
 
 // GetAntagonists returns a set of antagonist information for a specified collection, from a
@@ -139,7 +135,6 @@ func (as *APIService) GetAntagonists(ctx context.Context, req *models.Antagonist
 	if err != nil {
 		return nil, err
 	}
-
 	res := &models.AntagonistsResponse{
 		CollectionName: req.CollectionName,
 	}
@@ -153,7 +148,6 @@ func (as *APIService) GetAntagonists(ctx context.Context, req *models.Antagonist
 		}
 		res.Antagonists = append(res.Antagonists, &ants)
 	}
-
 	return res, nil
 }
 
@@ -164,7 +158,6 @@ func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.P
 	if err != nil {
 		return nil, err
 	}
-
 	var g errgroup.Group
 	ess := []*models.PerThreadEventSeries{}
 	m := sync.Mutex{}
@@ -188,7 +181,6 @@ func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.P
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-
 	return &models.PerThreadEventSeriesResponse{
 		CollectionName: req.CollectionName,
 		EventSeries:    ess,
@@ -202,14 +194,12 @@ func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.Thread
 	if err != nil {
 		return nil, err
 	}
-
 	threadSummaries, err := c.Collection.ThreadSummaries(
 		sched.CPUs(req.Cpus...),
 		sched.TimeRange(trace.Timestamp(req.StartTimestampNs), trace.Timestamp(req.EndTimestampNs)))
 	if err != nil {
 		return nil, err
 	}
-
 	return &models.ThreadSummariesResponse{
 		CollectionName: req.CollectionName,
 		Metrics:        threadSummaries,
@@ -224,12 +214,10 @@ func (as *APIService) GetUtilizationMetrics(ctx context.Context, req *models.Uti
 	if err != nil {
 		return nil, err
 	}
-
 	um, err := c.Collection.UtilizationMetrics(sched.CPUs(req.Cpus...), sched.TimeRange(req.StartTimestampNs, req.EndTimestampNs), sched.TruncateToTimeRange(true))
 	if err != nil {
 		return nil, err
 	}
-
 	return &models.UtilizationMetricsResponse{
 		Request:            req,
 		UtilizationMetrics: &um,
