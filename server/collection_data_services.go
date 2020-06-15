@@ -100,11 +100,11 @@ type SystemTopology struct {
 	CPUStepping int32 `json:"cpuStepping"`
 	// TODO(ilhamster) Look into providing a string describing the system.
 	// The set of logical cores.
-	LogicalCores []LogicalCore `json:"logicalCores"`
+	LogicalCores []*LogicalCore `json:"logicalCores"`
 }
 
 // SystemTopologyResponse is a response to a SystemTopologyRequest
 type SystemTopologyResponse struct {
-	CollectionName string         `json:"collectionName"`
-	SystemTopology SystemTopology `json:"systemTopology"`
+	CollectionName string          `json:"collectionName"`
+	SystemTopology *SystemTopology `json:"systemTopology"`
 }

@@ -80,13 +80,13 @@ func TestAntagonists(t *testing.T) {
 		startTimestamp: 1000,
 		endTimestamp:   1100,
 		wantAntagonists: Antagonists{
-			Victims: []Thread{{
+			Victims: []*Thread{{
 				PID:      300,
 				Command:  "Process3",
 				Priority: 50,
 			}},
-			Antagonisms: []Antagonism{{
-				RunningThread: Thread{
+			Antagonisms: []*Antagonism{{
+				RunningThread: &Thread{
 					PID:      100,
 					Command:  "Process1",
 					Priority: 50,
@@ -104,13 +104,13 @@ func TestAntagonists(t *testing.T) {
 		startTimestamp: 1095,
 		endTimestamp:   1100,
 		wantAntagonists: Antagonists{
-			Victims: []Thread{{
+			Victims: []*Thread{{
 				PID:      300,
 				Command:  "Process3",
 				Priority: 50,
 			}},
-			Antagonisms: []Antagonism{{
-				RunningThread: Thread{
+			Antagonisms: []*Antagonism{{
+				RunningThread: &Thread{
 					PID:      100,
 					Command:  "Process1",
 					Priority: 50,
@@ -128,13 +128,13 @@ func TestAntagonists(t *testing.T) {
 		startTimestamp: 1095,
 		endTimestamp:   1098,
 		wantAntagonists: Antagonists{
-			Victims: []Thread{{
+			Victims: []*Thread{{
 				PID:      300,
 				Command:  "Process3",
 				Priority: 50,
 			}},
-			Antagonisms: []Antagonism{{
-				RunningThread: Thread{
+			Antagonisms: []*Antagonism{{
+				RunningThread: &Thread{
 					PID:      100,
 					Command:  "Process1",
 					Priority: 50,
@@ -152,13 +152,13 @@ func TestAntagonists(t *testing.T) {
 		startTimestamp: 1000,
 		endTimestamp:   1100,
 		wantAntagonists: Antagonists{
-			Victims: []Thread{{
+			Victims: []*Thread{{
 				PID:      200,
 				Command:  "Process2",
 				Priority: 50,
 			}},
-			Antagonisms: []Antagonism{{
-				RunningThread: Thread{
+			Antagonisms: []*Antagonism{{
+				RunningThread: &Thread{
 					PID:      100,
 					Command:  "Process1",
 					Priority: 50,
@@ -167,7 +167,7 @@ func TestAntagonists(t *testing.T) {
 				StartTimestamp: 1040,
 				EndTimestamp:   1080,
 			}, {
-				RunningThread: Thread{
+				RunningThread: &Thread{
 					PID:      400,
 					Command:  "Process4",
 					Priority: 50,
@@ -185,12 +185,12 @@ func TestAntagonists(t *testing.T) {
 		startTimestamp: 1000,
 		endTimestamp:   1080,
 		wantAntagonists: Antagonists{
-			Victims: []Thread{{
+			Victims: []*Thread{{
 				PID:      300,
 				Command:  "Process3",
 				Priority: 50,
 			}},
-			Antagonisms:    []Antagonism{},
+			Antagonisms:    []*Antagonism{},
 			StartTimestamp: 1000,
 			EndTimestamp:   1080,
 		},

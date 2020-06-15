@@ -41,8 +41,8 @@ type antagonistBuilder struct {
 	startTimestamp trace.Timestamp
 	endTimestamp   trace.Timestamp
 	stringTable    *stringTable
-	victims        map[string]Thread
-	antagonisms    []Antagonism
+	victims        map[string]*Thread
+	antagonisms    []*Antagonism
 }
 
 func newAntagonistBuilder(pid PID, startTimestamp, endTimestamp trace.Timestamp, sTbl *stringTable) *antagonistBuilder {
@@ -51,8 +51,8 @@ func newAntagonistBuilder(pid PID, startTimestamp, endTimestamp trace.Timestamp,
 		startTimestamp: startTimestamp,
 		endTimestamp:   endTimestamp,
 		stringTable:    sTbl,
-		victims:        make(map[string]Thread),
-		antagonisms:    []Antagonism{},
+		victims:        make(map[string]*Thread),
+		antagonisms:    []*Antagonism{},
 	}
 }
 
@@ -65,7 +65,7 @@ func (ab *antagonistBuilder) addVictim(span *threadSpan) error {
 	if err != nil {
 		return fmt.Errorf("could not get victim command with string ID %d", span.command)
 	}
-	ab.victims[fmt.Sprintf("%d:%s", span.pid, cmd)] = Thread{
+	ab.victims[fmt.Sprintf("%d:%s", span.pid, cmd)] = &Thread{
 		Priority: span.priority,
 		Command:  cmd,
 		PID:      span.pid,
@@ -103,8 +103,8 @@ func (ab *antagonistBuilder) RecordAntagonism(waiting, antagonist *threadSpan) e
 		return nil
 	}
 
-	ab.antagonisms = append(ab.antagonisms, Antagonism{
-		RunningThread: Thread{
+	ab.antagonisms = append(ab.antagonisms, &Antagonism{
+		RunningThread: &Thread{
 			PID:      antagonist.pid,
 			Command:  cmd,
 			Priority: antagonist.priority,
@@ -118,7 +118,7 @@ func (ab *antagonistBuilder) RecordAntagonism(waiting, antagonist *threadSpan) e
 
 // Antagonists returns a Antagonists that contains all of the recorded antagonists.
 func (ab *antagonistBuilder) Antagonists() Antagonists {
-	var victims = []Thread{}
+	var victims = []*Thread{}
 	for _, v := range ab.victims {
 		victims = append(victims, v)
 	}

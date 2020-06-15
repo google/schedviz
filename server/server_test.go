@@ -523,14 +523,14 @@ func TestGetAntagonists(t *testing.T) {
 
 	want := &models.AntagonistsResponse{
 		CollectionName: collectionName,
-		Antagonists: []sched.Antagonists{{
-			Victims: []sched.Thread{{
+		Antagonists: []*sched.Antagonists{{
+			Victims: []*sched.Thread{{
 				PID:      17254,
 				Command:  "trace.sh",
 				Priority: 120,
 			}},
-			Antagonisms: []sched.Antagonism{{
-				RunningThread: sched.Thread{
+			Antagonisms: []*sched.Antagonism{{
+				RunningThread: &sched.Thread{
 					PID:      430,
 					Command:  "kauditd",
 					Priority: 120,
@@ -539,7 +539,7 @@ func TestGetAntagonists(t *testing.T) {
 				EndTimestamp:   73788,
 			},
 				{
-					RunningThread: sched.Thread{
+					RunningThread: &sched.Thread{
 						PID:      449,
 						Command:  "auditd",
 						Priority: 116,
@@ -579,7 +579,7 @@ func TestGetPerThreadEventSeries(t *testing.T) {
 
 	want := &models.PerThreadEventSeriesResponse{
 		CollectionName: collectionName,
-		EventSeries: []models.PerThreadEventSeries{{
+		EventSeries: []*models.PerThreadEventSeries{{
 			Pid: 17254,
 			Events: []*trace.Event{
 				{
@@ -676,7 +676,7 @@ func TestGetThreadSummaries(t *testing.T) {
 
 	want := &models.ThreadSummariesResponse{
 		CollectionName: collectionName,
-		Metrics: []sched.Metrics{{
+		Metrics: []*sched.Metrics{{
 			WakeupCount:      271,
 			UnknownTimeNs:    0,
 			RunTimeNs:        5680247,
@@ -771,13 +771,13 @@ func TestGetUtilizationMetrics(t *testing.T) {
 	}
 
 	want := models.UtilizationMetricsResponse{
-		Request: models.UtilizationMetricsRequest{
+		Request: &models.UtilizationMetricsRequest{
 			CollectionName:   collectionName,
 			Cpus:             []sched.CPUID{0},
 			StartTimestampNs: 0,
 			EndTimestampNs:   2009150555,
 		},
-		UtilizationMetrics: sched.Utilization{
+		UtilizationMetrics: &sched.Utilization{
 			WallTime:            0,
 			PerCPUTime:          0,
 			PerThreadTime:       0,
@@ -806,8 +806,8 @@ func TestGetSystemTopology(t *testing.T) {
 
 	want := &models.SystemTopologyResponse{
 		CollectionName: collectionName,
-		SystemTopology: models.SystemTopology{
-			LogicalCores: []models.LogicalCore{{
+		SystemTopology: &models.SystemTopology{
+			LogicalCores: []*models.LogicalCore{{
 				SocketID:   0,
 				DieID:      0,
 				ThreadID:   0,

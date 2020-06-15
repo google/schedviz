@@ -37,17 +37,21 @@ type APIService struct {
 	StorageService storageservice.StorageService
 }
 
-// GetCPUIntervals returns CPU intervals for the specified collection.
-func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUIntervalsRequest) (models.CPUIntervalsResponse, error) {
-	if len(req.CollectionName) == 0 {
-		return models.CPUIntervalsResponse{}, missingFieldError("collection_name")
+func (as *APIService) fetchCollection(ctx context.Context, collectionName string) (*storageservice.CachedCollection, error) {
+	if len(collectionName) == 0 {
+		return nil, missingFieldError("collection_name")
 	}
-	c, err := as.StorageService.GetCollection(ctx, req.CollectionName)
+	return as.StorageService.GetCollection(ctx, collectionName)
+}
+
+// GetCPUIntervals returns CPU intervals for the specified collection.
+func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUIntervalsRequest) (*models.CPUIntervalsResponse, error) {
+	c, err := as.fetchCollection(ctx, req.CollectionName)
 	if err != nil {
-		return models.CPUIntervalsResponse{}, err
+		return nil, err
 	}
 
-	res := models.CPUIntervalsResponse{
+	res := &models.CPUIntervalsResponse{
 		CollectionName: req.CollectionName,
 		Intervals:      make([]models.CPUIntervals, len(req.CPUs)),
 	}
@@ -83,23 +87,20 @@ func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUInterv
 
 	}
 	if err := g.Wait(); err != nil {
-		return models.CPUIntervalsResponse{}, err
+		return nil, err
 	}
 
 	return res, nil
 }
 
 // GetPIDIntervals returns PID intervals for the specified collection and PIDs.
-func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidIntervalsRequest) (models.PIDntervalsResponse, error) {
-	if len(req.CollectionName) == 0 {
-		return models.PIDntervalsResponse{}, missingFieldError("collection_name")
-	}
-	c, err := as.StorageService.GetCollection(ctx, req.CollectionName)
+func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidIntervalsRequest) (*models.PIDntervalsResponse, error) {
+	c, err := as.fetchCollection(ctx, req.CollectionName)
 	if err != nil {
-		return models.PIDntervalsResponse{}, err
+		return nil, err
 	}
 
-	res := models.PIDntervalsResponse{
+	res := &models.PIDntervalsResponse{
 		CollectionName: req.CollectionName,
 		PIDIntervals:   make([]models.PIDIntervals, len(req.Pids)),
 	}
@@ -124,7 +125,7 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return models.PIDntervalsResponse{}, err
+		return nil, err
 	}
 
 	return res, nil
@@ -133,16 +134,13 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 
 // GetAntagonists returns a set of antagonist information for a specified collection, from a
 // specified set of threads and over a specified interval.
-func (as *APIService) GetAntagonists(ctx context.Context, req *models.AntagonistsRequest) (models.AntagonistsResponse, error) {
-	if len(req.CollectionName) == 0 {
-		return models.AntagonistsResponse{}, missingFieldError("collection_name")
-	}
-	c, err := as.StorageService.GetCollection(ctx, req.CollectionName)
+func (as *APIService) GetAntagonists(ctx context.Context, req *models.AntagonistsRequest) (*models.AntagonistsResponse, error) {
+	c, err := as.fetchCollection(ctx, req.CollectionName)
 	if err != nil {
-		return models.AntagonistsResponse{}, err
+		return nil, err
 	}
 
-	res := models.AntagonistsResponse{
+	res := &models.AntagonistsResponse{
 		CollectionName: req.CollectionName,
 	}
 	for _, pid := range req.Pids {
@@ -151,9 +149,9 @@ func (as *APIService) GetAntagonists(ctx context.Context, req *models.Antagonist
 			sched.StartTimestamp(trace.Timestamp(req.StartTimestampNs)),
 			sched.EndTimestamp(trace.Timestamp(req.EndTimestampNs)))
 		if err != nil {
-			return models.AntagonistsResponse{}, fmt.Errorf("error fetching antagonists for pid: %d. caused by: %s", pid, err)
+			return nil, fmt.Errorf("error fetching antagonists for pid: %d. caused by: %s", pid, err)
 		}
-		res.Antagonists = append(res.Antagonists, ants)
+		res.Antagonists = append(res.Antagonists, &ants)
 	}
 
 	return res, nil
@@ -161,17 +159,14 @@ func (as *APIService) GetAntagonists(ctx context.Context, req *models.Antagonist
 
 // GetPerThreadEventSeries returns all events in a specified collection occurring on a specified PID
 // in a specified interval, in increasing temporal order.
-func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.PerThreadEventSeriesRequest) (models.PerThreadEventSeriesResponse, error) {
-	if len(req.CollectionName) == 0 {
-		return models.PerThreadEventSeriesResponse{}, missingFieldError("collection_name")
-	}
-	c, err := as.StorageService.GetCollection(ctx, req.CollectionName)
+func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.PerThreadEventSeriesRequest) (*models.PerThreadEventSeriesResponse, error) {
+	c, err := as.fetchCollection(ctx, req.CollectionName)
 	if err != nil {
-		return models.PerThreadEventSeriesResponse{}, err
+		return nil, err
 	}
 
 	var g errgroup.Group
-	ess := []models.PerThreadEventSeries{}
+	ess := []*models.PerThreadEventSeries{}
 	m := sync.Mutex{}
 	for _, pid := range req.Pids {
 		// Create a copy of pid
@@ -183,7 +178,7 @@ func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.P
 			}
 			m.Lock()
 			defer m.Unlock()
-			ess = append(ess, models.PerThreadEventSeries{
+			ess = append(ess, &models.PerThreadEventSeries{
 				Pid:    pid,
 				Events: events,
 			})
@@ -191,10 +186,10 @@ func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.P
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return models.PerThreadEventSeriesResponse{}, err
+		return nil, err
 	}
 
-	return models.PerThreadEventSeriesResponse{
+	return &models.PerThreadEventSeriesResponse{
 		CollectionName: req.CollectionName,
 		EventSeries:    ess,
 	}, nil
@@ -202,24 +197,20 @@ func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.P
 
 // GetThreadSummaries returns a set of thread summaries for a specified collection over a specified
 // interval.
-func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.ThreadSummariesRequest) (models.ThreadSummariesResponse, error) {
-	if len(req.CollectionName) == 0 {
-		return models.ThreadSummariesResponse{}, missingFieldError("collection_name")
-	}
-
-	c, err := as.StorageService.GetCollection(ctx, req.CollectionName)
+func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.ThreadSummariesRequest) (*models.ThreadSummariesResponse, error) {
+	c, err := as.fetchCollection(ctx, req.CollectionName)
 	if err != nil {
-		return models.ThreadSummariesResponse{}, err
+		return nil, err
 	}
 
 	threadSummaries, err := c.Collection.ThreadSummaries(
 		sched.CPUs(req.Cpus...),
 		sched.TimeRange(trace.Timestamp(req.StartTimestampNs), trace.Timestamp(req.EndTimestampNs)))
 	if err != nil {
-		return models.ThreadSummariesResponse{}, err
+		return nil, err
 	}
 
-	return models.ThreadSummariesResponse{
+	return &models.ThreadSummariesResponse{
 		CollectionName: req.CollectionName,
 		Metrics:        threadSummaries,
 	}, nil
@@ -228,39 +219,31 @@ func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.Thread
 // GetUtilizationMetrics returns a set of metrics describing the utilization or over-utilization of
 // some portion of the system over some span of the trace.
 // These metrics are described in the sched.Utilization struct.
-func (as *APIService) GetUtilizationMetrics(ctx context.Context, req *models.UtilizationMetricsRequest) (models.UtilizationMetricsResponse, error) {
-	if len(req.CollectionName) == 0 {
-		return models.UtilizationMetricsResponse{}, missingFieldError("collection_name")
-	}
-
-	c, err := as.StorageService.GetCollection(ctx, req.CollectionName)
+func (as *APIService) GetUtilizationMetrics(ctx context.Context, req *models.UtilizationMetricsRequest) (*models.UtilizationMetricsResponse, error) {
+	c, err := as.fetchCollection(ctx, req.CollectionName)
 	if err != nil {
-		return models.UtilizationMetricsResponse{}, err
+		return nil, err
 	}
 
 	um, err := c.Collection.UtilizationMetrics(sched.CPUs(req.Cpus...), sched.TimeRange(req.StartTimestampNs, req.EndTimestampNs), sched.TruncateToTimeRange(true))
 	if err != nil {
-		return models.UtilizationMetricsResponse{}, err
+		return nil, err
 	}
 
-	return models.UtilizationMetricsResponse{
-		Request:            *req,
-		UtilizationMetrics: um,
+	return &models.UtilizationMetricsResponse{
+		Request:            req,
+		UtilizationMetrics: &um,
 	}, nil
 }
 
 // GetSystemTopology returns the system topology of the machine that the collection was recorded on.
-func (as *APIService) GetSystemTopology(ctx context.Context, collectionName string) (models.SystemTopology, error) {
-	if len(collectionName) == 0 {
-		return models.SystemTopology{}, missingFieldError("collection_name")
-	}
-
-	coll, err := as.StorageService.GetCollection(ctx, collectionName)
+func (as *APIService) GetSystemTopology(ctx context.Context, collectionName string) (*models.SystemTopology, error) {
+	c, err := as.fetchCollection(ctx, collectionName)
 	if err != nil {
-		return models.SystemTopology{}, err
+		return nil, err
 	}
 
-	return coll.SystemTopology, err
+	return &c.SystemTopology, err
 }
 
 

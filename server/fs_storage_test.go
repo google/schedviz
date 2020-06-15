@@ -107,7 +107,7 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			wantStart:     0,
 			wantEnd:       2009150555,
 			wantSystemTopology: models.SystemTopology{
-				LogicalCores: []models.LogicalCore{{
+				LogicalCores: []*models.LogicalCore{{
 					SocketID:   0,
 					DieID:      0,
 					ThreadID:   0,
@@ -123,7 +123,7 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			wantStart:     0,
 			wantEnd:       2009150555,
 			wantSystemTopology: models.SystemTopology{
-				LogicalCores: []models.LogicalCore{{
+				LogicalCores: []*models.LogicalCore{{
 					SocketID:   0,
 					DieID:      0,
 					ThreadID:   0,
@@ -139,7 +139,7 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			wantStart:     0,
 			wantEnd:       12321353,
 			wantSystemTopology: models.SystemTopology{
-				LogicalCores: []models.LogicalCore{
+				LogicalCores: []*models.LogicalCore{
 					{
 						SocketID:   0,
 						DieID:      0,

@@ -314,7 +314,7 @@ func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSe
 	if err != nil {
 		log.Warningf("error reading topology. Using empty topology. error: %s", err)
 		topology = &models.SystemTopology{
-			LogicalCores: []models.LogicalCore{},
+			LogicalCores: []*models.LogicalCore{},
 		}
 	}
 
@@ -523,7 +523,7 @@ func parseEBPFTar(dir string) (*eventpb.EventSet, *models.SystemTopology, error)
 	if err != nil {
 		log.Warningf("error reading topology. Using empty topology. error: %s", err)
 		topology = &models.SystemTopology{
-			LogicalCores: []models.LogicalCore{},
+			LogicalCores: []*models.LogicalCore{},
 		}
 	}
 
@@ -647,7 +647,7 @@ func (tb *topologyBuilder) RecordCPUTopology(r io.Reader, name string, cpuID, nu
 // FullTopology returns the topology of all CPUs.
 func (tb *topologyBuilder) FullTopology() *models.SystemTopology {
 	ret := &models.SystemTopology{
-		LogicalCores: []models.LogicalCore{},
+		LogicalCores: []*models.LogicalCore{},
 		// TODO get CPU family info
 	}
 
@@ -661,7 +661,7 @@ func (tb *topologyBuilder) FullTopology() *models.SystemTopology {
 			lc.DieID = lc.SocketID % diesPerSocket
 			lc.SocketID /= diesPerSocket
 		}
-		ret.LogicalCores = append(ret.LogicalCores, *lc)
+		ret.LogicalCores = append(ret.LogicalCores, lc)
 	}
 
 

@@ -93,9 +93,9 @@ func convertTopologyProtoToStruct(oldTopology *eventpb.SystemTopology) models.Sy
 	if oldTopology == nil {
 		return models.SystemTopology{}
 	}
-	logicalCores := []models.LogicalCore{}
+	logicalCores := []*models.LogicalCore{}
 	for _, lc := range oldTopology.LogicalCore {
-		logicalCores = append(logicalCores, models.LogicalCore{
+		logicalCores = append(logicalCores, &models.LogicalCore{
 			CoreID:     lc.CoreId,
 			CPUID:      lc.CpuId,
 			DieID:      lc.DieId,

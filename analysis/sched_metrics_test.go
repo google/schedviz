@@ -34,10 +34,10 @@ func TestPIDSummary(t *testing.T) {
 	tests := []struct {
 		description string
 		filters     []Filter
-		wantMs      []Metrics
+		wantMs      []*Metrics
 	}{{
 		description: "Full time range",
-		wantMs: []Metrics{
+		wantMs: []*Metrics{
 			{
 				// Wakeup, switch-in at 1010, switch-out at 1100
 				MigrationCount:   0,
@@ -99,7 +99,7 @@ func TestPIDSummary(t *testing.T) {
 	}, {
 		description: "Full time range, CPU filtered",
 		filters:     []Filter{CPUs(1)},
-		wantMs: []Metrics{
+		wantMs: []*Metrics{
 			{
 				// Wakeup, switch-in at 1010, switch-out at 1100
 				MigrationCount:   0,
@@ -148,7 +148,7 @@ func TestPIDSummary(t *testing.T) {
 	}, {
 		description: "Time filtered",
 		filters:     []Filter{TimeRange(50, 100)},
-		wantMs: []Metrics{
+		wantMs: []*Metrics{
 			{
 				// Switch-out at 1100.
 				MigrationCount:   0,
@@ -207,7 +207,7 @@ func TestPIDSummary(t *testing.T) {
 	}, {
 		description: "Time and CPU filtered",
 		filters:     []Filter{CPUs(2), TimeRange(50, 100)},
-		wantMs: []Metrics{
+		wantMs: []*Metrics{
 			{
 				// Migrate at 1080, switch-in at 1100.
 				MigrationCount:   1, // Migrates-in count.
