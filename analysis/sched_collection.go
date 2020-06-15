@@ -180,6 +180,9 @@ func (c *Collection) buildSpansByCPU() error {
 	cib := newCPUSpanSet()
 	for _, spans := range c.spansByPID {
 		for _, span := range spans {
+			if span.cpu == UnknownCPU || span.pid == UnknownPID {
+				continue
+			}
 			c.pids[span.pid] = struct{}{}
 			c.cpus[span.cpu] = struct{}{}
 			cib.addSpan(span)
