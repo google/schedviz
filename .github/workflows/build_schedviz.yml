@@ -15,5 +15,10 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 14.x
-    - run: yarn install
-    - run: yarn bazel build server
+    - name: Install dependencies
+      run: yarn install
+    - name: Build the server
+      run: yarn bazel build server
+    - name: Run server tests
+      run: yarn bazel test server:server_test
+      
