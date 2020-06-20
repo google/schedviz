@@ -1,6 +1,6 @@
 # This workflow will do a clean install of SchedViz dependencies, build, and test the source code.
 
-name: Build SchedViz
+name: Build and Test SchedViz
 
 on: [push]
 
