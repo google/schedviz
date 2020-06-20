@@ -25,7 +25,7 @@ import {BehaviorSubject, Subject} from 'rxjs';
 import {CollectionDuration} from '../models/collection';
 import {CollectionsFilter} from '../models/collections_filter';
 import {CollectionDataService} from '../services/collection_data_service';
-import {createHttpErrorMessage} from '../util';
+import {showErrorSnackBar} from '../util';
 import {parseHashFragment, serializeHashFragment} from '../util/hash_compressor';
 import {COLLECTIONS_FILTER_KEYS, OWNER_KEY} from '../util/hash_keys';
 
@@ -150,9 +150,8 @@ export class Collections implements OnInit, OnDestroy {
             },
             (err: HttpErrorResponse) => {
               this.loading.next(false);
-              const errMsg = createHttpErrorMessage(
+              showErrorSnackBar(this.snackBar,
                   `Failed to upload trace file ${file.name}`, err);
-              this.snackBar.open(errMsg, 'Dismiss');
             });
   }
 }

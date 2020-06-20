@@ -1,13 +1,8 @@
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
 # A set of types and utilities for working with compacted trace data sets, such
 # as those produced by ../traceparser.
-
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
-load("@npm_bazel_typescript//:defs.bzl", "ts_library")
-load("@rules_cc//cc:defs.bzl", "cc_binary")
-load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-
 licenses(["notice"])  # Apache License 2.0
 
 go_library(
@@ -31,6 +26,7 @@ go_test(
     deps = [
         ":eventsetbuilder",
         ":schedviz_events_go_proto",
+        ":testeventsetbuilder",
     ],
 )
 
@@ -38,11 +34,11 @@ go_library(
     name = "eventsetbuilder",
 importpath = "github.com/google/schedviz/tracedata/eventsetbuilder",
 
-    testonly = True,
     srcs = ["event_set_builder.go"],
     visibility = ["//visibility:public"],
     deps = [
         ":schedviz_events_go_proto",
+        "//analysis:event_loaders_go_proto",
         "//traceparser",
     ],
 )
@@ -63,6 +59,7 @@ proto_library(
     srcs = ["events.proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//analysis:event_loaders_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],
 )
@@ -73,4 +70,46 @@ importpath = "github.com/google/schedviz/tracedata/schedviz_events_go_proto",
 
     proto = ":schedviz_events_proto",
     visibility = ["//visibility:public"],
+    deps = ["//analysis:event_loaders_go_proto"],
+)
+
+go_library(
+    name = "testeventsetbuilder",
+importpath = "github.com/google/schedviz/tracedata/testeventsetbuilder",
+
+    testonly = True,
+    srcs = ["test_event_set_builder.go"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":eventsetbuilder",
+        ":schedviz_events_go_proto",
+    ],
+)
+
+go_library(
+    name = "schedevent",
+importpath = "github.com/google/schedviz/tracedata/schedevent",
+
+    srcs = ["sched_event.go"],
+    visibility = ["//visibility:public"],
+    deps = [":trace"],
+)
+
+go_library(
+    name = "clipping",
+importpath = "github.com/google/schedviz/tracedata/clipping",
+
+    srcs = ["clipping.go"],
+    visibility = ["//visibility:public"],
+    deps = [":schedviz_events_go_proto"],
+)
+
+go_test(
+    name = "clipping_test",
+    size = "small",
+    srcs = ["clipping_test.go"],
+    embed = [":clipping"],
+    deps = [
+        ":schedviz_events_go_proto",
+    ],
 )

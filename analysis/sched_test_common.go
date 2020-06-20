@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/schedviz/tracedata/eventsetbuilder"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 )
 
 // UnpopulatedBuilder returns a new Builder with sched event descriptors but
@@ -71,7 +72,9 @@ func UnpopulatedBuilder() *eventsetbuilder.Builder {
 			"sched_stat_runtime",
 			eventsetbuilder.Number("pid"),
 			eventsetbuilder.Text("comm"),
-			eventsetbuilder.Number("runtime"))
+			eventsetbuilder.Number("runtime")).
+		WithEventDescriptor(
+			"non_sched_event")
 }
 
 // Used to set switching-out threads' states.
@@ -149,41 +152,44 @@ const (
 //   PID     200 (Waiting, Process2, prio   50) on CPU   2 [80 - 101] (0)
 //   PID     400 (Running, Process4, prio   50) on CPU   2 [0 - 101] (0)
 func TestTrace1(t *testing.T) *eventpb.EventSet {
-	return UnpopulatedBuilder().
-		// PID 600 wakes up on CPU 3 at time 500, but this is clipped.
-		WithEvent("sched_wakeup", 3, 500, true,
-			600, "Process6", 50, 1).
-		// PID 300 switches in on CPU 1 at time 1000, PID 200 switches out SLEEPING
-		WithEvent("sched_switch", 1, 1000, false,
-			200, "Process2", 50, Interruptible,
-			300, "Process3", 50).
-		// PID 100 wakes up on CPU 1 at time 1000
-		WithEvent("sched_wakeup", 0, 1000, false,
-			100, "Process1", 50, 1).
-		// PID 100 switches in on CPU 1 at time 1010; PID 300 switches out SLEEPING
-		WithEvent("sched_switch", 1, 1010, false,
-			300, "Process3", 50, Interruptible,
-			100, "Process1", 50).
-		// PID 200 wakes up on CPU 1 at time 1040
-		WithEvent("sched_wakeup", 0, 1040, false,
-			200, "Process2", 50, 1).
-		// PID 200 migrates from CPU 1 to CPU 2 at time 1080
-		WithEvent("sched_migrate_task", 0, 1080, false,
-			200, "Process2", 50,
-			1, 2).
-		// PID 300 wakes up on CPU 1 at time 1090
-		WithEvent("sched_wakeup", 0, 1090, false,
-			300, "Process3", 50, 1).
-		// PID 200 switches in on CPU 2 at time 1100; PID 400 switches out Runnable
-		WithEvent("sched_switch", 2, 1100, false,
-			400, "Process4", 50, Runnable,
-			200, "Process2", 50).
-		// PID 300 switches in on CPU 1 at time 1100; PID 100 switches out Runnable
-		WithEvent("sched_switch", 1, 1100, false,
-			100, "Process1", 50, Runnable,
-			300, "Process3", 50).
-		// PID 500 yields to PID 501 at time 99000, but this is clipped.
-		WithEvent("sched_switch", 0, 99000, true,
-			500, "InvalidProcess", 50, 130,
-			501, "InvalidProcess", 50).TestProtobuf(t)
+	return testeventsetbuilder.TestProtobuf(t,
+		UnpopulatedBuilder().
+			// PID 600 wakes up on CPU 3 at time 500, but this is clipped.
+			WithEvent("sched_wakeup", 3, 500, true,
+				600, "Process6", 50, 1).
+			// An unclipped non-sched event occurs at time 900.
+			WithEvent("non_sched_event", 1, 900, false).
+			// PID 300 switches in on CPU 1 at time 1000, PID 200 switches out SLEEPING
+			WithEvent("sched_switch", 1, 1000, false,
+				200, "Process2", 50, Interruptible,
+				300, "Process3", 50).
+			// PID 100 wakes up on CPU 1 at time 1000
+			WithEvent("sched_wakeup", 0, 1000, false,
+				100, "Process1", 50, 1).
+			// PID 100 switches in on CPU 1 at time 1010; PID 300 switches out SLEEPING
+			WithEvent("sched_switch", 1, 1010, false,
+				300, "Process3", 50, Interruptible,
+				100, "Process1", 50).
+			// PID 200 wakes up on CPU 1 at time 1040
+			WithEvent("sched_wakeup", 0, 1040, false,
+				200, "Process2", 50, 1).
+			// PID 200 migrates from CPU 1 to CPU 2 at time 1080
+			WithEvent("sched_migrate_task", 0, 1080, false,
+				200, "Process2", 50,
+				1, 2).
+			// PID 300 wakes up on CPU 1 at time 1090
+			WithEvent("sched_wakeup", 0, 1090, false,
+				300, "Process3", 50, 1).
+			// PID 200 switches in on CPU 2 at time 1100; PID 400 switches out Runnable
+			WithEvent("sched_switch", 2, 1100, false,
+				400, "Process4", 50, Runnable,
+				200, "Process2", 50).
+			// PID 300 switches in on CPU 1 at time 1100; PID 100 switches out Runnable
+			WithEvent("sched_switch", 1, 1100, false,
+				100, "Process1", 50, Runnable,
+				300, "Process3", 50).
+			// PID 500 yields to PID 501 at time 99000, but this is clipped.
+			WithEvent("sched_switch", 0, 99000, true,
+				500, "InvalidProcess", 50, 130,
+				501, "InvalidProcess", 50))
 }

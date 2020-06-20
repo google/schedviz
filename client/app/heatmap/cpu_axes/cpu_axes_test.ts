@@ -24,6 +24,7 @@ import {LocalMetricsService} from '../../services/metrics_service';
 import {LocalRenderDataService} from '../../services/render_data_service';
 import {SystemTopology, Viewport} from '../../util';
 import {Heatmap} from '../heatmap';
+import {CpuAxisLayer} from './cpu_axis_layer';
 import {HeatmapModule} from '../heatmap_module';
 import {ShortcutService} from '../../services/shortcut_service';
 
@@ -150,5 +151,57 @@ describe('CpuAxisLayer', () => {
      d3.select(cpuLabel).dispatch('click');
     fixture.detectChanges();
     expect(component.cpuFilter.value).toBe('');
+  });
+
+  it('should allow multiple filters to be selected at once', () => {
+    const fixture = TestBed.createComponent(Heatmap);
+    const component = fixture.componentInstance;
+    setupHeatmap(component);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement;
+    const cpuLabels = element.querySelectorAll('.cpuLabel');
+
+    const ctrlClickEvent = new MouseEvent('click', {ctrlKey: true});
+    const noCtrlClickEvent = new MouseEvent('click', {ctrlKey: false});
+
+    d3.select(cpuLabels[0]).node().dispatchEvent(ctrlClickEvent);
+    fixture.detectChanges();
+    expect(component.cpuFilter.value).toBe('0');
+
+    d3.select(cpuLabels[1]).node().dispatchEvent(noCtrlClickEvent);
+    fixture.detectChanges();
+    expect(component.cpuFilter.value).toBe('0-1');
+
+    d3.select(cpuLabels[1]).node().dispatchEvent(noCtrlClickEvent);
+    fixture.detectChanges();
+    expect(component.cpuFilter.value).toBe('0');
+
+    d3.select(cpuLabels[0]).node().dispatchEvent(noCtrlClickEvent);
+    fixture.detectChanges();
+    expect(component.cpuFilter.value).toBe('');
+  });
+
+  it('should toggle cpus', () => {
+    const fixture = TestBed.createComponent(CpuAxisLayer);
+    const component = fixture.componentInstance;
+    component.cpuFilter = new BehaviorSubject<string>('');
+    component.topology = mockTopology();
+    const setCpuFilterSpy = spyOn(component, 'setCpuFilter').and.callThrough();
+
+    // Should toggle all on
+    component.toggleCpuFilter(component.topology.cpus);
+    expect(setCpuFilterSpy).toHaveBeenCalledWith(component.topology.cpus);
+    setCpuFilterSpy.calls.reset();
+
+    // Should toggle individual cpu off
+    component.cpuFilter.next('0-2');
+    component.toggleCpuFilter([0]);
+    expect(setCpuFilterSpy).toHaveBeenCalledWith([1, 2]);
+    setCpuFilterSpy.calls.reset();
+
+    // Should toggle individual cpu on
+    component.toggleCpuFilter([0]);
+    expect(setCpuFilterSpy).toHaveBeenCalledWith([1, 2, 0]);
   });
 });

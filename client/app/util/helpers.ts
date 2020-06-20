@@ -22,9 +22,12 @@
  * https://github.com/google/closure-library/blob/de66a8ac885a31778404af842ad0f1f9dd595609/closure/goog/math/math.js
  * https://github.com/google/closure-library/blob/de66a8ac885a31778404af842ad0f1f9dd595609/closure/goog/crypt/base64.js
  * https://github.com/google/closure-library/blob/de66a8ac885a31778404af842ad0f1f9dd595609/closure/goog/string/string.js
+ * https://github.com/google/closure-library/blob/de66a8ac885a31778404af842ad0f1f9dd595609/closure/goog/functions/functions.js
  */
 
 import {HttpErrorResponse} from '@angular/common/http';
+import {merge, fromEvent, of, Observable} from 'rxjs';
+import {map, distinctUntilChanged} from 'rxjs/operators';
 
 /**
  * Tests whether the two values are equal to each other, within a certain
@@ -41,19 +44,32 @@ export function nearlyEquals(
 }
 
 /**
- * Converts an HttpErrorResponse into a string for suitable for display.
- * @param message A message to prepend to the error
- * @param error An Http Error
+ * Type for error messages from SchedViz's server.
+ * Contains a summary (short error message) and a long error message from the
+ * server.
  */
-export function createHttpErrorMessage(
-    message: string, error: HttpErrorResponse) {
+export interface SchedVizError {
+  summary: string;
+  error: string;
+}
+
+/**
+ * Logs an HttpErrorResponse with a custom message.
+ * @param message A message describing the error
+ * @param error An Http Error
+ * @return The input message for further use.
+ */
+export function recordHttpErrorMessage(
+    message: string, error: HttpErrorResponse): SchedVizError {
   let fullMessage = message;
+  if (error.message) {
+    fullMessage += `\nMessage:\n ${error.message}`;
+  }
   if (error.error) {
     fullMessage += `\nReason:\n ${error.error}`;
-  } else if (error.message) {
-    fullMessage += `\nReason:\n ${error.error}`;
   }
-  return fullMessage;
+  console.error(fullMessage);
+  return {summary: message, error: fullMessage};
 }
 
 /**
@@ -112,7 +128,9 @@ export function byteArrayToString(bytes: Uint8Array|number[]): string {
 
   // Special-case the simple case for speed's sake.
   if (bytes.length <= CHUNK_SIZE) {
-    return String.fromCharCode.apply(null, bytes);
+    // TODO(tracked):  Argument of type 'number[] | Uint8Array' is not
+    // assignable to parameter of type 'number[]'.
+    return String.fromCharCode.apply(null, bytes as any);
   }
 
   // The remaining logic splits conversion by chunks since
@@ -347,3 +365,56 @@ export const Reflect = {
     return (obj as {[k: string]: string})[key];
   }
 };
+
+/**
+ * Wraps a function to allow it to be called, at most, once per interval
+ * (specified in milliseconds). If the wrapper function is called N times in
+ * that interval, both the 1st and the Nth calls will go through.
+ *
+ * @param func is the function to throttle
+ * @param intervalMs is the interval to throttle the function against
+ */
+export function throttle<T extends(...args: unknown[]) => void>(
+    func: T, intervalMs: number): T {
+  let timeout = 0;
+  let shouldFire = false;
+  let latestArgs: unknown = [];
+
+  const handleTimeout = () => {
+    timeout = 0;
+    if (shouldFire) {
+      shouldFire = false;
+      fire();
+    }
+  };
+
+  const fire = () => {
+    timeout = setTimeout(handleTimeout, intervalMs);
+    func(latestArgs);
+  };
+
+  return ((args) => {
+           latestArgs = args;
+           if (!timeout) {
+             fire();
+           } else {
+             shouldFire = true;
+           }
+         }) as T;
+}
+
+/**
+ * isCtrlPressed is an Observable emits true if the control key is currently
+ * being pressed.
+ */
+export const isCtrlPressed: Observable<boolean> = merge(
+  // Trigger the observable immediately instead of waiting for keypress
+  of(false),
+  merge(
+    fromEvent<KeyboardEvent>(document, 'keydown'),
+    fromEvent<KeyboardEvent>(document, 'keyup')
+  ).pipe(
+    map(event => event.ctrlKey),
+    distinctUntilChanged(),
+  )
+);

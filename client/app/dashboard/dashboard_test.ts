@@ -30,14 +30,14 @@ import {BrowserModule} from '@angular/platform-browser';
 import {BehaviorSubject, throwError} from 'rxjs';
 
 import {HeatmapModule} from '../heatmap/heatmap_module';
-import {Checkpoint, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../models';
+import {Checkpoint, CpuIdleWaitLayer, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../models';
 
 import {LocalCollectionDataService} from '../services/collection_data_service';
 import {ColorService} from '../services/color_service';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService} from '../services/render_data_service';
 import {SidebarModule} from '../sidebar/sidebar_module';
-import {Viewport} from '../util';
+import {ErrorSnackBarComponent, Viewport} from '../util';
 
 import {Dashboard} from './dashboard';
 import {DashboardToolbar} from './dashboard_toolbar';
@@ -52,6 +52,7 @@ describe('Dashboard', () => {
     collectionName?: string;
     cpuRunLayer = new CpuRunningLayer();
     cpuWaitQueueLayer = new CpuWaitQueueLayer();
+    cpuIdleWaitLayer = new CpuIdleWaitLayer();
     cpuFilter = new BehaviorSubject<string>('');
     filter = new BehaviorSubject<string>('');
     layers = new BehaviorSubject<Array<BehaviorSubject<Layer>>>([]);
@@ -159,18 +160,24 @@ describe('Dashboard', () => {
             .and.returnValue(throwError(new HttpErrorResponse({error: 'err'})));
 
     const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
-    const snackSpy = spyOn(snackBar, 'open');
+    const snackSpy = spyOn(snackBar, 'openFromComponent');
+    const consoleSpy = spyOn(console, 'error');
 
     await fixture.whenStable();
 
     dashboard.getCollectionParameters('abc');
     expect(serviceSpy).toHaveBeenCalled();
 
+    const fullError = 'Failed to get parameters for abc\n' +
+        'Message:\n' +
+        ' Http failure response for (unknown url): undefined undefined\n' +
+        'Reason:\n' +
+        ' err';
+
     expect(snackSpy).toHaveBeenCalledWith(
-        'Failed to get parameters for abc\n' +
-            'Reason:\n' +
-            ' err',
-        'Dismiss');
+        ErrorSnackBarComponent, {data: {summary: 'Failed to get parameters for abc', error: fullError}});
+    expect(consoleSpy)
+        .toHaveBeenCalledWith(fullError);
   });
 
   // TODO(sainsley): Test headmap / sidebar presence / size?

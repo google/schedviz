@@ -24,7 +24,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/google/schedviz/analysis/schedtestcommon"
 	"github.com/google/schedviz/tracedata/eventsetbuilder"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -35,36 +37,42 @@ const (
 )
 
 func perCPUEventsCollection(t *testing.T, normalizeTimestamps bool) *Collection {
+	f := func(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
+		ttsb.WithTransition(ev.Index, ev.Timestamp, PID(ev.CPU)).
+			WithPrevCPU(CPUID(ev.CPU)).
+			WithNextCPU(CPUID(ev.CPU))
+		return nil
+	}
 	evtLoaders := map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
-		simpleNumericEventLabel: func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
-		simpleTextualEventLabel: func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
-		indirectEventLabel:      func(_ *trace.Event, _ *ThreadTransitionSetBuilder) error { return nil },
+		simpleNumericEventLabel: f,
+		simpleTextualEventLabel: f,
+		indirectEventLabel:      f,
 	}
 
-	es := eventsetbuilder.NewBuilder().
-		WithEventDescriptor(
-			simpleNumericEventLabel,
-			eventsetbuilder.Number("value")).
-		WithEventDescriptor(
-			simpleTextualEventLabel,
-			eventsetbuilder.Text("value")).
-		WithEventDescriptor(
-			indirectEventLabel,
-			eventsetbuilder.Number("cpu")).
-		WithEvent(indirectEventLabel, 1, 900, true, 2).
-		WithEvent(simpleNumericEventLabel, 1, 1000, false, 1).
-		WithEvent(simpleTextualEventLabel, 1, 1005, false, "a").
-		WithEvent(simpleNumericEventLabel, 2, 1010, false, 2).
-		WithEvent(simpleTextualEventLabel, 2, 1015, false, "b").
-		WithEvent(indirectEventLabel, 1, 1018, false, 2).
-		WithEvent(simpleNumericEventLabel, 1, 1020, false, 3).
-		WithEvent(simpleTextualEventLabel, 1, 1025, false, "c").
-		WithEvent(simpleNumericEventLabel, 2, 1030, false, 4).
-		WithEvent(simpleTextualEventLabel, 2, 1035, false, "d").
-		WithEvent(indirectEventLabel, 2, 1038, false, 1).
-		TestProtobuf(t)
+	es := testeventsetbuilder.TestProtobuf(t,
+		eventsetbuilder.NewBuilder().
+			WithEventDescriptor(
+				simpleNumericEventLabel,
+				eventsetbuilder.Number("value")).
+			WithEventDescriptor(
+				simpleTextualEventLabel,
+				eventsetbuilder.Text("value")).
+			WithEventDescriptor(
+				indirectEventLabel,
+				eventsetbuilder.Number("cpu")).
+			WithEvent(indirectEventLabel, 1, 900, true, 2).
+			WithEvent(simpleNumericEventLabel, 1, 1000, false, 1).
+			WithEvent(simpleTextualEventLabel, 1, 1005, false, "a").
+			WithEvent(simpleNumericEventLabel, 2, 1010, false, 2).
+			WithEvent(simpleTextualEventLabel, 2, 1015, false, "b").
+			WithEvent(indirectEventLabel, 1, 1018, false, 2).
+			WithEvent(simpleNumericEventLabel, 1, 1020, false, 3).
+			WithEvent(simpleTextualEventLabel, 1, 1025, false, "c").
+			WithEvent(simpleNumericEventLabel, 2, 1030, false, 4).
+			WithEvent(simpleTextualEventLabel, 2, 1035, false, "d").
+			WithEvent(indirectEventLabel, 2, 1038, false, 1))
 
-	coll, err := NewCollection(es, evtLoaders, NormalizeTimestamps(normalizeTimestamps))
+	coll, err := NewCollection(es, UsingEventLoaders(evtLoaders), NormalizeTimestamps(normalizeTimestamps))
 	if err != nil {
 		t.Fatalf("NewCollection yielded unexpected error %s", err)
 	}
@@ -400,6 +408,35 @@ func TestSearchBeforeAndAfterTimestamp(t *testing.T) {
 				}
 			} else if test.wantEventIndexAfter >= 0 {
 				t.Errorf("Expected EventIndexOnCPUAfter() to find %d, but it found nothing", test.wantEventIndexAfter)
+			}
+
+		})
+	}
+}
+
+func TestSchedCollection(t *testing.T) {
+	c, err := NewCollection(schedtestcommon.TestTrace1(t), NormalizeTimestamps(false))
+	if err != nil {
+		t.Fatalf("Failed to construct Collection: %s", err)
+	}
+	pcc, err := NewPerCPUCollection(c /*cpuLookupFunc*/, nil)
+	if err != nil {
+		t.Fatalf("Failed to construct PerCPUCollection: %s", err)
+	}
+	tests := []struct {
+		description      string
+		cpus             []CPUID
+		wantEventIndices []int
+	}{{
+		description:      "All CPUs",
+		cpus:             []CPUID{0, 1, 2},
+		wantEventIndices: []int{2, 3, 4, 5, 6, 7, 8, 9},
+	}}
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			gotEventIndices := pcc.EventIndices(CPUs(test.cpus...))
+			if diff := cmp.Diff(test.wantEventIndices, gotEventIndices); diff != "" {
+				t.Errorf("EventIndices() = %#v; diff (want->got) %s", gotEventIndices, diff)
 			}
 
 		})

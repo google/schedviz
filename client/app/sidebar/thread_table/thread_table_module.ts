@@ -29,6 +29,7 @@ import {MatSelectModule} from '@angular/material/select';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {MatSortModule} from '@angular/material/sort';
 import {MatTableModule} from '@angular/material/table';
+import {MatTabsModule} from '@angular/material/tabs';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {BrowserModule} from '@angular/platform-browser';
 
@@ -36,6 +37,7 @@ import {UtilModule} from '../../util';
 
 import {AntagonistTable} from './antagonist_table';
 import {EventTable} from './event_table';
+import {IntervalTable} from './interval_table';
 import {LayerToggle} from './layer_toggle';
 import {SchedEventsTable} from './sched_events_table';
 import {SelectableTable} from './selectable_table';
@@ -43,13 +45,14 @@ import {ThreadTable} from './thread_table';
 
 @NgModule({
   declarations: [
-    SchedEventsTable, ThreadTable, EventTable, AntagonistTable, SelectableTable,
-    LayerToggle
+    IntervalTable, SchedEventsTable, ThreadTable, EventTable, AntagonistTable,
+    SelectableTable, LayerToggle
   ],
   exports: [
     SchedEventsTable,
     ThreadTable,
     EventTable,
+    IntervalTable,
     AntagonistTable,
     SelectableTable,
     LayerToggle,
@@ -70,6 +73,7 @@ import {ThreadTable} from './thread_table';
     MatBadgeModule,
     MatSlideToggleModule,
     MatTooltipModule,
+    MatTabsModule,
     UtilModule,
   ],
   providers: [

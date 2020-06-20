@@ -24,7 +24,8 @@ import {debounceTime} from 'rxjs/operators';
 
 import {CollectionParameters, FtraceInterval, Interval, Layer, SchedEvent, Thread, ThreadInterval} from '../models';
 import {MetricsService} from '../services/metrics_service';
-import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
+import {RenderDataService} from '../services/render_data_service';
+import {showErrorSnackBar, SystemTopology, Viewport} from '../util';
 
 /**
  * The sidebar component holds the thread list and settings tab
@@ -53,6 +54,7 @@ export class Sidebar implements OnInit, OnDestroy {
 
   expandedFtraceIntervals = new BehaviorSubject<FtraceInterval[]>([]);
   expandedThreadAntagonists = new BehaviorSubject<ThreadInterval[]>([]);
+  expandedThreadIntervals = new BehaviorSubject<ThreadInterval[]>([]);
   selectedSchedEvents = new BehaviorSubject<SchedEvent[]>([]);
   eventTypesSubject = new BehaviorSubject<string[]>([]);
   threads = new BehaviorSubject<Thread[]>([]);
@@ -62,6 +64,7 @@ export class Sidebar implements OnInit, OnDestroy {
 
   constructor(
       @Inject('MetricsService') public metricsService: MetricsService,
+      @Inject('RenderDataService') public renderDataService: RenderDataService,
       private readonly snackBar: MatSnackBar) {}
 
   ngOnInit() {
@@ -136,6 +139,7 @@ export class Sidebar implements OnInit, OnDestroy {
     this.expandedThread.complete();
     this.expandedFtraceIntervals.complete();
     this.expandedThreadAntagonists.complete();
+    this.expandedThreadIntervals.complete();
     this.selectedSchedEvents.complete();
   }
 
@@ -166,10 +170,10 @@ export class Sidebar implements OnInit, OnDestroy {
                   this.threadsPending = false;
                 },
                 (err: HttpErrorResponse) => {
-                  const errMsg = createHttpErrorMessage(
+                  showErrorSnackBar(
+                  this.snackBar,
                       `Failed to get thread summaries for ${parameters.name}`,
                       err);
-                  this.snackBar.open(errMsg, 'Dismiss');
                 });
   }
 
@@ -198,12 +202,37 @@ export class Sidebar implements OnInit, OnDestroy {
                 this.expandedFtraceIntervals.next(events);
               },
               (err: HttpErrorResponse) => {
-                const errMsg = createHttpErrorMessage(
+                thread.eventsPending = false;
+                showErrorSnackBar(
+                  this.snackBar,
                     `Failed to get thread events for PID: ${thread.pid}`, err);
-                this.snackBar.open(errMsg, 'Dismiss');
               });
     } else {
       this.expandedFtraceIntervals.next(thread.events);
+    }
+    // Fetch thread intervals
+    if (!thread.intervals.length) {
+      thread.intervalsPending = true;
+      const tmpLayers = [new Layer('tmp', 'Thread', [thread.pid])];
+      this.renderDataService
+          .getPidIntervals(parameters, tmpLayers, this.viewport.value, 0)
+          .subscribe(
+              layers => {
+                thread.intervalsPending = false;
+                thread.intervals =
+                    layers.map(layer => layer.intervals as ThreadInterval[])
+                        .reduce((acc, curr) => acc.concat(curr), []);
+                this.expandedThreadIntervals.next(thread.intervals);
+              },
+              (err: HttpErrorResponse) => {
+                thread.intervalsPending = false;
+                showErrorSnackBar(
+                  this.snackBar,
+                    `Failed to get thread intervals for PID: ${thread.pid}`,
+                    err);
+              });
+    } else {
+      this.expandedThreadIntervals.next(thread.intervals);
     }
     // Fetch antagonists, if missing
     if (!thread.antagonists.length) {
@@ -217,10 +246,11 @@ export class Sidebar implements OnInit, OnDestroy {
                 this.expandedThreadAntagonists.next(thread.antagonists);
               },
               (err: HttpErrorResponse) => {
-                const errMsg = createHttpErrorMessage(
+                thread.antagonistsPending = false;
+                showErrorSnackBar(
+                  this.snackBar,
                     `Failed to get thread antagonists for PID: ${thread.pid}`,
                     err);
-                this.snackBar.open(errMsg, 'Dismiss');
               });
     } else {
       this.expandedThreadAntagonists.next(thread.antagonists);

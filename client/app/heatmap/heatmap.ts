@@ -18,16 +18,16 @@ import {HttpErrorResponse} from '@angular/common/http';
 import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Inject, Input, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import * as d3 from 'd3';
-import {BehaviorSubject, from, merge, Subscription} from 'rxjs';
-import {buffer, debounceTime, mergeMap, pairwise, take} from 'rxjs/operators';
+import {BehaviorSubject, combineLatest, from, merge, Subscription} from 'rxjs';
+import {buffer, debounceTime, filter, map, mergeMap, pairwise, take} from 'rxjs/operators';
 
-import {CollectionParameters, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
+import {CollectionParameters, CpuIdleWaitLayer, CpuInterval, CpuIntervalCollection, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval, WaitingCpuInterval} from '../models';
 import {ThreadState} from '../models/render_data_services';
 import {RenderDataService} from '../services/render_data_service';
-import {ShortcutId, ShortcutService, DeregistrationCallback} from '../services/shortcut_service';
-import {createHttpErrorMessage, SystemTopology, Viewport} from '../util';
+import {DeregistrationCallback, ShortcutId, ShortcutService} from '../services/shortcut_service';
+import {showErrorSnackBar, SystemTopology, Viewport} from '../util';
 import {copyToClipboard} from '../util/clipboard';
-import {nearlyEquals} from '../util/helpers';
+import {isCtrlPressed, nearlyEquals} from '../util/helpers';
 
 const HEATMAP_MARGIN_X = 150;
 const HEATMAP_MARGIN_Y = 100;
@@ -77,6 +77,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
 
   cpuRunLayer!: BehaviorSubject<CpuRunningLayer>;
   cpuWaitQueueLayer!: BehaviorSubject<CpuWaitQueueLayer>;
+  cpuIdleWaitLayer!: BehaviorSubject<CpuIdleWaitLayer>;
   // Subscriptions listen for data from the SchedViz backend
   cpuIntervalSubscription?: Subscription;
   pidIntervalSubscription?: Subscription;
@@ -182,6 +183,16 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
       this.layers.value.push(
           this.cpuRunLayer as unknown as BehaviorSubject<Layer>);
     }
+
+    const cpuIdleWaitLayer = this.layers.value.find(
+        layer => layer.value instanceof CpuIdleWaitLayer);
+    if (cpuIdleWaitLayer) {
+      this.cpuIdleWaitLayer = cpuIdleWaitLayer;
+    } else {
+      this.cpuIdleWaitLayer = new BehaviorSubject(new CpuIdleWaitLayer());
+      this.layers.value.push(this.cpuIdleWaitLayer);
+    }
+
     const cpuWaitQueueLayer = this.layers.value.find(
         layer => layer.value instanceof CpuWaitQueueLayer);
     if (cpuWaitQueueLayer) {
@@ -190,6 +201,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
       this.cpuWaitQueueLayer = new BehaviorSubject(new CpuWaitQueueLayer());
       this.layers.value.push(this.cpuWaitQueueLayer);
     }
+
     this.layers.subscribe(layers => {
       // TODO(sainsley): Try to remove this call to change detection.
       // (Used to create the interval-layers)
@@ -215,7 +227,13 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                              /* Force refresh as base view is invalid */ true);
         });
     // Reset viewport height and force redraw on CPU filter change
-    this.cpuFilter.pipe(pairwise()).subscribe(([oldFilter, newFilter]) => {
+
+
+    combineLatest([this.cpuFilter, isCtrlPressed]).pipe(
+        filter(([, ctrlKey]) => !ctrlKey),
+        map(([filter]) => filter),
+        pairwise(),
+    ).subscribe(([oldFilter, newFilter]) => {
       if (oldFilter === newFilter) {
         return;
       }
@@ -242,9 +260,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                 this.cdr.detectChanges();
               },
               (err: HttpErrorResponse) => {
-                const errMsg = createHttpErrorMessage(
+                showErrorSnackBar(
+                  this.snackBar,
                     `Failed to get CPU intervals for ${params.name}`, err);
-                this.snackBar.open(errMsg, 'Dismiss');
               });
     }
 
@@ -263,6 +281,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
     // Close all Subjects to prevent leaks.
     this.cpuRunLayer.complete();
     this.cpuWaitQueueLayer.complete();
+    this.cpuIdleWaitLayer.complete();
     this.visibleCpus.complete();
     // TODO(sainsley): Use switchMap to avoid manually managing subscriptions
     if (this.cpuIntervalSubscription) {
@@ -442,9 +461,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                   }
                 },
                 (err: HttpErrorResponse) => {
-                  const errMsg = createHttpErrorMessage(
+                  showErrorSnackBar(
+                  this.snackBar,
                       `Failed to get CPU intervals for ${params.name}`, err);
-                  this.snackBar.open(errMsg, 'Dismiss');
                 });
   }
 
@@ -454,17 +473,30 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
   setCpuIntervals(intervals: CpuIntervalCollection[]) {
     const cpuRunLayer = this.cpuRunLayer.value;
     const cpuWaitLayer = this.cpuWaitQueueLayer.value;
+    const cpuIdleWaitLayer = this.cpuIdleWaitLayer.value;
     cpuRunLayer.initialized = true;
     cpuWaitLayer.initialized = true;
+    cpuIdleWaitLayer.initialized = true;
     // Store new set of running CPU intervals
     cpuRunLayer.intervals = intervals.reduce(
         (acc, i) => [...acc, ...i.running], new Array<CpuInterval>());
     // Filter out and store new set of waiting CPU intervals
     cpuWaitLayer.intervals = intervals.reduce(
         (acc, i) => [...acc, ...i.waiting], new Array<WaitingCpuInterval>());
+    // Filter out and store new set of waiting-while-idle CPU intervals
+    cpuIdleWaitLayer.intervals =
+        (cpuWaitLayer.intervals as WaitingCpuInterval[]).filter(interval => {
+          // Show queuing due to task throttling in a different color.
+          // When a task is throttled (i.e. not allocated CPU) it will appear to
+          // be in the waiting state with nothing running. This is in contrast
+          // to being in competition with another task, in which case something
+          // else will be running while the task is waiting.
+          return interval.waiting.length && !interval.running.length;
+        });
     // Mark layer as ready for redraw.
     this.cpuRunLayer.next(cpuRunLayer);
     this.cpuWaitQueueLayer.next(cpuWaitLayer);
+    this.cpuIdleWaitLayer.next(cpuIdleWaitLayer);
   }
 
   /**
@@ -483,7 +515,7 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
     this.pidIntervalSubscription =
         merge(...layerSubjs)
             .pipe(
-                buffer(merge(...layerSubjs).pipe(debounceTime(100))),
+                buffer(merge(...layerSubjs).pipe(debounceTime(250))),
                 mergeMap(layers => {
                   layers = layers
                                .map(layer => {
@@ -519,9 +551,9 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
                   }
                 },
                 (err: HttpErrorResponse) => {
-                  const errMsg = createHttpErrorMessage(
+                  showErrorSnackBar(
+                  this.snackBar,
                       `Failed to get PID intervals for ${params.name}`, err);
-                  this.snackBar.open(errMsg, 'Dismiss');
                 });
   }
 
@@ -546,10 +578,10 @@ export class Heatmap implements AfterViewInit, OnInit, OnDestroy {
             .subscribe(
                 layer => this.onLayerDataReady(layers, layer),
                 (err: HttpErrorResponse) => {
-                  const errMsg = createHttpErrorMessage(
+                  showErrorSnackBar(
+                  this.snackBar,
                       `Failed to get get ftrace events for ${params.name}`,
                       err);
-                  this.snackBar.open(errMsg, 'Dismiss');
                 });
   }
 

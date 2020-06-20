@@ -64,7 +64,7 @@ func (el *eventLoader) threadTransitions(ev *trace.Event) ([]*threadTransition, 
 	if err := loader(ev, ttsb); err != nil {
 		return nil, err
 	}
-	return ttsb.transitions(), nil
+	return ttsb.transitions()
 }
 
 // MissingFieldError is used to report a missing field.
@@ -72,36 +72,41 @@ func MissingFieldError(fieldName string, ev *trace.Event) error {
 	return status.Errorf(codes.NotFound, "field '%s' not found for event %d", fieldName, ev.Index)
 }
 
-// LoadSchedMigrateTask loads a sched::sched_migrate_task event.
-func LoadSchedMigrateTask(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
+// MigrateData comprises the data extracted from a raw sched_migrate_task
+// event.
+type MigrateData struct {
+	PID              PID
+	Comm             string
+	Priority         Priority
+	OrigCPU, DestCPU CPUID
+}
+
+// LoadMigrateData loads the data from a sched_migrate event, converting all
+// fields to suitable types, and returns a MigrateData struct.
+func LoadMigrateData(ev *trace.Event) (*MigrateData, error) {
+	ret := &MigrateData{}
 	pid, ok := ev.NumberProperties["pid"]
 	if !ok {
-		return MissingFieldError("pid", ev)
+		return nil, MissingFieldError("pid", ev)
 	}
-	comm := ev.TextProperties["comm"]
+	ret.PID = PID(pid)
+	ret.Comm = ev.TextProperties["comm"]
 	prio, ok := ev.NumberProperties["prio"]
-	priority := Priority(prio)
+	ret.Priority = Priority(prio)
 	if !ok {
-		priority = UnknownPriority
+		ret.Priority = UnknownPriority
 	}
 	origCPU, ok := ev.NumberProperties["orig_cpu"]
 	if !ok {
-		return MissingFieldError("orig_cpu", ev)
+		return nil, MissingFieldError("orig_cpu", ev)
 	}
+	ret.OrigCPU = CPUID(origCPU)
 	destCPU, ok := ev.NumberProperties["dest_cpu"]
 	if !ok {
-		return MissingFieldError("dest_cpu", ev)
+		return nil, MissingFieldError("dest_cpu", ev)
 	}
-	// sched:sched_migrate_task produces a single thread transition, from the PID
-	// backwards on the original CPU and forwards on the destination CPU.
-	ttsb.WithTransition(ev.Index, ev.Timestamp, PID(pid)).
-		WithPrevCommand(comm).
-		WithNextCommand(comm).
-		WithPrevPriority(priority).
-		WithNextPriority(priority).
-		WithPrevCPU(CPUID(origCPU)).
-		WithNextCPU(CPUID(destCPU))
-	return nil
+	ret.DestCPU = CPUID(destCPU)
+	return ret, nil
 }
 
 // SwitchData comprises the data extracted from a raw sched_switch event.
@@ -142,145 +147,16 @@ func LoadSwitchData(ev *trace.Event) (*SwitchData, error) {
 	}
 	// The new PID's state is assumed to be RUNNING_STATE, and the old PID's task
 	// state will reveal whether it's WAITING_STATE (prev_state == 0,
-	// TASK_RUNNING) or SLEEPING_STATE (otherwise); The possible values of
-	// prevTaskState are defined in sched.h in the kernel.
+	// TASK_RUNNING, or 256, TASK_REPORT_MAX, which can signify a preemption) or
+	// SLEEPING_STATE (otherwise); The possible values of prevTaskState are
+	// defined in sched.h in the kernel.
 	prevTaskState, ok := ev.NumberProperties["prev_state"]
 	if !ok {
 		return nil, MissingFieldError("prev_state", ev)
 	}
 	ret.PrevState = WaitingState
-	if prevTaskState != 0 {
+	if prevTaskState != 0 && prevTaskState != 256 {
 		ret.PrevState = SleepingState
 	}
 	return ret, nil
-}
-
-// LoadSchedSwitch loads a sched::sched_switch event.
-func LoadSchedSwitch(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
-	sd, err := LoadSwitchData(ev)
-	if err != nil {
-		return err
-	}
-	// sched:sched_switch produces two thread transitions:
-	// * The next PID backwards and forwards on the reporting CPU and forwards in
-	//   Running state,
-	// * The previous PID backwards and forwards on the reporting CPU, backwards
-	//   in Running state, and forwards in Sleeping or Waiting state, depending on
-	//   its prev_state.
-	ttsb.WithTransition(ev.Index, ev.Timestamp, sd.NextPID).
-		WithPrevCommand(sd.NextComm).
-		WithNextCommand(sd.NextComm).
-		WithPrevPriority(sd.NextPriority).
-		WithNextPriority(sd.NextPriority).
-		WithPrevCPU(CPUID(ev.CPU)).
-		WithNextCPU(CPUID(ev.CPU)).
-		WithNextState(RunningState)
-	ttsb.WithTransition(ev.Index, ev.Timestamp, sd.PrevPID).
-		WithPrevCommand(sd.PrevComm).
-		WithNextCommand(sd.PrevComm).
-		WithPrevPriority(sd.PrevPriority).
-		WithNextPriority(sd.PrevPriority).
-		WithPrevCPU(CPUID(ev.CPU)).
-		WithNextCPU(CPUID(ev.CPU)).
-		WithPrevState(RunningState).
-		WithNextState(sd.PrevState)
-	return nil
-}
-
-// LoadSchedWakeup loads a sched::sched_wakeup or sched::sched_wakeup_new event.
-func LoadSchedWakeup(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
-	pid, ok := ev.NumberProperties["pid"]
-	if !ok {
-		return MissingFieldError("pid", ev)
-	}
-	comm := ev.TextProperties["comm"]
-	prio, ok := ev.NumberProperties["prio"]
-	priority := Priority(prio)
-	if !ok {
-		priority = UnknownPriority
-	}
-	targetCPU, ok := ev.NumberProperties["target_cpu"]
-	if !ok {
-		return MissingFieldError("target_cpu", ev)
-	}
-	// sched:sched_wakeup and sched:sched_wakeup_new produce a single thread
-	// transition, which expects the targetCPU both before and after the
-	// transition, and expects the state after the transition to be Waiting.
-	//
-	// sched_wakeups are quite prone to misbehavior.  They are frequently produced
-	// as part of an interrupt, so they may appear misordered relative to other
-	// events, and they can be reported by a different CPU than their target CPU.
-	// Moreover, wakeups can occur on threads that are already running.
-	// Therefore, all assertions sched_wakeup transitions make -- CPU backwards
-	// and forwards, and state forwards -- are relaxed, such that sched_wakeups
-	// that disagree with other events on these assertions are dropped.
-	ttsb.WithTransition(ev.Index, ev.Timestamp, PID(pid)).
-		WithPrevCommand(comm).
-		WithNextCommand(comm).
-		WithPrevPriority(priority).
-		WithNextPriority(priority).
-		WithPrevCPU(CPUID(targetCPU)).
-		WithNextCPU(CPUID(targetCPU)).
-		WithNextState(WaitingState).
-		OnBackwardsCPUConflict(Drop).
-		OnForwardsCPUConflict(Drop).
-		OnForwardsStateConflict(Drop)
-	return nil
-}
-
-// DefaultEventLoaders is a set of event loader functions for standard
-// scheduling tracepoints.
-func DefaultEventLoaders() map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error {
-	return map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
-		"sched_migrate_task": LoadSchedMigrateTask,
-		"sched_switch":       LoadSchedSwitch,
-		"sched_wakeup":       LoadSchedWakeup,
-		"sched_wakeup_new":   LoadSchedWakeup,
-	}
-}
-
-// LoadSchedSwitchWithSynthetics loads a sched::sched_switch event from a trace
-// that lacks other events that could signal thread state or CPU changes.
-// Wherever a state or CPU transition is missing, a synthetic transition will
-// be inserted midway between the two adjacent known transitions.
-func LoadSchedSwitchWithSynthetics(ev *trace.Event, ttsb *ThreadTransitionSetBuilder) error {
-	sd, err := LoadSwitchData(ev)
-	if err != nil {
-		return err
-	}
-	ttsb.WithTransition(ev.Index, ev.Timestamp, sd.NextPID).
-		WithPrevCommand(sd.NextComm).
-		WithNextCommand(sd.NextComm).
-		WithPrevPriority(sd.NextPriority).
-		WithNextPriority(sd.NextPriority).
-		WithPrevCPU(CPUID(ev.CPU)).
-		WithNextCPU(CPUID(ev.CPU)).
-		WithPrevState(WaitingState).
-		WithNextState(RunningState).
-		OnForwardsCPUConflict(InsertSynthetic).
-		OnBackwardsCPUConflict(InsertSynthetic).
-		OnForwardsStateConflict(InsertSynthetic).
-		OnBackwardsStateConflict(InsertSynthetic)
-	ttsb.WithTransition(ev.Index, ev.Timestamp, sd.PrevPID).
-		WithPrevCommand(sd.PrevComm).
-		WithNextCommand(sd.PrevComm).
-		WithPrevPriority(sd.PrevPriority).
-		WithNextPriority(sd.PrevPriority).
-		WithPrevCPU(CPUID(ev.CPU)).
-		WithNextCPU(CPUID(ev.CPU)).
-		WithPrevState(RunningState).
-		WithNextState(sd.PrevState).
-		OnForwardsCPUConflict(InsertSynthetic).
-		OnBackwardsCPUConflict(InsertSynthetic).
-		OnForwardsStateConflict(InsertSynthetic).
-		OnBackwardsStateConflict(InsertSynthetic)
-	return nil
-}
-
-// SwitchOnlyLoaders is a set of loaders suitable for use on traces in
-// which scheduling behavior is only attested by sched_switch events.
-func SwitchOnlyLoaders() map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error {
-	return map[string]func(*trace.Event, *ThreadTransitionSetBuilder) error{
-		"sched_switch": LoadSchedSwitchWithSynthetics,
-	}
 }

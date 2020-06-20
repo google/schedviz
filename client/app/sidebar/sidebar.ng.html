@@ -10,6 +10,7 @@
         [expandedThread]="expandedThread"
         [expandedFtraceIntervals]="expandedFtraceIntervals"
         [expandedThreadAntagonists]="expandedThreadAntagonists"
+        [expandedThreadIntervals]="expandedThreadIntervals"
         [dataPending]="threadsPending"
         [sort]="threadSort"
         [tab]="tab">
@@ -35,7 +36,7 @@
       </ng-template>
       <mat-form-field class="cpu-filter-form">
         <input matInput
-               [ngModel]="cpuFilter.value"
+               [ngModel]="cpuFilter | async"
                (ngModelChange)="cpuFilter.next($event.trim().toLowerCase())"
                placeholder="CPU Filter">
       </mat-form-field>

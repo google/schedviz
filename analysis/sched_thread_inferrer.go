@@ -46,124 +46,165 @@ func newThreadInferrer(pid PID, options *collectionOptions) *threadInferrer {
 	}
 }
 
-// checkCPUs scans forward through pendingTransitions, tracking the last
-// transition with known CPU, and comparing this with subsequent transitions.
-// If a CPU conflict is found, the applicable conflict policy is determined and
-// applied: an error is returned, one or both of the conflictants is dropped,
-// or a synthetic event is placed between the conflictants resolving the
-// conflict.  In the case of a conflict, the checking pass must be retried;
-// whether this retry is required is returned.
-func (inferrer *threadInferrer) checkCPUs() (retry bool, err error) {
-	var lastKnownCPU *threadTransition
-	for _, tt := range inferrer.pendingTransitions {
+// findConflict iterates through the pendingTransitions, looking for
+// disagreements between adjacent transitions on CPU or state.  If a
+// disagreement is found, the indices of the disagreeing transitions are
+// returned, as well as true.  If no disagreement is found, false is
+// returned.
+func (inferrer *threadInferrer) findConflict() (idx1, idx2 int, conflicted bool) {
+	currentCPU := UnknownCPU
+	currentCPUIdx := 0
+	currentState := AnyState
+	currentStateIdx := 0
+	for idx, tt := range inferrer.pendingTransitions {
 		if tt.dropped {
 			continue
 		}
-		if lastKnownCPU != nil && tt.PrevCPU != UnknownCPU && tt.PrevCPU != lastKnownCPU.NextCPU {
-			// We have a conflict; resolve.
-			resolution := resolveConflict(tt.onBackwardsCPUConflict, lastKnownCPU.onForwardsCPUConflict)
-			switch resolution {
-			case Fail:
-				return false, status.Errorf(codes.InvalidArgument,
-					"inference error (CPU) between '%s' and '%s'",
-					lastKnownCPU, tt)
-			case Drop:
-				if (tt.onBackwardsCPUConflict & Drop) == Drop {
-					tt.dropped = true
+		// Find CPU conflicts.
+		if currentCPU == UnknownCPU {
+			currentCPU = tt.PrevCPU
+			currentCPUIdx = idx
+		} else if tt.PrevCPU != UnknownCPU && tt.PrevCPU != currentCPU {
+			return currentCPUIdx, idx, true
+		}
+		if tt.CPUPropagatesThrough {
+			if tt.NextCPU != UnknownCPU && tt.NextCPU != currentCPU {
+				return currentCPUIdx, idx, true
+			}
+		} else {
+			currentCPU = tt.NextCPU
+			currentCPUIdx = idx
+		}
+		// Find state conflicts.  Update currentStateIdx whenever the currentState
+		// is further restricted.
+		var merged bool
+		if currentState != tt.PrevState && tt.PrevState != AnyState {
+			if currentState == AnyState {
+				currentState = tt.PrevState
+				currentStateIdx = idx
+			} else {
+				currentState, merged = mergeState(currentState, tt.PrevState)
+				if !merged {
+					return currentStateIdx, idx, true
 				}
-				if (lastKnownCPU.onForwardsCPUConflict & Drop) == Drop {
-					lastKnownCPU.dropped = true
-				}
-				// We dropped something, and must retry the check pass.
-				return true, nil
-			case InsertSynthetic:
-				syntheticTransition := &threadTransition{
-					EventID:      Unknown,
-					Timestamp:    lastKnownCPU.Timestamp + (tt.Timestamp-lastKnownCPU.Timestamp)/2,
-					PID:          tt.PID,
-					PrevCommand:  UnknownCommand,
-					NextCommand:  UnknownCommand,
-					PrevPriority: UnknownPriority,
-					NextPriority: UnknownPriority,
-					PrevCPU:      lastKnownCPU.NextCPU,
-					NextCPU:      tt.PrevCPU,
-					PrevState:    UnknownState,
-					NextState:    UnknownState,
-					synthetic:    true,
-				}
-				inferrer.pendingTransitions = append(inferrer.pendingTransitions, syntheticTransition)
-				sort.Slice(inferrer.pendingTransitions, func(a, b int) bool {
-					return inferrer.pendingTransitions[a].Timestamp < inferrer.pendingTransitions[b].Timestamp
-				})
-				// We inserted something, and must retry the check pass.
-				return true, nil
+				currentStateIdx = idx
 			}
 		}
-		if tt.NextCPU == UnknownCPU {
-			lastKnownCPU = nil
+		if tt.StatePropagatesThrough {
+			if currentState != tt.NextState && tt.NextState != AnyState {
+				if currentState == AnyState {
+					currentState = tt.NextState
+					currentStateIdx = idx
+				} else {
+					currentState, merged = mergeState(currentState, tt.NextState)
+					if !merged {
+						return currentStateIdx, idx, true
+					}
+					currentStateIdx = idx
+				}
+			}
 		} else {
-			lastKnownCPU = tt
+			currentState = tt.NextState
+			currentStateIdx = idx
 		}
 	}
-	return false, nil
+	return 0, 0, false
 }
 
-// checkStates scans forward through pendingTransitions, tracking the last
-// transition with known state, and comparing this with subsequent transitions.
-// If a state conflict is found, the applicable conflict policy is determined
-// and applied: an error is returned, one or both of the conflictants is
-// dropped, or a synthetic event is placed between the conflictants resolving
-// the conflict.  In the case of a conflict, the checking pass must be retried;
-// whether this retry is required is returned.
-func (inferrer *threadInferrer) checkStates() (retry bool, err error) {
-	var lastKnownState *threadTransition
-	for _, tt := range inferrer.pendingTransitions {
-		if tt.dropped {
-			continue
-		}
-		if lastKnownState != nil && tt.PrevState != UnknownState && tt.PrevState != lastKnownState.NextState {
-			// We have a conflict; resolve.
-			resolution := resolveConflict(tt.onBackwardsStateConflict, lastKnownState.onForwardsStateConflict)
-			switch resolution {
-			case Fail:
-				return false, status.Errorf(codes.InvalidArgument,
-					"inference error (thread state) between '%s' and '%s'",
-					lastKnownState, tt)
-			case Drop:
-				if (tt.onBackwardsStateConflict & Drop) == Drop {
-					tt.dropped = true
-				}
-				if (lastKnownState.onForwardsStateConflict & Drop) == Drop {
-					lastKnownState.dropped = true
-				}
-				// We dropped something, and must retry the check pass.
-				return true, nil
-			case InsertSynthetic:
-				syntheticTransition := &threadTransition{
-					EventID:      Unknown,
-					Timestamp:    lastKnownState.Timestamp + (tt.Timestamp-lastKnownState.Timestamp)/2,
-					PID:          tt.PID,
-					PrevCommand:  UnknownCommand,
-					NextCommand:  UnknownCommand,
-					PrevPriority: UnknownPriority,
-					NextPriority: UnknownPriority,
-					PrevCPU:      UnknownCPU,
-					NextCPU:      UnknownCPU,
-					PrevState:    lastKnownState.NextState,
-					NextState:    tt.PrevState,
-					synthetic:    true,
-				}
-				inferrer.pendingTransitions = append(inferrer.pendingTransitions, syntheticTransition)
-				sort.Slice(inferrer.pendingTransitions, func(a, b int) bool {
-					return inferrer.pendingTransitions[a].Timestamp < inferrer.pendingTransitions[b].Timestamp
-				})
-				// We inserted something, and must retry the check pass.
-				return true, nil
+// handleConflicts searches for state or CPU conflicts among
+// pendingTransitions.  Upon finding such a conflict, it resolves it according
+// to the conflicting transitions' policies, returning whether a retry should
+// be attempted, and any terminal error encountered.  If retry is not requested
+// and no error is returned, no conflicts were detected.
+func (inferrer *threadInferrer) handleConflicts() (retry bool, err error) {
+	idx1, idx2, conflict := inferrer.findConflict()
+	if !conflict {
+		// If no conflict, there's nothing to handle.
+		return false, nil
+	}
+	// If the conflict outcome is to insert a synthetic transition, it may
+	// reflect a CPU conflict, a state conflict, or both.  We check for both
+	// CPU and state conflicts, and after both, if needed, insert the
+	// appropriate synthetic transition.
+	insertSynthetic := false
+	syntheticPrevState, syntheticNextState := AnyState, AnyState
+	syntheticStatePropagatesThrough := true
+	syntheticPrevCPU, syntheticNextCPU := UnknownCPU, UnknownCPU
+	syntheticCPUPropagatesThrough := true
+	tt1, tt2 := inferrer.pendingTransitions[idx1], inferrer.pendingTransitions[idx2]
+	// Check for a disagreement on state, and handle failing and dropping if
+	// necessary.
+	if tt1.NextCPU != Unknown && tt2.PrevCPU != Unknown && tt1.NextCPU != tt2.NextCPU {
+		// We have a CPU conflict.
+		resolution := resolveConflict(tt1.onForwardsCPUConflict, tt2.onBackwardsCPUConflict)
+		switch resolution {
+		case Fail:
+			return false, status.Errorf(codes.InvalidArgument,
+				"inference error (CPU) between '%s' and '%s'",
+				tt1, tt2)
+		case Drop:
+			// We dropped something, and must retry the check pass.
+			if (tt1.onForwardsCPUConflict & Drop) == Drop {
+				tt1.dropped = true
 			}
+			if (tt2.onBackwardsCPUConflict & Drop) == Drop {
+				tt2.dropped = true
+			}
+			return true, nil
+		case InsertSynthetic:
+			insertSynthetic = true
+			syntheticPrevCPU = tt1.NextCPU
+			syntheticNextCPU = tt2.PrevCPU
+			syntheticCPUPropagatesThrough = false
 		}
-		if tt.NextState != UnknownState {
-			lastKnownState = tt
+	}
+	if _, merged := mergeState(tt1.NextState, tt2.PrevState); !merged {
+		// We have a state conflict.
+		resolution := resolveConflict(tt1.onForwardsStateConflict, tt2.onBackwardsStateConflict)
+		switch resolution {
+		case Fail:
+			return false, status.Errorf(codes.InvalidArgument,
+				"inference error (thread state) between '%s' and '%s'",
+				tt1, tt2)
+		case Drop:
+			// We dropped something, and must retry the check pass.
+			if (tt1.onForwardsStateConflict & Drop) == Drop {
+				tt1.dropped = true
+			}
+			if (tt2.onBackwardsStateConflict & Drop) == Drop {
+				tt2.dropped = true
+			}
+			return true, nil
+		case InsertSynthetic:
+			insertSynthetic = true
+			syntheticPrevState = tt1.NextState
+			syntheticNextState = tt2.PrevState
+			syntheticStatePropagatesThrough = false
 		}
+	}
+	if insertSynthetic {
+		syntheticTransition := &threadTransition{
+			EventID:                Unknown,
+			Timestamp:              tt1.Timestamp + (tt2.Timestamp-tt1.Timestamp)/2,
+			PID:                    tt1.PID,
+			PrevCommand:            UnknownCommand,
+			NextCommand:            UnknownCommand,
+			PrevPriority:           UnknownPriority,
+			NextPriority:           UnknownPriority,
+			PrevCPU:                syntheticPrevCPU,
+			NextCPU:                syntheticNextCPU,
+			CPUPropagatesThrough:   syntheticCPUPropagatesThrough,
+			PrevState:              syntheticPrevState,
+			NextState:              syntheticNextState,
+			StatePropagatesThrough: syntheticStatePropagatesThrough,
+			synthetic:              true,
+		}
+		inferrer.pendingTransitions = append(inferrer.pendingTransitions, syntheticTransition)
+		sort.Slice(inferrer.pendingTransitions, func(a, b int) bool {
+			return inferrer.pendingTransitions[a].Timestamp < inferrer.pendingTransitions[b].Timestamp
+		})
+		// We inserted something, and must retry the check pass.
+		return true, nil
 	}
 	return false, nil
 }
@@ -178,13 +219,13 @@ func (inferrer *threadInferrer) inferForwards() error {
 			continue
 		}
 		if lastKnownCPU != nil {
-			if err := tt.setCPUForwards(lastKnownCPU.NextCPU); err != nil {
-				return err
+			if !tt.setCPUForwards(lastKnownCPU.NextCPU) {
+				return status.Errorf(codes.Internal, "inference error (CPU): at time %d, failed to propagate CPU %d forwards", tt.Timestamp, lastKnownCPU.NextCPU)
 			}
 		}
 		if lastKnownState != nil {
-			if err := tt.setStateForwards(lastKnownState.NextState); err != nil {
-				return err
+			if !tt.setStateForwards(lastKnownState.NextState) {
+				return status.Errorf(codes.Internal, "inference error (state): at time %d, failed to propagate state %d forwards", tt.Timestamp, lastKnownState.NextState)
 			}
 		}
 		if tt.NextCPU == UnknownCPU {
@@ -192,9 +233,7 @@ func (inferrer *threadInferrer) inferForwards() error {
 		} else {
 			lastKnownCPU = tt
 		}
-		if tt.NextState != UnknownState {
-			lastKnownState = tt
-		}
+		lastKnownState = tt
 	}
 	return nil
 }
@@ -210,13 +249,13 @@ func (inferrer *threadInferrer) inferBackwards() error {
 			continue
 		}
 		if lastKnownCPU != nil {
-			if err := tt.setCPUBackwards(lastKnownCPU.PrevCPU); err != nil {
-				return err
+			if !tt.setCPUBackwards(lastKnownCPU.PrevCPU) {
+				return status.Errorf(codes.Internal, "inference error (CPU): at time %d, failed to propagate CPU %d backwards", tt.Timestamp, lastKnownCPU.PrevCPU)
 			}
 		}
 		if lastKnownState != nil {
-			if err := tt.setStateBackwards(lastKnownState.PrevState); err != nil {
-				return err
+			if !tt.setStateBackwards(lastKnownState.PrevState) {
+				return status.Errorf(codes.Internal, "inference error (state): at time %d, failed to propagate state %d backwards", tt.Timestamp, lastKnownState.PrevState)
 			}
 		}
 		if tt.PrevCPU == UnknownCPU {
@@ -224,55 +263,8 @@ func (inferrer *threadInferrer) inferBackwards() error {
 		} else {
 			lastKnownCPU = tt
 		}
-		if tt.PrevState == UnknownState {
-			lastKnownState = nil
-		} else {
-			lastKnownState = tt
-		}
+		lastKnownState = tt
 	}
-	return nil
-}
-
-// mergePendingSynthetics merges synthetic transitions with the same timestamp
-// in the receiver's pendingTransitions.  Merging synthetic transitions avoids
-// creation of spurious zero-length threadSpans in the event that both thread
-// state and CPU are synthetically transitioned at the same time.
-func (inferrer *threadInferrer) mergePendingSynthetics() error {
-	var syntheticRun []*threadTransition
-	var newPending []*threadTransition
-
-	var handleSyntheticRun = func() error {
-		if len(syntheticRun) == 0 {
-			return nil
-		}
-		var err error
-		newSynthetic := syntheticRun[0]
-		for _, tt := range syntheticRun[1:] {
-			if newSynthetic, err = mergeSynthetic(newSynthetic, tt); err != nil {
-				return err
-			}
-		}
-		newPending, syntheticRun = append(newPending, newSynthetic), nil
-		return nil
-	}
-	lastTimestamp := UnknownTimestamp
-	for _, tt := range inferrer.pendingTransitions {
-		if tt.Timestamp != lastTimestamp {
-			if err := handleSyntheticRun(); err != nil {
-				return err
-			}
-			lastTimestamp = tt.Timestamp
-		}
-		if tt.synthetic {
-			syntheticRun = append(syntheticRun, tt)
-		} else {
-			newPending = append(newPending, tt)
-		}
-	}
-	if err := handleSyntheticRun(); err != nil {
-		return err
-	}
-	inferrer.pendingTransitions = newPending
 	return nil
 }
 
@@ -295,23 +287,12 @@ func (inferrer *threadInferrer) inferPending(lastBatch bool) ([]*threadTransitio
 	// Check for inference errors.  On finding an error, if the transition can be
 	// dropped, do so and retry, otherwise return an error.
 	for {
-		if retry, err := inferrer.checkCPUs(); err != nil {
-			return nil, err
-		} else if retry {
-			continue
-		}
-		if retry, err := inferrer.checkStates(); err != nil {
+		if retry, err := inferrer.handleConflicts(); err != nil {
 			return nil, err
 		} else if retry {
 			continue
 		}
 		break
-	}
-	// If synthetic transitions are allowed, both check passes may have inserted
-	// synthetic events.  Merge all synthetic events happening at the same
-	// timestamp.
-	if err := inferrer.mergePendingSynthetics(); err != nil {
-		return nil, err
 	}
 	// If this is not the last batch, we must ensure that the last pending
 	// transition is still a forward barrier -- that barrier may have been
@@ -363,6 +344,9 @@ func (inferrer *threadInferrer) addTransition(nextTT *threadTransition) ([]*thre
 	}
 	if inferrer.lastTimestamp != UnknownTimestamp && inferrer.lastTimestamp > nextTT.Timestamp {
 		return nil, status.Errorf(codes.InvalidArgument, "out-of-order threadTransitions at %d", nextTT.Timestamp)
+	}
+	if nextTT.PrevState&UnknownState != 0 || nextTT.NextState&UnknownState != 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "threadTransitions may not specify UnknownState as prev or next state")
 	}
 	inferrer.lastTimestamp = nextTT.Timestamp
 	inferrer.pendingTransitions = append(inferrer.pendingTransitions, nextTT)

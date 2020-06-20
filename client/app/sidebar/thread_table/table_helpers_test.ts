@@ -16,7 +16,8 @@
 //
 import {MatTableDataSource} from '@angular/material/table';
 
-import {CollectionParameters, Interval, Thread} from '../../models';
+import {CollectionParameters, Interval, Thread, ThreadInterval} from '../../models';
+import {ThreadState} from '../../models/render_data_services';
 import {SelectableTable} from './selectable_table';
 
 /**
@@ -32,20 +33,26 @@ export function verifySorting(
     root: Element, table: MatTableDataSource<Interval>,
     expectedColumns: string[]) {
   expect(table.sort).not.toBeNull();
-  const sortButtons = root.querySelectorAll('.mat-sort-header-button');
+  const sortButtons = root.querySelectorAll('.mat-sort-header-container');
   expect(sortButtons.length).toEqual(expectedColumns.length);
+  const paginator = table.paginator;
+  expect(paginator).not.toBeNull();
 
   for (let i = 0; i < sortButtons.length; i++) {
     const sortButton = sortButtons[i] as HTMLButtonElement;
     const expectedSortId = expectedColumns[i];
 
+    paginator!.lastPage();
     sortButton.click();
     expect(table.sort!.active).toBe(expectedSortId);
     expect(table.sort!.direction).toBe('asc');
+    expect(paginator!.pageIndex).toBe(0);
 
+    paginator!.lastPage();
     sortButton.click();
     expect(table.sort!.active).toBe(expectedSortId);
     expect(table.sort!.direction).toBe('desc');
+    expect(paginator!.pageIndex).toBe(0);
   }
 }
 
@@ -154,6 +161,35 @@ export function mockThreads(): Thread[] {
   return threadData;
 }
 
+/**
+ * Generates mock thread intervals
+ */
+export function mockThreadIntervals(): ThreadInterval[] {
+  const parameters = mockParameters();
+  const intervalCount = 1000;
+  const threadData: ThreadInterval[] = [];
+  let startTime = 0;
+  for (let i = 0; i < intervalCount; i++) {
+    const cpuCount = parameters.size;
+    const endTime = startTime + getRandomInt(1000);
+    threadData.push(new ThreadInterval(
+        parameters, getRandomInt(cpuCount), startTime, endTime,
+        getRandomInt(100), getRandomCommand(), [{
+          duration: getRandomInt(endTime - startTime),
+          state: getRandomState(),
+          includesSyntheticTransitions: false,
+          droppedEventIDs: [],
+          thread: {
+            priority: getRandomInt(100),
+            command: getRandomCommand(),
+            pid: getRandomInt(100)
+          }
+        }]));
+    startTime = endTime;
+  }
+  return threadData;
+}
+
 
 function mockParameters(): CollectionParameters {
   const startTime = 1540768090000;
@@ -182,4 +218,19 @@ function getRandomCommand() {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }
   return text;
+}
+
+function getRandomState() {
+  switch (getRandomInt(3)) {
+    case 0:
+      return ThreadState.UNKNOWN_STATE;
+    case 1:
+      return ThreadState.RUNNING_STATE;
+    case 2:
+      return ThreadState.WAITING_STATE;
+    case 3:
+      return ThreadState.SLEEPING_STATE;
+    default:
+      return ThreadState.UNKNOWN_STATE;
+  }
 }

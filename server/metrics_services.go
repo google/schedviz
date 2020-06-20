@@ -34,8 +34,8 @@ type ThreadSummariesRequest struct {
 
 // ThreadSummariesResponse contains the response to a ThreadSummariesRequest.
 type ThreadSummariesResponse struct {
-	CollectionName string          `json:"collectionName"`
-	Metrics        []sched.Metrics `json:"metrics"`
+	CollectionName string           `json:"collectionName"`
+	Metrics        []*sched.Metrics `json:"metrics"`
 }
 
 // AntagonistsRequest is a request for antagonist information for a specified set of threads, across
@@ -54,7 +54,7 @@ type AntagonistsRequest struct {
 type AntagonistsResponse struct {
 	CollectionName string `json:"collectionName"`
 	// All matching stalls sorted in order of decreasing duration - longest first.
-	Antagonists []sched.Antagonists `json:"antagonists"`
+	Antagonists []*sched.Antagonists `json:"antagonists"`
 }
 
 // PerThreadEventSeriesRequest is a request for all events on the specified threads across a
@@ -79,8 +79,8 @@ type PerThreadEventSeries struct {
 // The Events are unique and are provided in increasing temporal order.
 type PerThreadEventSeriesResponse struct {
 	// The PCC collection name.
-	CollectionName string                 `json:"collectionName"`
-	EventSeries    []PerThreadEventSeries `json:"eventSeries"`
+	CollectionName string                  `json:"collectionName"`
+	EventSeries    []*PerThreadEventSeries `json:"eventSeries"`
 }
 
 // UtilizationMetricsRequest is a request for the amount of time, in the specified collection over
@@ -94,7 +94,7 @@ type UtilizationMetricsRequest struct {
 
 // UtilizationMetricsResponse is a response for an idle-while-overloaded request.
 type UtilizationMetricsResponse struct {
-	Request            UtilizationMetricsRequest `json:"request"`
-	UtilizationMetrics sched.Utilization         `json:"utilizationMetrics"`
+	Request            *UtilizationMetricsRequest `json:"request"`
+	UtilizationMetrics *sched.Utilization         `json:"utilizationMetrics"`
 }
 

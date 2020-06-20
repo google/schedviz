@@ -16,9 +16,10 @@
 //
 import {Component, ElementRef, Input, OnInit, ViewChild, ViewEncapsulation} from '@angular/core';
 import * as d3 from 'd3';
-import {BehaviorSubject} from 'rxjs';
+import {BehaviorSubject, combineLatest} from 'rxjs';
+import {filter, map} from 'rxjs/operators';
 
-import {CpuLabel, SystemTopology, Viewport} from '../../util';
+import {CpuLabel, isCtrlPressed, SystemTopology, Viewport} from '../../util';
 
 // TODO(sainsley): Scale based on topology size
 const FONT_SIZE = 8;
@@ -67,10 +68,12 @@ export class CpuAxisLayer implements OnInit {
     if (!this.cpuFilter) {
       throw new Error('Missing Observable for CPU filter');
     }
+
     // Listen for changes to CPU filter from input box
-    this.cpuFilter.subscribe((filter) => {
-      this.drawLabels(this.viewport.value);
-    });
+    combineLatest([this.cpuFilter, isCtrlPressed]).pipe(
+        filter(([, ctrlKey]) => !ctrlKey),
+        map(([filter]) => filter),
+    ).subscribe(() => { this.drawLabels(this.viewport.value); });
 
     // Rescale labels on viewport size change
     this.viewport.subscribe((viewport) => {
@@ -103,7 +106,9 @@ export class CpuAxisLayer implements OnInit {
         .classed('cpuLabel', true)
         .text(cpu => cpu.label)
         .attr('x', -35)
-        .on('click', cpu => this.toggleCpuFilter(`${cpu.cpuIndex}`));
+        .on('click', (cpu) => {
+          this.toggleCpuFilter([cpu.cpuIndex]);
+        });
     dataGroup.exit().remove();
     this.scaleLabels(viewport);
   }
@@ -170,9 +175,31 @@ export class CpuAxisLayer implements OnInit {
   /**
    * Filters down to the given CPU on click.
    */
-  toggleCpuFilter(newFilter: string) {
-    const cpuFilter = this.cpuFilter.value === newFilter ? '' : newFilter;
-    this.cpuFilter.next(cpuFilter);
+  toggleCpuFilter(clickedCpus: number[]) {
+    let currFilteredCpus =
+        this.cpuFilter.value ? this.visibleRows.map(cpu => cpu.cpuIndex) : [];
+    // Special case for all CPUs visible: treat as empty array.
+    if (this.topology.cpus.length === currFilteredCpus.length) {
+      currFilteredCpus = [];
+    }
+
+    const uniqueNewCpus = new Set(clickedCpus);
+    // Toggle off any CPU that is on and was clicked off.
+    currFilteredCpus =
+        currFilteredCpus.filter(cpu => !uniqueNewCpus.delete(cpu));
+    // Toggle on any CPU that is off and was clicked on.
+    for (const cpu of uniqueNewCpus) {
+      currFilteredCpus.push(cpu);
+    }
+
+    this.setCpuFilter(currFilteredCpus);
+  }
+
+  setCpuFilter(filteredCpus: number[]) {
+    const filterString = filteredCpus.length ?
+        this.topology.prettifyCpuSelection(filteredCpus.join(',')) :
+        '';
+    this.cpuFilter.next(filterString);
   }
 
   /**

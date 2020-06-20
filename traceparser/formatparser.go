@@ -14,14 +14,12 @@
 // limitations under the License.
 //
 //
-// Package traceparser contains a utility to convert FTrace buffers into protos
 package traceparser
 
 // formatparser contains a parser for TraceFS format files
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -47,31 +45,6 @@ const (
 	findField
 	done
 )
-
-// TraceParser contains format information for a trace.
-type TraceParser struct {
-	HeaderFormat Format
-	Formats      map[uint16]*EventFormat
-	Endianness   binary.ByteOrder
-}
-
-// New parses trace formats and returns a new TraceParser.
-func New(headerFormat string, formatFiles []string) (TraceParser, error) {
-	header, err := parseHeaderFormat(headerFormat)
-	if err != nil {
-		return TraceParser{}, err
-	}
-
-	formats, err := parseRegularFormats(formatFiles)
-	if err != nil {
-		return TraceParser{}, err
-	}
-
-	return TraceParser{
-		HeaderFormat: *header,
-		Formats:      formats,
-	}, nil
-}
 
 // parseRegularFormats parses TraceFS Formats into an EventFormat structs.
 // formatFiles is list of contents of format files.
@@ -265,7 +238,12 @@ func constructFormatField(fieldType string, size uint64) (FormatField, error) {
 	field.Name = string(matches[2])
 
 	cType := matches[1]
-	if charRe.Match(cType) {
+	// Treat fields of char type that are more than one byte long as strings;
+	// char types that are one byte long will be treated as integers.
+	// This is needed because many char fields in some events are used as
+	// bitfields and can therefore contain non-UTF8 code point values, which can
+	// not be stored in a proto string.
+	if charRe.Match(cType) && size > 1 {
 		field.ProtoType = "string"
 	} else if dynArrRe.Match(cType) {
 		// If this field's type includes "__data_loc", then it describes a dynamic array.
@@ -296,4 +274,59 @@ func constructFormatField(fieldType string, size uint64) (FormatField, error) {
 	}
 
 	return field, nil
+}
+
+// CPUOverflowed reads a per_cpu stats file to decide whether any events overflowed for the cpu.
+// stats files look like this:
+/**
+entries: 1945
+overrun: 0
+commit overrun: 0
+bytes: 128768
+oldest event ts: 2698497.198903
+now ts: 2698499.259470
+dropped events: 0
+read events: 2404
+*/
+// An overflowed cpu is one where the trace buffer ran out of space so events were either
+// overwritten or dropped. This true if any of "overrun", "commit overrun", or "dropped events"
+// are nonzero in the input stats file.
+func CPUOverflowed(reader *bufio.Reader) (bool, error) {
+	m, err := statsBufferToMap(reader)
+	if err != nil {
+		return false, err
+	}
+	return CPUOverflowedByMap(m), nil
+}
+
+// CPUOverflowedByMap reads a dictionary representation of the per_cpu stats file to decide
+// whether any events are overflowed for the cpu.
+// An overflowed cpu is one where the trace buffer ran out of space so events were either
+// overwritten or dropped. This true if any of "overrun", "commit overrun", or "dropped events"
+// are nonzero in the input stats file.
+func CPUOverflowedByMap(m map[string]string) bool {
+	if checkNonzeroString(m, "overrun") || checkNonzeroString(m, "commit overrun") || checkNonzeroString(m, "dropped events") {
+		return true
+	}
+	return false
+}
+
+func checkNonzeroString(m map[string]string, key string) bool {
+	value := m[key]
+	return value != "" && value != "0"
+}
+
+// statsBufferToMap converts a stats file to a map. Each line should be of the format "<key>: <value>".
+func statsBufferToMap(reader *bufio.Reader) (map[string]string, error) {
+	r := make(map[string]string)
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		text := scanner.Text()
+		pieces := strings.Split(text, ": ")
+		if len(pieces) != 2 {
+			return nil, fmt.Errorf("bad stat format line: %s", text)
+		}
+		r[pieces[0]] = pieces[1]
+	}
+	return r, nil
 }

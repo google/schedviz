@@ -23,6 +23,7 @@ import (
 
 	builder "github.com/google/schedviz/tracedata/eventsetbuilder"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 )
 
 var b = builder.NewBuilder().
@@ -50,7 +51,7 @@ func populatedBuilder(t *testing.T) *builder.Builder {
 func bustedEventSet(t *testing.T) *eventpb.EventSet {
 	t.Helper()
 	b := populatedBuilder(t)
-	es := b.TestProtobuf(t)
+	es := testeventsetbuilder.TestProtobuf(t, b)
 	es.EventDescriptor = append(es.EventDescriptor, &eventpb.EventDescriptor{
 		Name: es.EventDescriptor[0].Name,
 		PropertyDescriptor: []*eventpb.EventDescriptor_PropertyDescriptor{
@@ -77,7 +78,7 @@ func TestInit(t *testing.T) {
 		wantEventNames sort.StringSlice
 	}{{
 		"normal init",
-		populatedBuilder(t).TestProtobuf(t),
+		testeventsetbuilder.TestProtobuf(t, populatedBuilder(t)),
 		false,
 		true,
 		4,
@@ -86,7 +87,7 @@ func TestInit(t *testing.T) {
 		sort.StringSlice{"event1", "event2", "event3"},
 	}, {
 		"empty init",
-		builder.NewBuilder().TestProtobuf(t),
+		testeventsetbuilder.TestProtobuf(t, builder.NewBuilder()),
 		true,
 		false,
 		0, 0, 0, sort.StringSlice{},
@@ -126,7 +127,7 @@ func TestInit(t *testing.T) {
 
 // TestEvent tests that ktrace.Events are properly formed and returned.
 func TestEvent(t *testing.T) {
-	c, err := NewCollection(populatedBuilder(t).TestProtobuf(t))
+	c, err := NewCollection(testeventsetbuilder.TestProtobuf(t, populatedBuilder(t)))
 	if err != nil || !c.Valid() {
 		t.Fatal("Broken collection, can't proceed.")
 	}

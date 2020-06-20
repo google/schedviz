@@ -40,6 +40,7 @@ import {routes} from '../app_routing_module';
 import {DashboardModule} from '../dashboard/dashboard_module';
 import {CollectionMetadata, CollectionsFilter, CollectionsFilterJSON} from '../models';
 import {LocalCollectionDataService} from '../services';
+import {ErrorSnackBarComponent} from '../util';
 
 import {Collections} from './collections';
 import {CollectionsTable} from './collections_table';
@@ -166,7 +167,8 @@ describe('Collections', () => {
             .and.returnValue(throwError(new HttpErrorResponse({error: 'err'})));
 
     const snackBar = TestBed.get(MatSnackBar) as MatSnackBar;
-    const snackSpy = spyOn(snackBar, 'open');
+    const snackSpy = spyOn(snackBar, 'openFromComponent');
+    const consoleSpy = spyOn(console, 'error');
 
     await collectionsFixture.whenStable();
 
@@ -176,11 +178,17 @@ describe('Collections', () => {
     collections.uploadFile();
     expect(uploadSpy).toHaveBeenCalled();
 
+    const fullError = 'Failed to upload trace file file\n' +
+      'Message:\n' +
+      ' Http failure response for (unknown url): undefined undefined\n' +
+      'Reason:\n' +
+      ' err';
+
+
     expect(snackSpy).toHaveBeenCalledWith(
-        'Failed to upload trace file file\n' +
-            'Reason:\n' +
-            ' err',
-        'Dismiss');
+        ErrorSnackBarComponent, {data: {summary: 'Failed to upload trace file file', error: fullError}});
+    expect(consoleSpy)
+        .toHaveBeenCalledWith(fullError);
   });
 
   it('should parse and load data from the hash fragment in the URL', () => {
@@ -202,5 +210,21 @@ describe('Collections', () => {
 
     expect(mock.global.history.replaceState)
         .toHaveBeenCalledWith(null, '', '/collections#creationTime=mar%202');
+  });
+
+  it('should generate CSV file', () => {
+    const spyObj = jasmine.createSpyObj('a', ['click']);
+    spyOn(document, 'createElement').and.returnValue(spyObj);
+
+    collectionsTable.downloadCollectionsList();
+
+    expect(document.createElement).toHaveBeenCalled();
+    expect(document.createElement).toHaveBeenCalledWith('a');
+
+    const expectedDataURL =
+        'data:text/csv;charset=utf-8,name%2Ccreator%2Cowners%2Ctags%2Cdescription%2CcreationTime%2CeventNames%2CtargetMachine%0Acoll%2Cjoe%2Cjohn%2Cabc%2Cdef%2C%22Feb%201%2C%202001%2C%2012%3A00%3A00%20AM%22%2Cswitch%2Cmach%0Acoll2%2Cjoe%2Cjohn%2Cabc%2Cdef%2C%22Feb%201%2C%202000%2C%2012%3A00%3A00%20AM%22%2Cswitch%2Cmach';
+    expect(spyObj.href).toBe(expectedDataURL);
+    expect(spyObj.download).toBe('collections.csv');
+    expect(spyObj.click).toHaveBeenCalled();
   });
 });

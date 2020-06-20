@@ -21,7 +21,7 @@ import {DomSanitizer} from '@angular/platform-browser';
 import * as d3 from 'd3';
 import {BehaviorSubject} from 'rxjs';
 
-import {CpuInterval, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval} from '../models';
+import {CpuIdleWaitLayer, CpuInterval, CpuRunningLayer, CpuWaitQueueLayer, Interval, Layer, ThreadInterval} from '../models';
 import {ThreadResidency, ThreadState} from '../models/render_data_services';
 import {ColorService} from '../services/color_service';
 import {Viewport} from '../util';
@@ -321,7 +321,8 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
     // On CpuInterval click, create a new Thread layer for running PID (or
     // toggle layer visibility, if one already exists)
     if (layer instanceof CpuRunningLayer ||
-        layer instanceof CpuWaitQueueLayer) {
+        layer instanceof CpuWaitQueueLayer ||
+        layer instanceof CpuIdleWaitLayer) {
       const event = d3.event;
       const data = d3.select(event.target).data();
       // TODO(sainsley): Traverse up from target until data is found.

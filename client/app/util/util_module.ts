@@ -15,13 +15,25 @@
 //
 //
 import {NgModule} from '@angular/core';
+import {CommonModule} from "@angular/common";
+import {PortalModule} from '@angular/cdk/portal';
+import {MatButtonModule} from '@angular/material/button';
+import {MatSnackBarModule} from '@angular/material/snack-bar';
+
 import {FormatTimePipe} from './duration';
 import {DurationValidator} from './duration_validator';
+import {ErrorWindowComponent, ErrorSnackBarComponent} from './error_snackbar';
 
 @NgModule({
-  declarations: [FormatTimePipe, DurationValidator],
-  exports: [FormatTimePipe, DurationValidator],
-  imports: [],
+  declarations: [FormatTimePipe, DurationValidator, ErrorWindowComponent, ErrorSnackBarComponent],
+  exports: [FormatTimePipe, DurationValidator, ErrorWindowComponent, ErrorSnackBarComponent],
+  imports: [
+    CommonModule,
+    PortalModule,
+    MatButtonModule,
+    MatSnackBarModule,
+  ],
+  entryComponents: [ErrorWindowComponent, ErrorSnackBarComponent],
 })
 export class UtilModule {
 }

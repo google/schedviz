@@ -155,6 +155,6 @@ export abstract class Interval {
   }
 
   formatTime(timestamp: number) {
-    return Duration.getHumanReadableDurationFromNs(timestamp, 'ms');
+    return Duration.getHumanReadableDurationFromNs(timestamp);
   }
 }

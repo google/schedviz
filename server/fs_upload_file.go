@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -34,11 +35,13 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
+	"github.com/google/schedviz/ebpf/schedbt"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 
-	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
 	"github.com/google/schedviz/traceparser/traceparser"
 )
@@ -56,24 +59,16 @@ const (
 	diesPerSocket = 1
 )
 
-const (
-	headerSuffix             = "/header_page"
-	formatSuffix             = "/format"
-	coreIDSuffix             = "/core_id"
-	physicalPackageIDSuffix  = "/physical_package_id"
-	threadSiblingsListSuffix = "/thread_siblings_list"
-)
-
 // UploadFile creates a new collection from the uploaded file and saves it to disk
-func (fs *FsStorage) UploadFile(_ context.Context, req *models.CreateCollectionRequest, file io.Reader) (string, error) {
-	eventSet, topology, err := readTar(file)
+func (fs *FsStorage) UploadFile(ctx context.Context, req *models.CreateCollectionRequest, file io.Reader) (string, error) {
+	eventSet, topology, err := readTar(file, fs.failOnUnknownEventFormat)
 	if err != nil {
 		return "", err
 	}
 
 	metadata := makeMetadata(req)
 
-	if err := fs.saveCollection(metadata, eventSet, topology); err != nil {
+	if err := fs.saveCollection(ctx, metadata, eventSet, topology); err != nil {
 		return "", err
 	}
 
@@ -111,14 +106,21 @@ func makeMetadata(req *models.CreateCollectionRequest) *models.Metadata {
 	return metadata
 }
 
-func (fs *FsStorage) saveCollection(metadata *models.Metadata, eventSet *eventpb.EventSet, topology *models.SystemTopology) error {
+func (fs *FsStorage) saveCollection(ctx context.Context, metadata *models.Metadata, eventSet *eventpb.EventSet, topology *models.SystemTopology) error {
+	sort.Slice(eventSet.Event, func(i, j int) bool {
+		return eventSet.Event[i].TimestampNs < eventSet.Event[j].TimestampNs
+	})
+
+	ftraceEvents, err := fs.extractEventNames(eventSet)
+	if err != nil {
+		return err
+	}
+	metadata.FtraceEvents = ftraceEvents
+
 	metadataProto, err := convertMetadataStructToProto(metadata)
 	if err != nil {
 		return err
 	}
-	sort.Slice(eventSet.Event, func(i, j int) bool {
-		return eventSet.Event[i].TimestampNs < eventSet.Event[j].TimestampNs
-	})
 
 	outProto := &eventpb.Collection{
 		Metadata: metadataProto,
@@ -131,31 +133,138 @@ func (fs *FsStorage) saveCollection(metadata *models.Metadata, eventSet *eventpb
 		return err
 	}
 
-	fullPath := path.Join(fs.StoragePath, metadata.CollectionUniqueName+".binproto")
+	fullPath := fs.getCollectionPath(metadata.CollectionUniqueName)
 	if err := ioutil.WriteFile(fullPath, protoBytes, 0644); err != nil {
 		return err
 	}
 
-	collection, err := sched.NewCollection(eventSet,
-		sched.DefaultEventLoaders(),
-		sched.NormalizeTimestamps(true))
-	if err != nil {
-		return err
-	}
-	cachedCollection := &CachedCollection{
-		Collection:     collection,
-		Metadata:       convertMetadataProtoToStruct(outProto.Metadata),
-		SystemTopology: convertTopologyProtoToStruct(outProto.Topology),
-		Payload:        map[string]interface{}{},
-	}
-	fs.addToCache(fullPath, cachedCollection)
+	_, err = fs.GetCollection(ctx, metadata.CollectionUniqueName)
+	return err
+}
 
-	return nil
+// readTar reads a tar containing a trace of some type.
+// New tars will contain a metadata.textproto file at the root which describes
+// the type of the trace recorded which implies what the other files are.
+// Old tars created before the metadata was added will not contain the
+// metadata.textproto file; tars lacking the file will be treated as containing
+// FTrace traces.
+func readTar(inputTar io.Reader, failOnUnknownEventFormat bool) (*eventpb.EventSet, *models.SystemTopology, error) {
+	tmpDir, err := ioutil.TempDir("", "temptar")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create temp directory: %s", err)
+	}
+	defer func() {
+		// Clean up temp directory after parsing or on error.
+		if err := os.RemoveAll(tmpDir); err != nil {
+			log.Errorf("failed to clean up temp directory while parsing tar: %s", err)
+		}
+	}()
+
+	if err := untar(inputTar, tmpDir); err != nil {
+		return nil, nil, err
+	}
+
+	config, err := readMetadataFile(tmpDir)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	switch config.TraceType {
+	case eventpb.ArchiveMetadataConfig_FTRACE:
+		return parseFTraceTar(tmpDir, failOnUnknownEventFormat)
+	case eventpb.ArchiveMetadataConfig_EBPF:
+		return parseEBPFTar(tmpDir)
+	default:
+		return nil, nil, status.Errorf(codes.Internal, "unknown trace type %s", config.TraceType)
+	}
+}
+
+// untar unpacks a gzip compressed tar to the destination directory.
+func untar(inputTar io.Reader, destination string) (err error) {
+	addedFiles := []string{}
+	defer func() {
+		if err != nil {
+			// If an error occurred, clean any partially written files.
+			for _, file := range addedFiles {
+				_ = os.Remove(file)
+			}
+		}
+	}()
+
+	gzipReader, err := gzip.NewReader(inputTar)
+	if err != nil {
+		err = fmt.Errorf("tar must be gzipped. Error: %s", err)
+		return
+	}
+
+	tarReader := tar.NewReader(gzipReader)
+
+	for {
+		var header *tar.Header
+		header, err = tarReader.Next()
+		if err != nil {
+			if err == io.EOF {
+				break // End of archive
+			}
+			return
+		}
+
+		outputPath := filepath.Join(destination, header.Name)
+		addedFiles = append(addedFiles, outputPath)
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err = os.MkdirAll(outputPath, 0755); err != nil {
+				return
+			}
+		case tar.TypeReg:
+			var tmpFile *os.File
+			tmpFile, err = os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err != nil {
+				return
+			}
+			if _, err = io.Copy(tmpFile, tarReader); err != nil {
+				return
+			}
+			if err = tmpFile.Close(); err != nil {
+				return
+			}
+		}
+	}
+	err = nil
+	addedFiles = []string{}
+	return
+}
+
+// readMetadataFile reads and parses the metadata file located at
+// dir/metadata.textproto. Available configuration options in the metadata file
+// are defined in eventpb.ArchiveMetadataConfig
+func readMetadataFile(dir string) (*eventpb.ArchiveMetadataConfig, error) {
+	metadataPath := path.Join(dir, "metadata.textproto")
+	if _, err := os.Stat(metadataPath); os.IsNotExist(err) {
+		log.Warning("Trace file lacks metadata; assuming it's an FTrace collection.")
+		return &eventpb.ArchiveMetadataConfig{
+			TraceType: eventpb.ArchiveMetadataConfig_FTRACE,
+		}, nil
+	}
+	bytes, err := ioutil.ReadFile(metadataPath)
+	if err != nil {
+		return nil, err
+	}
+	config := string(bytes)
+
+	configProto := &eventpb.ArchiveMetadataConfig{}
+	if err := proto.UnmarshalText(config, configProto); err != nil {
+		return nil, fmt.Errorf("error parsing metadata file: %s", err)
+	}
+
+	return configProto, nil
 }
 
 /*
-readTar reads a tar containing a folder with the following directory structure:
+parseFTraceTar parses a tar that has an FTrace trace inside of it.
+The format of the tar is:
 
+metadata.textproto
 formats
   - header_page
   - event category (e.g. sched)
@@ -186,47 +295,54 @@ traces
   - cpu1
     ...
   - cpuN
+stats [optional]
+  - cpu0
+  - cpu1
+    ...
+  - cpuN
+
 */
-func readTar(fileReader io.Reader) (*eventpb.EventSet, *models.SystemTopology, error) {
-	// Unzip the tar.gz file.
-	gzipReader, err := gzip.NewReader(fileReader)
+func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSet, *models.SystemTopology, error) {
+	// Read formats
+	headerFormat, eventFormats, err := readFormats(path.Join(dir, "formats"))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error reading formats: %s", err)
 	}
-	// Copy the unzipped contents to a temp file. We have to do this because seeking by absolute
-	// bytes does not work on the gzip reader, and we need this to parse the trace files.
-	tmpFile, err := ioutil.TempFile("", "collection_tar")
+
+	// Read topology
+	topology, err := readTopology(path.Join(dir, "topology"))
 	if err != nil {
-		return nil, nil, err
-	}
-	defer func() {
-		if err := os.Remove(tmpFile.Name()); err != nil {
-			log.Errorf("failed to remove temp file: %s", err)
+		log.Warningf("error reading topology. Using empty topology. error: %s", err)
+		topology = &models.SystemTopology{
+			LogicalCores: []*models.LogicalCore{},
 		}
-	}()
-	_, err = io.Copy(tmpFile, gzipReader)
+	}
+
+	// Read options
+	options, err := readOptions(path.Join(dir, "options"))
 	if err != nil {
-		return nil, nil, err
+		log.Warning("error reading options, using empty options")
+		options = nil
 	}
-	// Close and reopen the temp file so that the reader points to the beginning again.
-	tmpFileName := tmpFile.Name()
-	if err := tmpFile.Close(); err != nil {
-		return nil, nil, err
-	}
-	tmpFile, err = os.Open(tmpFileName)
+
+	traceParser, err := traceparser.New(headerFormat, eventFormats)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to parse formats: %s", err)
+	}
+	traceParser.SetFailOnUnknownEventFormat(failOnUnknownEventFormat)
+
+	eventSetBuilder := traceparser.NewEventSetBuilder(&traceParser)
+	if options != nil {
+		if overwrite, ok := options["overwrite"]; ok {
+			eventSetBuilder.SetOverwrite(overwrite)
+		}
 	}
 
-	tarReader := tar.NewReader(tmpFile)
+	overflowed, err := findOverflowedCPUs(path.Join(dir, "stats"))
+	if err != nil {
+		eventSetBuilder.SetOverflowedCPUs(overflowed)
+	}
 
-	haveReadTrace := false
-	var headerContent string
-	var formatFiles = []string{}
-	tb := newTopologyBuilder()
-
-	var traceParser *traceparser.TraceParser
-	var eventSetBuilder *traceparser.EventSetBuilder
 	addTraceEvent := func(traceEvent *traceparser.TraceEvent) (bool, error) {
 		if err := eventSetBuilder.AddTraceEvent(traceEvent); err != nil {
 			return false, fmt.Errorf("error in AddTraceEvent: %s", err)
@@ -234,77 +350,184 @@ func readTar(fileReader io.Reader) (*eventpb.EventSet, *models.SystemTopology, e
 		return true, nil
 	}
 
-	for {
-		header, err := tarReader.Next()
+	if err := readFTraceTraces(path.Join(dir, "traces"), &traceParser, addTraceEvent); err != nil {
+		return nil, nil, fmt.Errorf("failed to read Ftrace trace files: %s", err)
+	}
+
+	es, err := eventSetBuilder.Finalize()
+	if err != nil {
+		return nil, nil, err
+	}
+	return es, topology, nil
+}
+
+// readFormats reads the formats directory of an FTrace tar and returns the
+// formats as strings.
+func readFormats(formatDir string) (string, []string, error) {
+	var headerFormat string
+	eventFormats := []string{}
+
+	err := filepath.Walk(formatDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			if err == io.EOF {
-				break // End of archive
-			}
-			return nil, nil, err
+			return err
+		}
+		if info.IsDir() {
+			// Do nothing
+			return nil
+		}
+		bytes, err := ioutil.ReadFile(path)
+		if err != nil || len(bytes) == 0 {
+			return fmt.Errorf("error reading header format: %s", err)
 		}
 
-		switch header.Typeflag {
-		case tar.TypeDir:
-			continue
-		case tar.TypeReg:
-			name := header.Name
-			if strings.HasSuffix(name, headerSuffix) || strings.HasSuffix(name, formatSuffix) {
-				if haveReadTrace {
-					return nil, nil, errors.New("tried to read an additional format file after reading a trace file")
-				}
-				format, err := readString(tarReader)
-				if err != nil {
-					return nil, nil, err
-				}
-				if strings.HasSuffix(name, formatSuffix) {
-					formatFiles = append(formatFiles, format)
-				} else {
-					if headerContent != "" {
-						return nil, nil, errors.New("multiple header_page formats found")
-					}
-					headerContent = format
-				}
-			} else if matches := cpuRe.FindStringSubmatch(name); matches != nil {
-				cpu, err := strconv.ParseInt(matches[1], 10, 64)
-				if err != nil {
-					return nil, nil, err
-				}
-				haveReadTrace = true
-				if traceParser == nil {
-					if headerContent == "" {
-						return nil, nil, errors.New("header format not found")
-					}
-					if len(formatFiles) == 0 {
-						return nil, nil, errors.New("no format files found. Must have at last one format file")
-					}
-					tp, err := traceparser.New(headerContent, formatFiles)
-					if err != nil {
-						return nil, nil, fmt.Errorf("failed to parse formats: %s", err)
-					}
-					traceParser = &tp
-				}
-				if eventSetBuilder == nil {
-					eventSetBuilder = traceparser.NewEventSetBuilder(traceParser)
-				}
-				bufferedTarReader := bufio.NewReader(tarReader)
-				if err := traceParser.ParseTrace(bufferedTarReader, cpu, addTraceEvent); err != nil {
-					return nil, nil, err
-				}
-			} else if topoRe.MatchString(name) {
-				cpuID, numaID, err := extractCPUAndNUMAFromPath(name)
-				if err != nil {
-					return nil, nil, err
-				}
-				if err := tb.RecordCPUTopology(tarReader, name, cpuID, numaID); err != nil {
-					return nil, nil, err
-				}
-			} else {
-				log.Infof("unknown file %s in archive, ignoring", name)
-			}
+		switch info.Name() {
+		case "header_page":
+			headerFormat = string(bytes)
+		case "format":
+			eventFormats = append(eventFormats, string(bytes))
+		default:
+			return fmt.Errorf("unknown file in formats directory: %s", path)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", nil, err
+	}
+
+	if len(eventFormats) == 0 {
+		return "", nil, errors.New("no format files found. Must have at last one format file")
+	}
+
+	return headerFormat, eventFormats, nil
+}
+
+// readTopology reads the topology directory of an FTrace tar and returns the
+// topology in its fully parsed format.
+func readTopology(topoDir string) (*models.SystemTopology, error) {
+	tb := newTopologyBuilder()
+
+	err := filepath.Walk(topoDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			// Do nothing
+			return nil
+		}
+		cpuID, numaID, err := extractCPUAndNUMAFromPath(path)
+		if err != nil {
+			return err
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("error opening %s for reading: %s", path, err)
+		}
+		if err := tb.RecordCPUTopology(file, info.Name(), cpuID, numaID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return tb.FullTopology(), nil
+}
+
+// readOptions reads the option files located in the tar and returns them in the
+// form of a map from option name to boolean true/false value
+func readOptions(optionsDir string) (map[string]bool, error) {
+	if _, err := os.Stat(optionsDir); os.IsNotExist(err) {
+		log.Warning("Options directory does not exist, returning nil options")
+		return nil, nil
+	}
+	options := map[string]bool{}
+	err := filepath.Walk(optionsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			// Do nothing
+			return nil
+		}
+
+		optionsFileContents, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("error opening %s for reading: %s", path, err)
+		}
+		optionValue, err := strconv.ParseInt(strings.TrimSpace(string(optionsFileContents)), 10, 64)
+		if err != nil || (optionValue != 0 && optionValue != 1) {
+			return fmt.Errorf("error parsing option file at %q. expected value to be either \"0\" or \"1\"\n%s", path, err)
+		}
+		options[info.Name()] = !(optionValue == 0)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return options, nil
+}
+
+// readFTraceTraces reads the trace files contained in an FTrace tar and
+// parses them with the provided TraceParser.
+func readFTraceTraces(traceDir string, traceParser *traceparser.TraceParser, callback traceparser.AddEventCallback) error {
+	return traceparser.WalkPerCPUDir(traceDir, true, func(reader *bufio.Reader, cpu int64) error {
+		return traceParser.ParseTrace(reader, cpu, callback)
+	})
+}
+
+// findOverflowedCPUs reads the per cpu stats files to find which cpus "overflowed".
+// A cpu is overflowed if the tracer runs out of space in the buffer for its trace, in
+// which case new events were dropped or old events were overwritten depending
+// on the `overwrite` flag.
+func findOverflowedCPUs(traceDir string) (map[int64]struct{}, error) {
+	overflowed := make(map[int64]struct{})
+	err := traceparser.WalkPerCPUDir(traceDir, true, func(reader *bufio.Reader, cpu int64) error {
+		isOverflowed, err := traceparser.CPUOverflowed(reader)
+		if err != nil {
+			return err
+		}
+		if isOverflowed {
+			overflowed[cpu] = struct{}{}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return overflowed, nil
+}
+
+func parseEBPFTar(dir string) (*eventpb.EventSet, *models.SystemTopology, error) {
+	traceParser := schedbt.NewParser()
+
+	filePath := path.Join(dir, "ebpf_trace")
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error opening %s for reading: %s", filePath, err)
+	}
+
+	if err := traceParser.Parse(bufio.NewReader(file)); err != nil {
+		return nil, nil, fmt.Errorf("error parsing ebpf trace: %s", err)
+	}
+	eventSet, err := traceParser.EventSet()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Read topology
+	topology, err := readTopology(path.Join(dir, "topology"))
+	if err != nil {
+		log.Warningf("error reading topology. Using empty topology. error: %s", err)
+		topology = &models.SystemTopology{
+			LogicalCores: []*models.LogicalCore{},
 		}
 	}
-	finalTopo := tb.FullTopology()
-	return eventSetBuilder.EventSet, finalTopo, nil
+
+	return eventSet, topology, nil
 }
 
 func readString(r io.Reader) (string, error) {
@@ -367,7 +590,6 @@ func newTopologyBuilder() *topologyBuilder {
 
 // RecordCPUTopology saves a single CPU's topology to the topology builder
 func (tb *topologyBuilder) RecordCPUTopology(r io.Reader, name string, cpuID, numaID int64) error {
-
 	lc, ok := tb.partialTopology[cpuID]
 	if !ok {
 		lc = &models.LogicalCore{
@@ -379,20 +601,20 @@ func (tb *topologyBuilder) RecordCPUTopology(r io.Reader, name string, cpuID, nu
 		}
 	}
 
-	switch {
-	case strings.HasSuffix(name, coreIDSuffix):
+	switch name {
+	case "core_id":
 		coreID, err := readInt32(r)
 		if err != nil {
 			return err
 		}
 		lc.CoreID = coreID
-	case strings.HasSuffix(name, physicalPackageIDSuffix):
+	case "physical_package_id":
 		ppID, err := readInt32(r)
 		if err != nil {
 			return err
 		}
 		lc.SocketID = ppID
-	case strings.HasSuffix(name, threadSiblingsListSuffix):
+	case "thread_siblings_list":
 		// ThreadID is the zero indexed ID of the hyperthread of within the current core.
 		// The thread siblings list is a list of cpus that are hyperthreads of each other.
 		// e.g. if CPUs 0 and 3 are hyperthreads of each other, then the thread siblings list is:
@@ -405,9 +627,16 @@ func (tb *topologyBuilder) RecordCPUTopology(r io.Reader, name string, cpuID, nu
 		if err != nil {
 			return err
 		}
-		idx := sort.Search(len(threadSiblings), func(i int) bool {
-			return threadSiblings[i] == cpuID
-		})
+		idx := -1
+		for i, ts := range threadSiblings {
+			if ts == cpuID {
+				idx = i
+				break
+			}
+		}
+		if idx == -1 {
+			return fmt.Errorf("unable to compute hyperthread ID for cpu %d. thread siblings: %v", cpuID, threadSiblings)
+		}
 		lc.ThreadID = int32(idx)
 	}
 
@@ -418,7 +647,7 @@ func (tb *topologyBuilder) RecordCPUTopology(r io.Reader, name string, cpuID, nu
 // FullTopology returns the topology of all CPUs.
 func (tb *topologyBuilder) FullTopology() *models.SystemTopology {
 	ret := &models.SystemTopology{
-		LogicalCores: []models.LogicalCore{},
+		LogicalCores: []*models.LogicalCore{},
 		// TODO get CPU family info
 	}
 
@@ -432,7 +661,7 @@ func (tb *topologyBuilder) FullTopology() *models.SystemTopology {
 			lc.DieID = lc.SocketID % diesPerSocket
 			lc.SocketID /= diesPerSocket
 		}
-		ret.LogicalCores = append(ret.LogicalCores, *lc)
+		ret.LogicalCores = append(ret.LogicalCores, lc)
 	}
 
 

@@ -88,7 +88,7 @@ func TestSpanGeneration(t *testing.T) {
 		transitions: []*threadTransition{
 			emptyTransition(Unknown, 1000, pid).
 				withCPUs(1, 1).
-				withStates(UnknownState, RunningState),
+				withStates(AnyState, RunningState),
 			emptyTransition(0, 1010, pid).
 				withCPUs(1, 1).
 				withStates(RunningState, WaitingState),
@@ -124,7 +124,7 @@ func TestSpanGeneration(t *testing.T) {
 				withCPUs(1, 1),
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
-				withStates(UnknownState, RunningState),
+				withStates(AnyState, RunningState),
 			emptyTransition(1, 1010, pid).
 				withCPUs(1, 1).
 				withStates(RunningState, WaitingState),
@@ -163,7 +163,7 @@ func TestSpanGeneration(t *testing.T) {
 				withCPUs(1, 1),
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
-				withStates(UnknownState, RunningState),
+				withStates(AnyState, RunningState),
 			emptyTransition(1, 1010, pid).
 				withCPUs(2, 2).
 				withStates(RunningState, WaitingState),
@@ -185,7 +185,7 @@ func TestSpanGeneration(t *testing.T) {
 				withCPUs(1, 1),
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
-				withStates(UnknownState, RunningState),
+				withStates(AnyState, RunningState),
 			// spurious wakeup-while-running
 			emptyTransition(1, 1010, pid).
 				withCPUs(1, 1).
@@ -223,7 +223,7 @@ func TestSpanGeneration(t *testing.T) {
 				withCPUs(1, 1),
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
-				withStates(UnknownState, RunningState).
+				withStates(AnyState, RunningState).
 				withCommands(1, 1).
 				withPriorities(120, 120),
 			// thread changes command & prio somehow
@@ -268,7 +268,7 @@ func TestSpanGeneration(t *testing.T) {
 				withCPUs(1, 1),
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
-				withStates(UnknownState, RunningState).
+				withStates(AnyState, RunningState).
 				withCommands(1, 1).
 				withPriorities(120, 120),
 			// thread changes command & prio somehow
@@ -320,7 +320,7 @@ func TestSpanGeneration(t *testing.T) {
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
-				withStates(UnknownState, RunningState).
+				withStates(AnyState, RunningState).
 				withCommands(2, 2).
 				withPriorities(50, 50),
 			emptyTransition(Unknown, 1005, pid).

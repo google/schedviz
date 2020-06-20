@@ -33,6 +33,7 @@ ts_library(
         "cpu_axes_test.ts",
     ],
     deps = [
+        ":cpu_axes",
         "//client/app/heatmap",
         "//client/app/models",
         "//client/app/services",

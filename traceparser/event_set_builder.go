@@ -24,6 +24,8 @@ import (
 	"sort"
 
 	"github.com/golang/protobuf/proto"
+	elpb "github.com/google/schedviz/analysis/event_loaders_go_proto"
+	"github.com/google/schedviz/tracedata/clipping"
 	pb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 )
 
@@ -38,11 +40,13 @@ import (
 // EventSetBuilder should no longer be used. Make sure that all events and formats are added before
 // fetching the EventSet.
 type EventSetBuilder struct {
-	EventSet             *pb.EventSet
+	eventSet             *pb.EventSet
 	formats              map[uint16]*EventFormat
 	eventDescriptorMap   map[uint16]*pb.EventDescriptor
 	eventDescriptorTable map[*pb.EventDescriptor]int64
 	strTable             map[string]int64
+	overwrite            bool
+	overflowedCPUs       map[int64]struct{}
 }
 
 // NewEventSetBuilder constructs a new builder for making EventSet proto
@@ -53,7 +57,7 @@ func NewEventSetBuilder(tp *TraceParser) *EventSetBuilder {
 	formats := make(map[uint16]*EventFormat)
 	esb := EventSetBuilder{
 		formats: formats,
-		EventSet: &pb.EventSet{
+		eventSet: &pb.EventSet{
 			Event:       []*pb.Event{},
 			StringTable: []string{},
 		},
@@ -65,6 +69,13 @@ func NewEventSetBuilder(tp *TraceParser) *EventSetBuilder {
 		eventDescriptorTable: make(map[*pb.EventDescriptor]int64),
 		// Map of string to ID in string table. Will be transformed into actual string table later.
 		strTable: make(map[string]int64),
+		// If true (default) then the oldest events might have been discarded by the
+		// kernel if the trace was longer than the buffers could contain.
+		// If false, then the newest events might have been discarded instead.
+		// Corresponds with the "overwrite" FTrace option.
+		overwrite: true,
+		// The set of cpus that overflowed. This is used along with the overwrite field to decide which events need to be marked as clipped.
+		overflowedCPUs: make(map[int64]struct{}),
 	}
 	// Add an empty string to the start of the string table so that an omitted string
 	// (default value "") is in parity with an omitted string index (default value 0)
@@ -84,6 +95,32 @@ func NewEventSetBuilder(tp *TraceParser) *EventSetBuilder {
 		}
 	}
 	return &esb
+}
+
+// Overwrite gets the value of the overwrite property of the eventSetBuilder
+func (esb *EventSetBuilder) Overwrite() bool {
+	return esb.overwrite
+}
+
+// SetOverwrite configures the overwrite property of the eventSetBuilder
+func (esb *EventSetBuilder) SetOverwrite(option bool) {
+	esb.overwrite = option
+}
+
+// OverflowedCPUs gets the set of overflowed cpus
+func (esb *EventSetBuilder) OverflowedCPUs() map[int64]struct{} {
+	return esb.overflowedCPUs
+}
+
+// SetOverflowedCPUs lets the eventSetBuilder know which CPUs overflowed.
+func (esb *EventSetBuilder) SetOverflowedCPUs(cpus map[int64]struct{}) {
+	esb.overflowedCPUs = cpus
+}
+
+// SetDefaultEventLoadersType specifies the default event loaders that should
+// be used to interpret traces.
+func (esb *EventSetBuilder) SetDefaultEventLoadersType(elt elpb.LoadersType) {
+	esb.eventSet.DefaultLoadersType = elt
 }
 
 // AddFormat adds a new event descriptor based off of the EventFormat to the EventSet being built
@@ -166,13 +203,13 @@ func (esb *EventSetBuilder) AddTraceEvent(traceEvent *TraceEvent) error {
 		Clipped:         traceEvent.Clipped,
 		Property:        properties,
 	}
-	esb.EventSet.Event = append(esb.EventSet.Event, event)
+	esb.eventSet.Event = append(esb.eventSet.Event, event)
 	return nil
 }
 
 // Clone makes a copy of the EventSetBuilder
 func (esb *EventSetBuilder) Clone() (*EventSetBuilder, error) {
-	clonedEventSet, ok := proto.Clone(esb.EventSet).(*pb.EventSet)
+	clonedEventSet, ok := proto.Clone(esb.eventSet).(*pb.EventSet)
 	if !ok {
 		return nil, errors.New("failed to clone EventSetBuilder")
 	}
@@ -180,7 +217,7 @@ func (esb *EventSetBuilder) Clone() (*EventSetBuilder, error) {
 	formats := make(map[uint16]*EventFormat)
 	newEsb := EventSetBuilder{
 		formats:              formats,
-		EventSet:             clonedEventSet,
+		eventSet:             clonedEventSet,
 		eventDescriptorMap:   make(map[uint16]*pb.EventDescriptor),
 		eventDescriptorTable: make(map[*pb.EventDescriptor]int64),
 		strTable:             make(map[string]int64),
@@ -209,6 +246,30 @@ func (esb *EventSetBuilder) Clone() (*EventSetBuilder, error) {
 	return &newEsb, nil
 }
 
+// clip sets the clipping boolean on the events that have been processed
+// according to the builder's overwrite value and overflowedCPUs. We cannot know
+// which events must be clipped until after all events are parsed, so this must
+// be called after parsing events.
+func (esb *EventSetBuilder) clip() error {
+	if esb.overwrite {
+		return clipping.ClipFromStartOfTrace(esb.eventSet, esb.overflowedCPUs)
+	}
+	return clipping.ClipFromEndOfTrace(esb.eventSet, esb.overflowedCPUs)
+}
+
+// Finalize creates and returns the final event set. This method should only be called once after
+// all events and data have been processed.
+func (esb *EventSetBuilder) Finalize() (*pb.EventSet, error) {
+	events := esb.eventSet.Event
+	sort.Slice(events, func(i int, j int) bool {
+		return events[i].TimestampNs < events[j].TimestampNs
+	})
+	if err := esb.clip(); err != nil {
+		return nil, err
+	}
+	return esb.eventSet, nil
+}
+
 // convertProtoTypeToFieldType converts TraceEvent's ProtoType into the proto's FieldType enum
 func convertProtoTypeToFieldType(field *FormatField) pb.EventDescriptor_PropertyDescriptor_FieldType {
 	switch field.ProtoType {
@@ -228,7 +289,7 @@ func (esb *EventSetBuilder) addString(key string) int64 {
 		curr = int64(len(esb.strTable))
 		esb.strTable[key] = curr
 		// Insert into actual table as well
-		esb.EventSet.StringTable = append(esb.EventSet.StringTable, key)
+		esb.eventSet.StringTable = append(esb.eventSet.StringTable, key)
 	}
 	return curr
 }
@@ -241,7 +302,7 @@ func (esb *EventSetBuilder) addEventDescriptor(key *pb.EventDescriptor) int64 {
 		curr = int64(len(esb.eventDescriptorTable))
 		esb.eventDescriptorTable[key] = curr
 		// Insert into actual table as well
-		esb.EventSet.EventDescriptor = append(esb.EventSet.EventDescriptor, key)
+		esb.eventSet.EventDescriptor = append(esb.eventSet.EventDescriptor, key)
 	}
 	return curr
 }

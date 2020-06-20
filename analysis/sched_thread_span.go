@@ -188,7 +188,11 @@ func (tsg *threadSpanGenerator) checkCommon(tt *threadTransition) error {
 			"threadSpanGenerator received out-of-time-order threadTransitions (%s > %s)", tsg.current, tt)
 	}
 	// Check that the threadTransition has the proper previous state.
-	if tt.PrevState != tsg.current.state {
+	prevState := tt.PrevState
+	if !prevState.isKnown() {
+		prevState = UnknownState
+	}
+	if prevState != tsg.current.state {
 		return status.Errorf(codes.InvalidArgument,
 			"threadSpanGenerator received unexpected state transition (%s -> %s)", tsg.current, tt)
 	}
@@ -252,6 +256,11 @@ func (tsg *threadSpanGenerator) addTransition(nextTT *threadTransition) (*thread
 		return nil, err
 	}
 	split := tsg.checkCommandAndPriority(nextTT)
+	// If the next state is a combination of several states, change it to UnknownState.
+	nextState := nextTT.NextState
+	if !nextState.isKnown() {
+		nextState = UnknownState
+	}
 	if tsg.current != nil {
 		switch tsg.current.state {
 		case RunningState:
@@ -261,19 +270,19 @@ func (tsg *threadSpanGenerator) addTransition(nextTT *threadTransition) (*thread
 			//    migrate.)
 			//  * If nextTT's NextState is not RunningState, the current span is
 			//    complete.
-			if nextTT.NextState == RunningState && nextTT.NextCPU != tsg.current.cpu {
+			if nextState == RunningState && nextTT.NextCPU != tsg.current.cpu {
 				return nil, status.Errorf(codes.InvalidArgument,
 					"threadSpanGenerator received unexpected migration  (%s > %s)",
 					tsg.current, nextTT)
 			}
-			if nextTT.NextState != RunningState {
+			if nextState != RunningState {
 				split = true
 			}
-		case SleepingState, WaitingState, UnknownState:
-			// If the current span is sleeping, waiting, or unknown it is checked
-			// against nextTT.  If nextTT's nextState is not current.state or nextTT's
-			// cpu is not current.cpu, the span is complete:
-			if nextTT.NextState != tsg.current.state || nextTT.NextCPU != tsg.current.cpu {
+		default:
+			// If the current span is sleeping, waiting, or a combination of possible
+			// states, it is checked against nextTT.  If nextTT's nextState is not
+			// current.state or nextTT's cpu is not current.cpu, the span is complete:
+			if nextState != tsg.current.state || nextTT.NextCPU != tsg.current.cpu {
 				split = true
 			}
 		}
@@ -295,7 +304,7 @@ func (tsg *threadSpanGenerator) addTransition(nextTT *threadTransition) (*thread
 			pid:            tsg.pid,
 			startTimestamp: nextTT.Timestamp,
 			endTimestamp:   nextTT.Timestamp,
-			state:          nextTT.NextState,
+			state:          nextState,
 			command:        tsg.lastCommand,
 			priority:       tsg.lastPriority,
 			cpu:            nextTT.NextCPU,

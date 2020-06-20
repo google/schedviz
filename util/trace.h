@@ -63,6 +63,12 @@ class FTraceTracer {
   Status StopTrace(bool final_copy);
 
   /**
+   * Copies the trace options to the temp directory.
+   * @return Status if successful or not.
+   */
+  Status CopyOptions();
+
+  /**
    * Copies the format files for the provided events to the temp directory.
    * @return Status if successful or not.
    */
@@ -94,6 +100,12 @@ class FTraceTracer {
    * @return Status if successful or not.
    */
   Status CopyCPUBuffer(int in_fd, int out_fd);
+
+  /**
+   * Copies all CPU buffers to the temp directory.
+   * @return Status if successful or not.
+   */
+  Status CopyCPUStats();
 
   /**
    * Tars and gzips the directory located at "temp_path_" and writes it to

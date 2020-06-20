@@ -12,6 +12,10 @@ Linux machines. It helps to:
 *   evaluate different scheduling policies,
 *   and much more.
 
+To learn more about what SchedViz can do and what problems it can solve, read
+our [announcement post](https://opensource.googleblog.com/2019/10/understanding-scheduling-behavior-with.html)
+on the Google open source blog.
+
 ## Running SchedViz
 
 To get started clone this repo:
@@ -21,7 +25,8 @@ git clone https://github.com/google/schedviz.git
 ```
 
 SchedViz requires *yarn*. Closely follow the installation instructions
-on the [yarn Website](https://www.yarnpkg.com).
+on the [yarn Website](https://www.yarnpkg.com). Make sure you have a recent
+version of Node.js (>= 10.9.0) installed as well.
 
 Building SchedViz also requires the GNU build tools and the unzip utility. On Debian, for
 example, the dependencies can be installed by executing this command:
@@ -44,16 +49,16 @@ start the server:
 yarn bazel run server -- -- -storage_path="Path to a folder to store traces in"
 ```
 
-The sever binary takes several options:
+The server binary takes several options:
 
 | Name           | Type   | Description                                                                                                                                                                           |
 | -------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| storage_path   | String | Required.<br>The folder where trace data is/will be stored.                                                                                                                           |
+| storage_path   | String | Required.<br>The folder where trace data is/will be stored.<br>This should be an empty folder that is not used by anything else.                                                                                                                           |
 | cache_size     | Int    | Optional.<br>The maximum number of collections to keep open in memory at once.                                                                                                        |
 | port           | Int    | Optional.<br>The port to run the server on.<br>Defaults to 7402.                                                                                                                      |
 | resources_root | String | Optional.<br>The folder where the static files (e.g. HTML and JavaScript) are stored.<br>Default is "client".<br>If using bazel to run the server, you shouldn't need to change this. |
 
-To load SchedViz, go to http://localhost:7042/collections
+To load SchedViz, go to http://localhost:7402/collections
 
 ## Manually collecting a scheduling trace
 

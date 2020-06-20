@@ -44,16 +44,13 @@ export class ThreadInterval extends Interval {
     super(parameters, pid, cpu, startTimeNs, endTimeNs);
     this.duration = endTimeNs - startTimeNs;
 
-    if (threadResidencies.length === 1) {
-      this.state = threadResidencies[0].state;
-    } else {
-      this.state = ThreadState.UNKNOWN_STATE;
-      const allStates = new Set(threadResidencies.map(tr => tr.state));
-      // Don't render intervals with no states or entirely unknown states.
-      if (!threadResidencies.length ||
-          allStates.has(ThreadState.UNKNOWN_STATE) && allStates.size === 1) {
-        this.shouldRender = false;
-      }
+    this.state = threadResidencies.length === 1 ? threadResidencies[0].state : ThreadState.UNKNOWN_STATE;
+
+    const allStates = new Set(threadResidencies.map(tr => tr.state));
+    // Don't render intervals with no states or entirely unknown states.
+    if (!threadResidencies.length || !allStates.size ||
+        (allStates.has(ThreadState.UNKNOWN_STATE) && allStates.size === 1)) {
+      this.shouldRender = false;
     }
 
     switch (this.state) {
@@ -93,7 +90,7 @@ export class ThreadInterval extends Interval {
    * Get a string representation of the current thread state (if there's only
    * one) or a distribution of thread states (if there's more than one).
    */
-  private threadStatesToString(): string {
+  threadStatesToString(): string {
     if (this.threadResidencies.length === 1) {
       return threadStateToString(this.state);
     }

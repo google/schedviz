@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/schedviz/analysis/schedtestcommon"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -202,17 +203,17 @@ func TestElementaryCPUIntervals(t *testing.T) {
 		description: "overlapping waits",
 		filters:     nil,
 		diffOutput:  false,
-		eventSet: schedtestcommon.UnpopulatedBuilder().
-			// PID 100 switches in on CPU 1 at time 1000, while PID 200 switches out WAITING
-			WithEvent("sched_switch", 1, 1000, false,
-				200, "Process2", 50, schedtestcommon.Runnable,
-				100, "Process1", 50).
-			WithEvent("sched_wakeup", 1, 1025, false,
-				300, "Process3", 50, 1).
-			WithEvent("sched_switch", 1, 1050, false,
-				100, "Process1", 50, schedtestcommon.Runnable,
-				300, "Process3", 50).
-			TestProtobuf(t),
+		eventSet: testeventsetbuilder.TestProtobuf(t,
+			schedtestcommon.UnpopulatedBuilder().
+				// PID 100 switches in on CPU 1 at time 1000, while PID 200 switches out WAITING
+				WithEvent("sched_switch", 1, 1000, false,
+					200, "Process2", 50, schedtestcommon.Runnable,
+					100, "Process1", 50).
+				WithEvent("sched_wakeup", 1, 1025, false,
+					300, "Process3", 50, 1).
+				WithEvent("sched_switch", 1, 1050, false,
+					100, "Process1", 50, schedtestcommon.Runnable,
+					300, "Process3", 50)),
 		wantElementaryCPUIntervals: []*ElementaryCPUInterval{
 			elementaryCPUInterval(
 				trace.Timestamp(1000), trace.Timestamp(1025),
@@ -230,7 +231,7 @@ func TestElementaryCPUIntervals(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			coll, err := NewCollection(test.eventSet, DefaultEventLoaders())
+			coll, err := NewCollection(test.eventSet)
 			if err != nil {
 				t.Fatalf("NewCollection yielded unexpected error %s", err)
 			}

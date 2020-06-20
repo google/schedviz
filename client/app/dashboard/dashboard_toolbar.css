@@ -11,17 +11,12 @@
 }
 
 .collection-metadata {
-  /*
-   * Resize font on viewport change
-   * 386px is the width of the buttons in the header.
-   */
-  font-size: calc((100vw - 386px)/60);
+  font-size: 16px;
   font-weight: normal;
-  width: calc(100% - 386px);
+  flex: 1 1 auto;
   overflow: hidden;
   text-align: center;
 }
-/* Disable font scaling when it gets too big or too small */
 @media (max-width: 1230px) {
   .collection-metadata  {
     font-size: 14px;

@@ -86,7 +86,8 @@ export function timeInputToNs(timeInput: Observable<string>):
  * durationUnit.
  */
 export function getHumanReadableDurationFromNs(
-    durationInNs: number, unit?: string, labelId = 0, length = 3): string {
+    durationInNs: number, unit?: string, labelId = 0,
+    fractionalDigits = 3): string {
   const absDuration = Math.abs(durationInNs);
   if (isNaN(absDuration) || DURATION_UNITS == null) {
     return '';
@@ -103,10 +104,10 @@ export function getHumanReadableDurationFromNs(
     return '';
   }
   const dispDuration = absDuration / durationUnit.div;
-  const durationStrLen = Math.round(dispDuration).toString().length;
-  const dispDurationStr = durationStrLen > length ?
-      Math.round(dispDuration) :
-      dispDuration.toFixed(length - durationStrLen);
+  const [, fractional] = dispDuration.toString().split('.');
+  const fractionalLen = fractional != null ? fractional.length : 0;
+  const dispDurationStr =
+      dispDuration.toFixed(Math.min(fractionalLen, fractionalDigits));
   const abbr = durationUnit.units[labelId];
   return `${durationInNs < 0 ? '-' : ''}${dispDurationStr} ${abbr}`;
 }

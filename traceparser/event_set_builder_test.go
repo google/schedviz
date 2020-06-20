@@ -17,53 +17,57 @@
 package traceparser
 
 import (
+	"sort"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"github.com/golang/protobuf/proto"
 
 	pb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 )
 
-var tp = &TraceParser{
-	Formats: map[uint16]*EventFormat{
-		314: {
-			Name: "sched_switch",
-			ID:   314,
-			Format: Format{
-				CommonFields: []*FormatField{
-					{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Size: 2, NumElements: 1, ElementSize: 2},
-					{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1},
-					{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1},
-					{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+func testEventSetBuilder() *EventSetBuilder {
+	var tp = &TraceParser{
+		Formats: map[uint16]*EventFormat{
+			314: {
+				Name: "sched_switch",
+				ID:   314,
+				Format: Format{
+					CommonFields: []*FormatField{
+						{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Size: 2, NumElements: 1, ElementSize: 2},
+						{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1},
+						{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1},
+						{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+					},
+					Fields: []*FormatField{
+						{FieldType: "char prev_comm[16]", Name: "prev_comm", ProtoType: "string", Offset: 8, Size: 16, NumElements: 16, ElementSize: 1, Signed: true},
+						{FieldType: "pid_t prev_pid", Name: "prev_pid", ProtoType: "int64", Offset: 24, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+						{FieldType: "int prev_prio", Name: "prev_prio", ProtoType: "int64", Offset: 28, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+						{FieldType: "long prev_prio", Name: "prev_state", ProtoType: "int64", Offset: 32, Size: 8, NumElements: 1, ElementSize: 8, Signed: true},
+						{FieldType: "char next_comm[16]", Name: "next_comm", ProtoType: "string", Offset: 40, Size: 16, NumElements: 16, ElementSize: 1, Signed: true},
+						{FieldType: "pid_t next_pid", Name: "next_pid", ProtoType: "int64", Offset: 56, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+						{FieldType: "int next_prio", Name: "next_prio", ProtoType: "int64", Offset: 60, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+					},
 				},
-				Fields: []*FormatField{
-					{FieldType: "char prev_comm[16]", Name: "prev_comm", ProtoType: "string", Offset: 8, Size: 16, NumElements: 16, ElementSize: 1, Signed: true},
-					{FieldType: "pid_t prev_pid", Name: "prev_pid", ProtoType: "int64", Offset: 24, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
-					{FieldType: "int prev_prio", Name: "prev_prio", ProtoType: "int64", Offset: 28, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
-					{FieldType: "long prev_prio", Name: "prev_state", ProtoType: "int64", Offset: 32, Size: 8, NumElements: 1, ElementSize: 8, Signed: true},
-					{FieldType: "char next_comm[16]", Name: "next_comm", ProtoType: "string", Offset: 40, Size: 16, NumElements: 16, ElementSize: 1, Signed: true},
-					{FieldType: "pid_t next_pid", Name: "next_pid", ProtoType: "int64", Offset: 56, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
-					{FieldType: "int next_prio", Name: "next_prio", ProtoType: "int64", Offset: 60, Size: 4, NumElements: 1, ElementSize: 4, Signed: true},
+			},
+			1942: {
+				Name: "special_event",
+				ID:   1942,
+				Format: Format{
+					CommonFields: []*FormatField{
+						{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Offset: 0, Size: 2, NumElements: 1, ElementSize: 2, Signed: false, IsDynamicArray: false},
+						{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
+						{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
+						{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true, IsDynamicArray: false},
+					},
+					Fields: []*FormatField{
+						{FieldType: "__data_loc uint8[] event", Name: "event", ProtoType: "string", Offset: 8, Size: 4, NumElements: 1, ElementSize: 4, Signed: false, IsDynamicArray: true},
+					},
 				},
 			},
 		},
-		1942: {
-			Name: "special_event",
-			ID:   1942,
-			Format: Format{
-				CommonFields: []*FormatField{
-					{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Offset: 0, Size: 2, NumElements: 1, ElementSize: 2, Signed: false, IsDynamicArray: false},
-					{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
-					{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
-					{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true, IsDynamicArray: false},
-				},
-				Fields: []*FormatField{
-					{FieldType: "__data_loc uint8[] event", Name: "event", ProtoType: "string", Offset: 8, Size: 4, NumElements: 1, ElementSize: 4, Signed: false, IsDynamicArray: true},
-				},
-			},
-		},
-	},
+	}
+	return NewEventSetBuilder(tp)
 }
 
 var traceEvents = []*TraceEvent{
@@ -84,9 +88,10 @@ var traceEvents = []*TraceEvent{
 			"next_prio":  120,
 		},
 		FormatID: 1942,
+		CPU:      1,
 	},
 	{
-		Timestamp: 1040483711613818,
+		Timestamp: 1040483711613819,
 		TextProperties: map[string]string{
 			"common_flags":         "\x01",
 			"common_preempt_count": "",
@@ -138,6 +143,7 @@ var traceEvents = []*TraceEvent{
 			"next_prio":  120,
 		},
 		FormatID: 314,
+		CPU:      1,
 	},
 }
 
@@ -175,7 +181,7 @@ var eventSet = &pb.EventSet{
 	Event: []*pb.Event{
 		{
 			EventDescriptor: 1,
-			Cpu:             0,
+			Cpu:             1,
 			TimestampNs:     1040483711613818,
 			Clipped:         false,
 			Property:        []int64{0, 16, 0, 0, 17, 18},
@@ -183,7 +189,7 @@ var eventSet = &pb.EventSet{
 		{
 			EventDescriptor: 0,
 			Cpu:             0,
-			TimestampNs:     1040483711613818,
+			TimestampNs:     1040483711613819,
 			Clipped:         false,
 			Property:        []int64{0, 16, 0, 0, 19, 0, 120, 0, 20, 166549, 120},
 		},
@@ -196,7 +202,7 @@ var eventSet = &pb.EventSet{
 		},
 		{
 			EventDescriptor: 0,
-			Cpu:             0,
+			Cpu:             1,
 			TimestampNs:     1040483711647349,
 			Clipped:         false,
 			Property:        []int64{0, 16, 0, 0, 19, 0, 120, 0, 20, 166549, 120},
@@ -205,17 +211,67 @@ var eventSet = &pb.EventSet{
 }
 
 func TestEventSetBuilder(t *testing.T) {
-	esb := NewEventSetBuilder(tp)
+	esb := testEventSetBuilder()
 	for _, traceEvent := range traceEvents {
 		if err := esb.AddTraceEvent(traceEvent); err != nil {
 			t.Fatalf("error in AddTraceEvent: %s", err)
 		}
 	}
 
-	got := esb.EventSet
+	got, err := esb.Finalize()
 
-	if diff := cmp.Diff(eventSet, got); diff != "" {
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
+
+	if diff := cmp.Diff(eventSet, got, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder: Diff -want +got:\n%s", diff)
+	}
+}
+
+func TestEventSetBuilder_ClipStart(t *testing.T) {
+	esb := testEventSetBuilder()
+	esb.SetOverwrite(true)
+	esb.SetOverflowedCPUs(map[int64]struct{}{0: {}, 1: {}})
+	for _, traceEvent := range traceEvents {
+		if err := esb.AddTraceEvent(traceEvent); err != nil {
+			t.Fatalf("error in AddTraceEvent: %s", err)
+		}
+	}
+
+	got, err := esb.Finalize()
+
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
+
+	for idx, event := range got.Event {
+		if event.GetClipped() != (idx == 0) {
+			t.Fatalf("Only the first event should be clipped")
+		}
+	}
+}
+
+func TestEventSetBuilder_ClipEnd(t *testing.T) {
+	esb := testEventSetBuilder()
+	esb.SetOverwrite(false)
+	esb.SetOverflowedCPUs(map[int64]struct{}{0: {}, 1: {}})
+	for _, traceEvent := range traceEvents {
+		if err := esb.AddTraceEvent(traceEvent); err != nil {
+			t.Fatalf("error in AddTraceEvent: %s", err)
+		}
+	}
+
+	got, err := esb.Finalize()
+
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
+
+	for idx, event := range got.Event {
+		if event.GetClipped() != (idx == len(got.Event)-1) {
+			t.Fatalf("Only the last event should be clipped")
+		}
 	}
 }
 
@@ -225,29 +281,43 @@ func TestEventSetBuilder_Clone(t *testing.T) {
 		t.Fatalf("failed to clone eventSet")
 	}
 	want.Event = append(want.Event, want.Event[0])
+	// Finalize on the esb will sort items, so this is
+	// needed to ensure our expectations are true at the
+	// end of the test.
+	sort.Slice(want.Event, func(i, j int) bool {
+		return want.Event[i].TimestampNs < want.Event[j].TimestampNs
+	})
 
-	esb := NewEventSetBuilder(tp)
+	esb := testEventSetBuilder()
 	for _, traceEvent := range traceEvents {
 		if err := esb.AddTraceEvent(traceEvent); err != nil {
 			t.Fatalf("error in AddTraceEvent: %s", err)
 		}
 	}
 
-	original := esb.EventSet
+	original, err := esb.Finalize()
+
+	if err != nil {
+		t.Fatalf("unexpected error finalizing events: %s", err)
+	}
 
 	clonedEsb, err := esb.Clone()
+	if err != nil {
+		t.Fatalf("error cloning event set builder: %s", err)
+	}
 	if err := clonedEsb.AddTraceEvent(traceEvents[0]); err != nil {
 		t.Fatalf("error in AddTraceEvent: %s", err)
 	}
-	cloned := clonedEsb.EventSet
+	cloned, err := clonedEsb.Finalize()
+
 	if err != nil {
-		t.Fatalf("error during clone's EventSet(): %s", err)
+		t.Fatalf("unexpected error finalizing events: %s", err)
 	}
 
-	if diff := cmp.Diff(eventSet, original); diff != "" {
+	if diff := cmp.Diff(eventSet, original, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder_Clone: Diff -want +got:\n%s", diff)
 	}
-	if diff := cmp.Diff(cloned, want); diff != "" {
+	if diff := cmp.Diff(cloned, want, cmp.Comparer(proto.Equal)); diff != "" {
 		t.Fatalf("TestEventSetBuilder_Clone: Diff -want +got:\n%s", diff)
 	}
 }

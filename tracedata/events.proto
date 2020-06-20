@@ -3,6 +3,7 @@ syntax = "proto3";
 package schedviz.events;
 
 import "google/protobuf/timestamp.proto";
+import "analysis/sched_event_loaders.proto";
 
 message EventDescriptor {
   message PropertyDescriptor {
@@ -51,6 +52,8 @@ message EventSet {
   repeated string string_table = 1;
   repeated EventDescriptor event_descriptor = 2;
   repeated Event event = 3;
+  // The default event loaders type of this collection.
+  schedviz.analysis.event_loaders.LoadersType default_loaders_type = 4;
 }
 
 message MetadataList {
@@ -129,4 +132,17 @@ message Collection {
   Metadata metadata = 1;
   EventSet event_set = 2;
   SystemTopology topology = 3;
+}
+
+// ArchiveMetadataConfig is the format of the METADATA file in tars produced by
+// trace collection scripts.
+message ArchiveMetadataConfig {
+  enum TraceType {
+    // Trace was recorded using FTrace
+    FTRACE = 0;
+    // Trace was recorded using eBPF
+    EBPF = 1;
+  }
+  TraceType trace_type = 1;
+  string recorder = 2;
 }

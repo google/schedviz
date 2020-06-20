@@ -22,29 +22,33 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
+	"github.com/google/schedviz/tracedata/testeventsetbuilder"
 
+	elpb "github.com/google/schedviz/analysis/event_loaders_go_proto"
 	"github.com/google/schedviz/analysis/schedtestcommon"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
 func TestPIDsAndComms(t *testing.T) {
 	coll, err := NewCollection(
-		schedtestcommon.UnpopulatedBuilder().
-			WithEvent("sched_switch", 1, 1000, false,
-				100, "Process A", 50, schedtestcommon.Interruptible,
-				200, "Constant", 50).
-			WithEvent("sched_switch", 1, 1010, false,
-				200, "Constant", 50, schedtestcommon.Runnable,
-				100, "Process B", 70).
-			WithEvent("sched_switch", 1, 1020, false,
-				100, "Process B", 70, schedtestcommon.Interruptible,
-				200, "Constant", 50).
-			WithEvent("sched_switch", 1, 1030, false,
-				200, "Constant", 50, schedtestcommon.Interruptible,
-				100, "Process C", 70).
-			WithEvent("sched_wakeup", 0, 1040, false,
-				200, "Constant", 50, 1).
-			TestProtobuf(t), DefaultEventLoaders(), PreciseCommands(true), PrecisePriorities(true))
+		testeventsetbuilder.TestProtobuf(t,
+			schedtestcommon.UnpopulatedBuilder().
+				WithEvent("sched_switch", 1, 1000, false,
+					100, "Process A", 50, schedtestcommon.Interruptible,
+					200, "Constant", 50).
+				WithEvent("sched_switch", 1, 1010, false,
+					200, "Constant", 50, schedtestcommon.Runnable,
+					100, "Process B", 70).
+				WithEvent("sched_switch", 1, 1020, false,
+					100, "Process B", 70, schedtestcommon.Interruptible,
+					200, "Constant", 50).
+				WithEvent("sched_switch", 1, 1030, false,
+					200, "Constant", 50, schedtestcommon.Interruptible,
+					100, "Process C", 70).
+				WithEvent("sched_wakeup", 0, 1040, false,
+					200, "Constant", 50, 1)),
+		PreciseCommands(true),
+		PrecisePriorities(true))
 	if err != nil {
 		t.Fatalf("Unexpected collection creation error %s", err)
 	}
@@ -115,7 +119,9 @@ func syntheticThreadResidency(thread *Thread, duration Duration, threadState Thr
 }
 
 func TestThreadInterval(t *testing.T) {
-	coll, err := NewCollection(schedtestcommon.TestTrace1(t), DefaultEventLoaders(), PreciseCommands(true), PrecisePriorities(true))
+	coll, err := NewCollection(schedtestcommon.TestTrace1(t),
+		PreciseCommands(true),
+		PrecisePriorities(true))
 	if err != nil {
 		t.Fatalf("Unexpected collection creation error %s", err)
 	}
@@ -181,7 +187,7 @@ func TestThreadInterval(t *testing.T) {
 		wantIntervals: []*Interval{
 			interval(
 				1, trace.Timestamp(1000), Duration(0), CPUID(1),
-				threadResidency(thread1, Duration(0), UnknownState),
+				threadResidency(thread1, Duration(0), SleepingState),
 			),
 			interval(
 				1, trace.Timestamp(1000), Duration(10), CPUID(1),
@@ -238,7 +244,9 @@ func TestThreadInterval(t *testing.T) {
 }
 
 func TestCPUIntervals(t *testing.T) {
-	coll, err := NewCollection(schedtestcommon.TestTrace1(t), DefaultEventLoaders(), PreciseCommands(true), PrecisePriorities(true))
+	coll, err := NewCollection(schedtestcommon.TestTrace1(t),
+		PreciseCommands(true),
+		PrecisePriorities(true))
 	if err != nil {
 		t.Fatalf("Unexpected collection creation error %s", err)
 	}
@@ -406,115 +414,128 @@ func TestSwitchOnly(t *testing.T) {
 		filters   []Filter
 		intervals []*Interval
 	}
+	b := schedtestcommon.UnpopulatedBuilder().
+		WithEvent("sched_switch", 0, 1000, false,
+			100, "Process1", 50, schedtestcommon.Interruptible,
+			200, "Process2", 50).
+		WithEvent("sched_switch", 1, 1010, false,
+			300, "Process3", 50, schedtestcommon.Runnable,
+			400, "Process4", 50).
+		// We should infer that Process3 switched from CPU 1 to CPU 0 at time 1015.
+		WithEvent("sched_switch", 0, 1020, false,
+			200, "Process2", 50, schedtestcommon.Interruptible,
+			300, "Process3", 50).
+		// We should infer that Process1 switched from CPU 0 to CPU 1 at time 1015.
+		WithEvent("sched_switch", 1, 1030, false,
+			400, "Process4", 50, schedtestcommon.Runnable,
+			100, "Process1", 50)
+	es := testeventsetbuilder.TestProtobuf(t, b)
+	switchOnlyES := testeventsetbuilder.TestProtobuf(t, b.WithDefaultEventLoadersType(elpb.LoadersType_SWITCH_ONLY))
+	want := []wantPIDIntervals{
+		{
+			[]Filter{PIDs(100)},
+			[]*Interval{
+				interval(
+					1, trace.Timestamp(1000), Duration(0), CPUID(0),
+					threadResidency(thread1, Duration(0), RunningState),
+				),
+				// The two intervals around the synthetic migration/wakeup include
+				// synthetic transitions.
+				interval(
+					1, trace.Timestamp(1000), Duration(15), CPUID(0),
+					syntheticThreadResidency(thread1, Duration(15), SleepingState),
+				),
+				interval(
+					1, trace.Timestamp(1015), Duration(15), CPUID(1),
+					syntheticThreadResidency(thread1, Duration(15), SleepingState),
+				),
+				interval(
+					1, trace.Timestamp(1030), Duration(0), CPUID(1),
+					threadResidency(thread1, Duration(0), RunningState),
+				),
+			},
+		}, {
+			[]Filter{PIDs(200)},
+			[]*Interval{
+				interval(
+					1, trace.Timestamp(1000), Duration(0), CPUID(0),
+					threadResidency(thread2, Duration(0), UnknownState),
+				),
+				interval(
+					1, trace.Timestamp(1000), Duration(20), CPUID(0),
+					threadResidency(thread2, Duration(20), RunningState),
+				),
+				interval(
+					1, trace.Timestamp(1020), Duration(10), CPUID(0),
+					threadResidency(thread2, Duration(10), SleepingState),
+				),
+			},
+		}, {
+			[]Filter{PIDs(300)},
+			[]*Interval{
+				interval(
+					1, trace.Timestamp(1000), Duration(10), CPUID(1),
+					threadResidency(thread3, Duration(10), RunningState),
+				),
+				// The two intervals around the synthetic migration include
+				// synthetic transitions.
+				interval(
+					1, trace.Timestamp(1010), Duration(5), CPUID(1),
+					syntheticThreadResidency(thread3, Duration(5), WaitingState),
+				),
+				interval(
+					1, trace.Timestamp(1015), Duration(5), CPUID(0),
+					syntheticThreadResidency(thread3, Duration(5), WaitingState),
+				),
+				interval(
+					1, trace.Timestamp(1020), Duration(10), CPUID(0),
+					threadResidency(thread3, Duration(10), RunningState),
+				),
+			},
+		}, {
+			[]Filter{PIDs(400)},
+			[]*Interval{
+				interval(
+					1, trace.Timestamp(1000), Duration(10), CPUID(1),
+					threadResidency(thread4, Duration(10), UnknownState),
+				),
+				interval(
+					1, trace.Timestamp(1010), Duration(20), CPUID(1),
+					threadResidency(thread4, Duration(20), RunningState),
+				),
+				interval(
+					1, trace.Timestamp(1030), Duration(0), CPUID(1),
+					threadResidency(thread4, Duration(0), WaitingState),
+				),
+			},
+		}}
 	tests := []struct {
 		description string
 		eventSet    *eventpb.EventSet
+		options     []Option
 		want        []wantPIDIntervals
 	}{{
+		description: "simple switch-only, loader override",
+		eventSet:    es,
+		options: []Option{
+			UsingEventLoadersType(elpb.LoadersType_SWITCH_ONLY),
+			PreciseCommands(true),
+			PrecisePriorities(true),
+		},
+		want: want,
+	}, {
 		description: "simple switch-only",
-		eventSet: schedtestcommon.UnpopulatedBuilder().
-			WithEvent("sched_switch", 0, 1000, false,
-				100, "Process1", 50, schedtestcommon.Interruptible,
-				200, "Process2", 50).
-			WithEvent("sched_switch", 1, 1010, false,
-				300, "Process3", 50, schedtestcommon.Runnable,
-				400, "Process4", 50).
-			// We should infer that Process3 switched from CPU 1 to CPU 0 at time 1015.
-			WithEvent("sched_switch", 0, 1020, false,
-				200, "Process2", 50, schedtestcommon.Interruptible,
-				300, "Process3", 50).
-			// We should infer that Process1 switched from CPU 0 to CPU 1, and from
-			// Sleeping to Waiting state, at time 1015.
-			WithEvent("sched_switch", 1, 1030, false,
-				400, "Process4", 50, schedtestcommon.Runnable,
-				100, "Process1", 50).
-			TestProtobuf(t),
-		want: []wantPIDIntervals{
-			{
-				[]Filter{PIDs(100)},
-				[]*Interval{
-					interval(
-						1, trace.Timestamp(1000), Duration(0), CPUID(0),
-						threadResidency(thread1, Duration(0), RunningState),
-					),
-					// The two intervals around the synthetic migration/wakeup include
-					// synthetic transitions.
-					interval(
-						1, trace.Timestamp(1000), Duration(15), CPUID(0),
-						syntheticThreadResidency(thread1, Duration(15), SleepingState),
-					),
-					interval(
-						1, trace.Timestamp(1015), Duration(15), CPUID(1),
-						syntheticThreadResidency(thread1, Duration(15), WaitingState),
-					),
-					interval(
-						1, trace.Timestamp(1030), Duration(1), CPUID(1),
-						threadResidency(thread1, Duration(1), RunningState),
-					),
-				},
-			}, {
-				[]Filter{PIDs(200)},
-				[]*Interval{
-					interval(
-						1, trace.Timestamp(1000), Duration(0), CPUID(0),
-						threadResidency(thread2, Duration(0), WaitingState),
-					),
-					interval(
-						1, trace.Timestamp(1000), Duration(20), CPUID(0),
-						threadResidency(thread2, Duration(20), RunningState),
-					),
-					interval(
-						1, trace.Timestamp(1020), Duration(11), CPUID(0),
-						threadResidency(thread2, Duration(11), SleepingState),
-					),
-				},
-			}, {
-				[]Filter{PIDs(300)},
-				[]*Interval{
-					interval(
-						1, trace.Timestamp(1000), Duration(10), CPUID(1),
-						threadResidency(thread3, Duration(10), RunningState),
-					),
-					// The two intervals around the synthetic migration include
-					// synthetic transitions.
-					interval(
-						1, trace.Timestamp(1010), Duration(5), CPUID(1),
-						syntheticThreadResidency(thread3, Duration(5), WaitingState),
-					),
-					interval(
-						1, trace.Timestamp(1015), Duration(5), CPUID(0),
-						syntheticThreadResidency(thread3, Duration(5), WaitingState),
-					),
-					interval(
-						1, trace.Timestamp(1020), Duration(11), CPUID(0),
-						threadResidency(thread3, Duration(11), RunningState),
-					),
-				},
-			}, {
-				[]Filter{PIDs(400)},
-				[]*Interval{
-					interval(
-						1, trace.Timestamp(1000), Duration(10), CPUID(1),
-						threadResidency(thread4, Duration(10), WaitingState),
-					),
-					interval(
-						1, trace.Timestamp(1010), Duration(20), CPUID(1),
-						threadResidency(thread4, Duration(20), RunningState),
-					),
-					interval(
-						1, trace.Timestamp(1030), Duration(1), CPUID(1),
-						threadResidency(thread4, Duration(1), WaitingState),
-					),
-				},
-			}},
+		eventSet:    switchOnlyES,
+		options: []Option{
+			PreciseCommands(true),
+			PrecisePriorities(true),
+		},
+		want: want,
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			coll, err := NewCollection(
-				test.eventSet,
-				SwitchOnlyLoaders(),
-				PreciseCommands(true),
-				PrecisePriorities(true))
+				test.eventSet, test.options...)
 			if err != nil {
 				t.Fatalf("Unexpected collection creation error %s", err)
 			}

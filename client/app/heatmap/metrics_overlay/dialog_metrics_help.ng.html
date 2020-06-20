@@ -11,13 +11,15 @@
     </li>
     <li>
       The <b>Per-CPU Time</b> metric shows the total time, aggregated across
-      all idle CPUs, for which there was some other overloaded CPU.
+      all idle CPUs, for which there was some other overloaded CPU.  A given idle
+      CPU is only matched with a single overloaded CPU.
     </li>
     <li>
       The <b>Per-Thread Time</b> metric shows the total amount of work, in
       CPU-seconds, that could have been accomplished if waiting threads had been
-      moved to idle CPUs in the current view. Note that system policies such as
-      CPU-set affinity may have precluded such moves.
+      moved to idle CPUs in the current view.  A given idle CPU is only matched
+      with a single waiting thread.  Note that system policies such as CPU-set
+      affinity may have precluded such moves.
     </li>
     <li>
       The <b>CPU Utilization</b> metric shows the proportion of not-idle

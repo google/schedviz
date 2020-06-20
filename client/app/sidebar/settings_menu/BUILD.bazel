@@ -20,6 +20,7 @@ ng_module(
         "//client/app/services",
         "//client/app/util",
         "@npm//@angular/cdk",
+        "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//@angular/forms",
         "@npm//@angular/material",

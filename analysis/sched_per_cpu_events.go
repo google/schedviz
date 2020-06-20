@@ -217,6 +217,9 @@ func (c *PerCPUCollection) EventIndices(filterFuncs ...Filter) []int {
 		stubs = append(stubs, cpuStubs[startIndex:endIndex]...)
 	}
 	sort.Slice(stubs, func(a, b int) bool {
+		if stubs[a].timestamp == stubs[b].timestamp {
+			return stubs[a].index < stubs[b].index
+		}
 		return stubs[a].timestamp < stubs[b].timestamp
 	})
 	var indices = []int{}
@@ -224,6 +227,10 @@ func (c *PerCPUCollection) EventIndices(filterFuncs ...Filter) []int {
 		// Only include this event if either the filter does not include event types
 		// or this event is one of the requested types.
 		_, includeEvent := f.eventTypes[c.indicesToEventTypes[stub.eventTypeIndex]]
+		// The same event may pertain to multiple CPUs; remove duplicates.
+		if len(indices) > 0 && indices[len(indices)-1] == stub.index {
+			continue
+		}
 		if len(f.eventTypes) == 0 || includeEvent {
 			indices = append(indices, stub.index)
 		}

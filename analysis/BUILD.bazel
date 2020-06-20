@@ -1,6 +1,7 @@
 # A set of types and utilities for analyzing collections of scheduling
 # tracepoint events.
 
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -19,6 +20,7 @@ importpath = "github.com/google/schedviz/analysis/sched",
         "sched_cpu_span_set.go",
         "sched_elementary_intervals.go",
         "sched_event_loader.go",
+        "sched_event_loaders.go",
         "sched_metrics.go",
         "sched_per_cpu_events.go",
         "sched_query_filter.go",
@@ -31,11 +33,14 @@ importpath = "github.com/google/schedviz/analysis/sched",
         "string_bank.go",
     ],
     deps = [
+        ":event_loaders_go_proto",
         "//tracedata:schedviz_events_go_proto",
         "//tracedata:trace",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_workiva_go-datastructures//augmentedtree:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_x_sync//errgroup:go_default_library",
     ],
 )
 
@@ -57,9 +62,11 @@ go_test(
     ],
     embed = [":sched"],
     deps = [
+        ":event_loaders_go_proto",
         ":schedtestcommon",
         "//tracedata:eventsetbuilder",
         "//tracedata:schedviz_events_go_proto",
+        "//tracedata:testeventsetbuilder",
         "//tracedata:trace",
         "@com_github_google_go-cmp//cmp:go_default_library",
     ],
@@ -74,6 +81,7 @@ importpath = "github.com/google/schedviz/analysis/schedtestcommon",
     deps = [
         "//tracedata:eventsetbuilder",
         "//tracedata:schedviz_events_go_proto",
+        "//tracedata:testeventsetbuilder",
     ],
 )
 
@@ -86,7 +94,9 @@ go_test(
     ],
     embed = [":sched"],
     deps = [
+        ":schedtestcommon",
         "//tracedata:eventsetbuilder",
+        "//tracedata:testeventsetbuilder",
         "//tracedata:trace",
         "@com_github_google_go-cmp//cmp:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
@@ -94,12 +104,16 @@ go_test(
     ],
 )
 
-go_library(
-    name = "legacyconversion",
-importpath = "github.com/google/schedviz/analysis/legacyconversion",
+proto_library(
+    name = "event_loaders_proto",
+    srcs = ["sched_event_loaders.proto"],
+    visibility = ["//visibility:public"],
+)
 
-    deps = [
-        "//tracedata:schedviz_events_go_proto",
-        "@com_github_golang_protobuf//proto:go_default_library",
-    ],
+go_proto_library(
+    name = "event_loaders_go_proto",
+importpath = "github.com/google/schedviz/analysis/event_loaders_go_proto",
+
+    proto = ":event_loaders_proto",
+    visibility = ["//visibility:public"],
 )

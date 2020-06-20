@@ -6,6 +6,12 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache License 2.0
 
+testdata = [
+    "testdata/test.tar.gz",
+    "testdata/test_no_metadata.tar.gz",
+    "testdata/ebpf_trace.tar.gz",
+]
+
 go_binary(
     name = "server",
     srcs = ["server.go"],
@@ -55,8 +61,7 @@ go_test(
     name = "server_test",
     size = "small",
     srcs = ["server_test.go"],
-    data = [
-        "testdata/test.tar.gz",
+    data = testdata + [
         "//client:app_fileset",
     ],
     embed = [":server"],
@@ -66,6 +71,7 @@ go_test(
         "//analysis:sched",
         "//testhelpers",
         "//tracedata:trace",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_google_go-cmp//cmp:go_default_library",
         "@com_github_gorilla_mux//:go_default_library",
     ],
@@ -83,8 +89,8 @@ importpath = "github.com/google/schedviz/server/storageservice",
     ],
     deps = [
         ":models",
-        "//analysis:legacyconversion",
         "//analysis:sched",
+        "//ebpf:schedbt",
         "//tracedata:schedviz_events_go_proto",
         "//tracedata:trace",
         "//traceparser",
@@ -104,9 +110,7 @@ go_test(
     name = "fs_storage_test",
     size = "small",
     srcs = ["fs_storage_test.go"],
-    data = [
-        "testdata/test.tar.gz",
-    ],
+    data = testdata,
     embed = [":storageservice"],
     deps = [
         ":models",
@@ -141,6 +145,7 @@ importpath = "github.com/google/schedviz/server/models",
         "render_data_services.go",
     ],
     deps = [
+        "//analysis:event_loaders_go_proto",
         "//analysis:sched",
         "//tracedata:trace",
     ],

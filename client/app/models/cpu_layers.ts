@@ -70,22 +70,32 @@ export class CpuRunningLayer extends Layer {
         // color
         interval.renderWeight = INTERVAL_BASE_INTENSITY;
       }
+    }
+    this.intervalsInternal = cpuIntervals;
   }
-  this.intervalsInternal = cpuIntervals;
-}
 
-get intervals() {
-  return this.intervalsInternal;
+  get intervals() {
+    return this.intervalsInternal;
+  }
+
+  /**
+   * Grayscale interval intensity indicates waiting interval count, so users can
+   * easily identify 'hot spots'.
+   */
+  getIntervalColor(interval: CpuInterval) {
+    const intensity = interval.renderWeight;
+    return `rgb(${intensity},${intensity},${intensity})`;
+  }
 }
 
 /**
- * Grayscale interval intensity indicates waiting interval count, so users can
- * easily identify 'hot spots'.
+ * Secondary SchedViz 'base' layer: Renders CPU Intervals that are waiting while
+ * their CPU is idle.
  */
-getIntervalColor(interval: CpuInterval) {
-  const intensity = interval.renderWeight;
-  return `rgb(${intensity},${intensity},${intensity})`;
-}
+export class CpuIdleWaitLayer extends Layer {
+  constructor() {
+    super('Waiting While Idle CPU Intervals', 'CPU', [], '#f93e3e', [], false);
+  }
 }
 
 /**

@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/sysinfo.h>
 #include <unistd.h>
 
 #include <filesystem>
@@ -71,7 +70,6 @@ static constexpr const LazyRE2 kCPURegex = {"(cpu\\d+$)"};
  * Regex for matching a NUMA node name in a SysFS path.
  */
 static constexpr const LazyRE2 kNodeRegex = {"(node\\d+$)"};
-
 
 int main(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);
@@ -145,14 +143,29 @@ Status FTraceTracer::Trace(int capture_seconds) {
             << ": capture for " << capture_seconds
             << " seconds, send output to " << output_path_ << std::endl;
 
-  char temp_name[L_tmpnam];
-  if (!std::tmpnam(temp_name)) {
+  // Create temp directory
+  char temp_path_template[] = "/tmp/trace_XXXXXX";
+  if (const auto temp_path = mkdtemp(temp_path_template);
+      temp_path != nullptr) {
+    temp_path_ = temp_path;
+  } else {
     return Status::InternalError("Unable to create temporary directory.");
   }
-  temp_path_ = std::filesystem::temp_directory_path() / temp_name;
 
   Status status;
+  // Write metadata file
+  status = WriteString(temp_path_ / "metadata.textproto",
+                       "trace_type: FTRACE\nrecorder: \"trace.cc\"\n");
+  if (!status.ok()) {
+    return status;
+  }
+
   status = ConfigureFTrace();
+  if (!status.ok()) {
+    return status;
+  }
+
+  status = CopyOptions();
   if (!status.ok()) {
     return status;
   }
@@ -168,6 +181,11 @@ Status FTraceTracer::Trace(int capture_seconds) {
   }
 
   status = CollectTrace(capture_seconds);
+  if (!status.ok()) {
+    return status;
+  }
+
+  status = CopyCPUStats();
   if (!status.ok()) {
     return status;
   }
@@ -214,6 +232,11 @@ Status FTraceTracer::ConfigureFTrace() {
   if (!status.ok()) {
     return status;
   }
+  // Remove newest events when the buffer overflows instead of oldest.
+  status = WriteString(kernel_trace_root_ / "trace_options", "nooverwrite");
+  if (!status.ok()) {
+    return status;
+  }
 
   // Set buffer size.
   status = WriteString(kernel_trace_root_ / "buffer_size_kb",
@@ -242,6 +265,12 @@ Status FTraceTracer::EnableEvents() {
     return Status::InternalError(
         absl::StrCat("Could not open ", events_path.string()));
   }
+  // Disable all events
+  if ((unsigned)write(fd, "\n", 1) != 1) {
+    close(fd);
+    return Status::InternalError(
+        absl::StrCat("Failed to disable all events in ", events_path.string()));
+  }
   for (const auto& event : events_) {
     if ((unsigned)write(fd, event.c_str(), event.size()) != event.size()) {
       close(fd);
@@ -251,6 +280,28 @@ Status FTraceTracer::EnableEvents() {
   }
   close(fd);
 
+  return Status::OkStatus();
+}
+
+Status FTraceTracer::CopyOptions() {
+  if (is_tracing_) {
+    return Status::InternalError("Already Tracing");
+  }
+  const std::filesystem::path& options_root = kernel_trace_root_ / "options";
+  const auto& out = temp_path_ / "options";
+  if (!std::filesystem::create_directories(out)) {
+    return Status::InternalError(
+        absl::StrCat("Unable to create directories for path: ", out.string()));
+  }
+
+  for (const auto& option_file_entry :
+       std::filesystem::directory_iterator(options_root)) {
+    const auto& option_filename = option_file_entry.path().filename();
+    const auto& status = CopyFakeFile(option_file_entry, out / option_filename);
+    if (!status.ok()) {
+      return status;
+    }
+  }
   return Status::OkStatus();
 }
 
@@ -350,7 +401,7 @@ Status FTraceTracer::CollectTrace(const int capture_seconds) {
     }
   }
 
-  const auto& cpu_count = get_nprocs();
+  const auto& cpu_count = sysconf(_SC_NPROCESSORS_CONF);
   ClearCPUFDs();
   fds_.reserve(cpu_count);
   for (int i = 0; i < cpu_count; i++) {
@@ -365,7 +416,7 @@ Status FTraceTracer::CollectTrace(const int capture_seconds) {
           absl::StrCat("Unable to open ", cpuPath.string()));
     }
     int out_fd =
-        open(outPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC | O_LARGEFILE, 0644);
+        open(outPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (out_fd == -1) {
       return Status::InternalError(
           absl::StrCat("Unable to create ", outPath.string()));
@@ -386,10 +437,24 @@ Status FTraceTracer::CollectTrace(const int capture_seconds) {
   // Wait for trace to end.
   const auto& start_time = absl::Now();
   const auto& interval = absl::Milliseconds(100);
+  const auto& tracing_file_path = kernel_trace_root_ / "tracing_on";
   absl::SleepFor(interval);
   Status failedCopyStatus;
   while (absl::Now() <= start_time + absl::Seconds(capture_seconds)) {
+    // Toggle tracing off before copy
+    status = WriteString(tracing_file_path, "0");
+    if (!status.ok()) {
+      failedCopyStatus = status;
+      break;
+    }
+    // Perform Copy
     status = CopyCPUBuffers();
+    if (!status.ok()) {
+      failedCopyStatus = status;
+      break;
+    }
+    // Toggle tracing on after copy
+    status = WriteString(tracing_file_path, "1");
     if (!status.ok()) {
       failedCopyStatus = status;
       break;
@@ -412,7 +477,7 @@ Status FTraceTracer::CopyCPUBuffers() {
   if (!is_tracing_) {
     return Status::InternalError("Not currently in a trace");
   }
-  const auto& cpu_count = get_nprocs();
+  const auto& cpu_count = sysconf(_SC_NPROCESSORS_CONF);
   for (int i = 0; i < cpu_count; i++) {
     const auto& cpu_fds = fds_[i];
     const auto& status = CopyCPUBuffer(cpu_fds.first, cpu_fds.second);
@@ -475,6 +540,35 @@ Status FTraceTracer::CopyCPUBuffer(int in_fd, int out_fd) {
     }
 
     write(out_fd, &trace_data.front(), bytes_read);
+  }
+  return Status::OkStatus();
+}
+
+Status FTraceTracer::CopyCPUStats() {
+  if (is_tracing_) {
+    return Status::InternalError(
+        "Still Tracing. Must complete tracing before copying stats.");
+  }
+  // Prepare
+  const auto& out = temp_path_ / "stats";
+  // Create directories if they don't exist.
+  if (!std::filesystem::exists(out)) {
+    if (!std::filesystem::create_directories(out)) {
+      return Status::InternalError(absl::StrCat(
+          "Unable to create directories for path: ", out.string()));
+    }
+  }
+
+  const auto& cpu_count = sysconf(_SC_NPROCESSORS_CONF);
+  for (int i = 0; i < cpu_count; i++) {
+    const auto& cpuName = "cpu" + std::to_string(i);
+    const auto& cpuPath = kernel_trace_root_ / "per_cpu" / cpuName / "stats";
+    const auto& outPath = out / cpuName;
+
+    auto status = CopyFakeFile(cpuPath, outPath);
+    if (!status.ok()) {
+      return status;
+    }
   }
   return Status::OkStatus();
 }

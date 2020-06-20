@@ -1,4 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -12,7 +13,6 @@ cc_binary(
         "trace.h",
     ],
     copts = ["-std=c++17"],
-    linkopts = ["-lc++fs"],
     deps = [
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
@@ -20,5 +20,16 @@ cc_binary(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+go_library(
+    name = "util",
+importpath = "github.com/google/schedviz/util/util",
+
+    srcs = ["log.go"],
+    deps = [
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_time//rate:go_default_library",
     ],
 )

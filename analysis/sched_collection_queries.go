@@ -127,6 +127,12 @@ func (tib *threadIntervalBuilder) addSpan(span *threadSpan) (*Interval, error) {
 	// Adjust start and end timestamps according to the filter.
 	startTimestamp := span.startTimestamp
 	endTimestamp := span.endTimestamp
+	// Our known state runs 1ns beyond the end of the trace, since any subsequent
+	// change would take effect at the next ns after the end of the trace.  If
+	// we have such a span, truncate the end timestamp to the end of the trace.
+	if span.endTimestamp > tib.c.endTimestamp {
+		endTimestamp = tib.c.endTimestamp
+	}
 	if tib.f.truncateToTimeRange {
 		if startTimestamp < tib.f.startTimestamp {
 			startTimestamp = tib.f.startTimestamp

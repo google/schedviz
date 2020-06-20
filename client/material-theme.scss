@@ -20,6 +20,19 @@ $my-app-theme: mat-light-theme($my-app-primary, $my-app-accent, $my-app-warn);
   transform: translateY(0) !important;
 }
 
+.mat-table {
+  .mat-header-cell {
+    .mat-sort-header-arrow {
+      .mat-sort-header-pointer-left {
+        transform: rotate(-45deg);
+      }
+      .mat-sort-header-pointer-right {
+        transform: rotate(45deg);
+      }
+    }
+  }
+}
+
 // Stop cropping in Material select boxes
 .mat-select-panel {
   max-width: unset !important;
@@ -32,4 +45,6 @@ $my-app-theme: mat-light-theme($my-app-primary, $my-app-accent, $my-app-warn);
 
 .mat-simple-snackbar {
   white-space: pre-wrap;
+  word-break: break-word;
+  height: 100%;
 }

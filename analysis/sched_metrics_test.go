@@ -25,7 +25,8 @@ import (
 )
 
 func TestPIDSummary(t *testing.T) {
-	coll, err := NewCollection(schedtestcommon.TestTrace1(t), DefaultEventLoaders(), NormalizeTimestamps(true))
+	coll, err := NewCollection(schedtestcommon.TestTrace1(t),
+		NormalizeTimestamps(true))
 
 	if err != nil {
 		t.Fatalf("Broken collection, can't proceed: `%s'", err)
@@ -33,10 +34,10 @@ func TestPIDSummary(t *testing.T) {
 	tests := []struct {
 		description string
 		filters     []Filter
-		wantMs      []Metrics
+		wantMs      []*Metrics
 	}{{
 		description: "Full time range",
-		wantMs: []Metrics{
+		wantMs: []*Metrics{
 			{
 				// Wakeup, switch-in at 1010, switch-out at 1100
 				MigrationCount:   0,
@@ -48,9 +49,8 @@ func TestPIDSummary(t *testing.T) {
 				Cpus:             []CPUID{1},
 				StartTimestampNs: 0,
 				EndTimestampNs:   100,
-				// Not counted because wakeup is first event, and therefore can't be inferred.
-				WakeupCount: 0,
-				Priorities:  []Priority{50},
+				WakeupCount:      1,
+				Priorities:       []Priority{50},
 			},
 			{
 				// Switch-out SLEEPING at 1000, wakeup at 1040, migrate at 1080, switch-in at 1100.
@@ -99,7 +99,7 @@ func TestPIDSummary(t *testing.T) {
 	}, {
 		description: "Full time range, CPU filtered",
 		filters:     []Filter{CPUs(1)},
-		wantMs: []Metrics{
+		wantMs: []*Metrics{
 			{
 				// Wakeup, switch-in at 1010, switch-out at 1100
 				MigrationCount:   0,
@@ -111,9 +111,8 @@ func TestPIDSummary(t *testing.T) {
 				Cpus:             []CPUID{1},
 				StartTimestampNs: 0,
 				EndTimestampNs:   100,
-				// Not counted because wakeup is first event, and therefore can't be inferred.
-				WakeupCount: 0,
-				Priorities:  []Priority{50},
+				WakeupCount:      1,
+				Priorities:       []Priority{50},
 			},
 			{
 				// Switch-out and wakeup
@@ -149,7 +148,7 @@ func TestPIDSummary(t *testing.T) {
 	}, {
 		description: "Time filtered",
 		filters:     []Filter{TimeRange(50, 100)},
-		wantMs: []Metrics{
+		wantMs: []*Metrics{
 			{
 				// Switch-out at 1100.
 				MigrationCount:   0,
@@ -208,7 +207,7 @@ func TestPIDSummary(t *testing.T) {
 	}, {
 		description: "Time and CPU filtered",
 		filters:     []Filter{CPUs(2), TimeRange(50, 100)},
-		wantMs: []Metrics{
+		wantMs: []*Metrics{
 			{
 				// Migrate at 1080, switch-in at 1100.
 				MigrationCount:   1, // Migrates-in count.

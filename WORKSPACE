@@ -16,20 +16,21 @@ http_archive(
 
 http_archive(
     name = "com_grail_bazel_toolchain",
-    sha256 = "4a8ed1ec0349a43a82eebc0a5792417125fe387bae90952322cff2b9e8283d9c",
-    strip_prefix = "bazel-toolchain-664914644452a1eb8b746d3701612877c0eef24d",
-    urls = ["https://github.com/grailbio/bazel-toolchain/archive/664914644452a1eb8b746d3701612877c0eef24d.zip"],
+    sha256 = "015454eb86330cd20bce951468652ce572e8c04421eda456926ea658d861a939",
+    strip_prefix = "bazel-toolchain-8570c4ccb39f750452b0b5607c9f54a093214f26",
+    urls = ["https://github.com/grailbio/bazel-toolchain/archive/8570c4ccb39f750452b0b5607c9f54a093214f26.zip"],
 )
 
 http_archive(
     name = "rules_cc",
-    sha256 = "67412176974bfce3f4cf8bdaff39784a72ed709fc58def599d1f68710b58d68b",
-    strip_prefix = "rules_cc-b7fe9697c0c76ab2fd431a891dbb9a6a32ed7c3e",
+    sha256 = "2cc55c30570dfbff6c4c205bc1f6cb2a799746117bc51337f399f49991d39f8b",
+    strip_prefix = "rules_cc-12a2d801f69ca8fff9128a8044549d7cbac306f1",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/b7fe9697c0c76ab2fd431a891dbb9a6a32ed7c3e.zip",
-        "https://github.com/bazelbuild/rules_cc/archive/b7fe9697c0c76ab2fd431a891dbb9a6a32ed7c3e.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/12a2d801f69ca8fff9128a8044549d7cbac306f1.zip",
+        "https://github.com/bazelbuild/rules_cc/archive/12a2d801f69ca8fff9128a8044549d7cbac306f1.zip",
     ],
 )
+
 http_archive(
     name = "bazel_gazelle",
     urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz"],
@@ -64,7 +65,7 @@ load("@com_grail_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
 
 llvm_toolchain(
     name = "llvm_toolchain",
-    llvm_version = "8.0.0",
+    llvm_version = "9.0.0",
 )
 
 load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
@@ -141,6 +142,11 @@ go_repository(
     name = "com_github_golang_glog",
     importpath = "github.com/golang/glog",
     tag = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
+)
+go_repository(
+    name = "com_github_golang_time",
+    importpath = "golang.org/x/time",
+    tag = "c4c64cad1fd0a1a8dab2523e04e61d35308e131e",
 )
 go_repository(
     name = "org_golang_x_sync",

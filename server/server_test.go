@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,11 +28,15 @@ import (
 	"strings"
 	"testing"
 
+
+	log "github.com/golang/glog"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/mux"
 
 	"github.com/google/schedviz/analysis/sched"
 	"github.com/google/schedviz/server/models"
+	"github.com/google/schedviz/server/storageservice"
 	"github.com/google/schedviz/testhelpers/testhelpers"
 	"github.com/google/schedviz/tracedata/trace"
 )
@@ -41,7 +44,6 @@ import (
 var collectionName string
 
 var url string
-var tmpDir string
 
 func fullURL(endpoint string) string {
 	return fmt.Sprintf("%s/%s", url, endpoint)
@@ -103,28 +105,11 @@ func encodeJSON(t *testing.T, s interface{}) string {
 }
 
 
-func TestMain(m *testing.M) {
+func setupTests(ss storageservice.StorageService) func() {
 	var server *httptest.Server
 	var err error
-	defer func() {
-		if server != nil {
-			server.Close()
-		}
-	}()
 
-	// Set up a collections path.
-	tmpDir, err = ioutil.TempDir("", "collections")
-	if err != nil {
-		log.Fatalf("failed to create temp dir: %s", err)
-	}
-	defer func() {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	*storagePath = tmpDir
-
-		setStorageService(context.Background())
+	storageService = ss
 	setStorageService = func(ctx context.Context) error { return nil }
 
 	startServer = func(r *mux.Router) {
@@ -156,7 +141,42 @@ func TestMain(m *testing.M) {
 
 	runServer(context.Background())
 
-	os.Exit(m.Run())
+	// Cleanup function
+	return func() {
+		if server != nil {
+			server.CloseClientConnections()
+			server.Close()
+		}
+	}
+}
+
+func TestMain(m *testing.M) {
+	ret := 0
+	var ss storageservice.StorageService
+	var err error
+
+	log.Info("Testing FSStorage")
+	// Set up a collections path.
+	tmpDir, err := ioutil.TempDir("", "collections")
+	if err != nil {
+		log.Fatalf("failed to create temp dir: %s", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	*storagePath = tmpDir
+	ss, err = storageservice.CreateFSStorage(*storagePath, *cacheSize)
+	if err != nil {
+		log.Fatalf("Failed to start file storage service: %s", err)
+	}
+	cleanup := setupTests(ss)
+	ret |= m.Run()
+	cleanup()
+
+
+	os.Exit(ret)
 }
 
 func TestHTML(t *testing.T) {
@@ -218,6 +238,7 @@ func TestGetCollectionMetadata(t *testing.T) {
 	}
 	// Don't bother comparing creation time.
 	got.CreationTime = 0
+	got.TargetMachine = ""
 	want := &models.Metadata{
 		CollectionUniqueName: collectionName,
 		Creator:              defaultHTTPUser,
@@ -225,6 +246,10 @@ func TestGetCollectionMetadata(t *testing.T) {
 		Tags:                 []string{"test"},
 		Description:          "test",
 		FtraceEvents: []string{
+			"sched_migrate_task",
+			"sched_switch",
+			"sched_wakeup",
+			"sched_wakeup_new",
 		},
 	}
 
@@ -278,6 +303,7 @@ func TestListCollectionMetadata(t *testing.T) {
 	}
 	// Don't bother comparing creation time.
 	got[0].CreationTime = 0
+	got[0].TargetMachine = ""
 	want := []models.Metadata{{
 		CollectionUniqueName: collectionName,
 		Creator:              defaultHTTPUser,
@@ -285,6 +311,10 @@ func TestListCollectionMetadata(t *testing.T) {
 		Tags:                 []string{"test"},
 		Description:          "test",
 		FtraceEvents: []string{
+			"sched_migrate_task",
+			"sched_switch",
+			"sched_wakeup",
+			"sched_wakeup_new",
 		},
 	}}
 
@@ -493,14 +523,14 @@ func TestGetAntagonists(t *testing.T) {
 
 	want := &models.AntagonistsResponse{
 		CollectionName: collectionName,
-		Antagonists: []sched.Antagonists{{
-			Victims: []sched.Thread{{
+		Antagonists: []*sched.Antagonists{{
+			Victims: []*sched.Thread{{
 				PID:      17254,
 				Command:  "trace.sh",
 				Priority: 120,
 			}},
-			Antagonisms: []sched.Antagonism{{
-				RunningThread: sched.Thread{
+			Antagonisms: []*sched.Antagonism{{
+				RunningThread: &sched.Thread{
 					PID:      430,
 					Command:  "kauditd",
 					Priority: 120,
@@ -509,7 +539,7 @@ func TestGetAntagonists(t *testing.T) {
 				EndTimestamp:   73788,
 			},
 				{
-					RunningThread: sched.Thread{
+					RunningThread: &sched.Thread{
 						PID:      449,
 						Command:  "auditd",
 						Priority: 116,
@@ -549,7 +579,7 @@ func TestGetPerThreadEventSeries(t *testing.T) {
 
 	want := &models.PerThreadEventSeriesResponse{
 		CollectionName: collectionName,
-		EventSeries: []models.PerThreadEventSeries{{
+		EventSeries: []*models.PerThreadEventSeries{{
 			Pid: 17254,
 			Events: []*trace.Event{
 				{
@@ -557,19 +587,19 @@ func TestGetPerThreadEventSeries(t *testing.T) {
 					Name:      "sched_switch",
 					Timestamp: 21845,
 					TextProperties: map[string]string{
-						"common_flags":         "\x01",
-						"common_preempt_count": "",
-						"next_comm":            "kauditd",
-						"prev_comm":            "trace.sh",
+						"next_comm": "kauditd",
+						"prev_comm": "trace.sh",
 					},
 					NumberProperties: map[string]int64{
-						"common_pid":  17254,
-						"common_type": 0,
-						"next_pid":    430,
-						"next_prio":   120,
-						"prev_pid":    17254,
-						"prev_prio":   120,
-						"prev_state":  4096,
+						"common_flags":         1,
+						"common_pid":           17254,
+						"common_preempt_count": 0,
+						"common_type":          0,
+						"next_pid":             430,
+						"next_prio":            120,
+						"prev_pid":             17254,
+						"prev_prio":            120,
+						"prev_state":           4096,
 					},
 				},
 				{
@@ -577,19 +607,19 @@ func TestGetPerThreadEventSeries(t *testing.T) {
 					Name:      "sched_switch",
 					Timestamp: 65705,
 					TextProperties: map[string]string{
-						"common_flags":         "\x01",
-						"common_preempt_count": "",
-						"next_comm":            "trace.sh",
-						"prev_comm":            "auditd",
+						"next_comm": "trace.sh",
+						"prev_comm": "auditd",
 					},
 					NumberProperties: map[string]int64{
-						"common_pid":  449,
-						"common_type": 0,
-						"next_pid":    17254,
-						"next_prio":   120,
-						"prev_pid":    449,
-						"prev_prio":   116,
-						"prev_state":  1,
+						"common_flags":         1,
+						"common_pid":           449,
+						"common_preempt_count": 0,
+						"common_type":          0,
+						"next_pid":             17254,
+						"next_prio":            120,
+						"prev_pid":             449,
+						"prev_prio":            116,
+						"prev_state":           1,
 					},
 				},
 				{
@@ -597,19 +627,19 @@ func TestGetPerThreadEventSeries(t *testing.T) {
 					Name:      "sched_switch",
 					Timestamp: 71547,
 					TextProperties: map[string]string{
-						"common_flags":         "\x01",
-						"common_preempt_count": "",
-						"next_comm":            "kauditd",
-						"prev_comm":            "trace.sh",
+						"next_comm": "kauditd",
+						"prev_comm": "trace.sh",
 					},
 					NumberProperties: map[string]int64{
-						"common_pid":  17254,
-						"common_type": 0,
-						"next_pid":    430,
-						"next_prio":   120,
-						"prev_pid":    17254,
-						"prev_prio":   120,
-						"prev_state":  0,
+						"common_flags":         1,
+						"common_pid":           17254,
+						"common_preempt_count": 0,
+						"common_type":          0,
+						"next_pid":             430,
+						"next_prio":            120,
+						"prev_pid":             17254,
+						"prev_prio":            120,
+						"prev_state":           0,
 					},
 				},
 			}},
@@ -646,12 +676,12 @@ func TestGetThreadSummaries(t *testing.T) {
 
 	want := &models.ThreadSummariesResponse{
 		CollectionName: collectionName,
-		Metrics: []sched.Metrics{{
-			WakeupCount:      270,
-			UnknownTimeNs:    6269650,
+		Metrics: []*sched.Metrics{{
+			WakeupCount:      271,
+			UnknownTimeNs:    0,
 			RunTimeNs:        5680247,
 			WaitTimeNs:       2459979,
-			SleepTimeNs:      1994740679,
+			SleepTimeNs:      2001010329,
 			Pids:             []sched.PID{3},
 			Commands:         []string{"ksoftirqd/0"},
 			Priorities:       []sched.Priority{120},
@@ -697,19 +727,19 @@ func TestGetFtraceEvents(t *testing.T) {
 				Timestamp: 21845,
 				Clipped:   false,
 				TextProperties: map[string]string{
-					"common_flags":         "\x01",
-					"common_preempt_count": "",
-					"prev_comm":            "trace.sh",
-					"next_comm":            "kauditd",
+					"prev_comm": "trace.sh",
+					"next_comm": "kauditd",
 				},
 				NumberProperties: map[string]int64{
-					"common_type": 0,
-					"common_pid":  17254,
-					"prev_pid":    17254,
-					"prev_prio":   120,
-					"prev_state":  4096,
-					"next_pid":    430,
-					"next_prio":   120,
+					"common_flags":         1,
+					"common_type":          0,
+					"common_pid":           17254,
+					"common_preempt_count": 0,
+					"prev_pid":             17254,
+					"prev_prio":            120,
+					"prev_state":           4096,
+					"next_pid":             430,
+					"next_prio":            120,
 				},
 			}},
 		},
@@ -741,13 +771,13 @@ func TestGetUtilizationMetrics(t *testing.T) {
 	}
 
 	want := models.UtilizationMetricsResponse{
-		Request: models.UtilizationMetricsRequest{
+		Request: &models.UtilizationMetricsRequest{
 			CollectionName:   collectionName,
 			Cpus:             []sched.CPUID{0},
 			StartTimestampNs: 0,
 			EndTimestampNs:   2009150555,
 		},
-		UtilizationMetrics: sched.Utilization{
+		UtilizationMetrics: &sched.Utilization{
 			WallTime:            0,
 			PerCPUTime:          0,
 			PerThreadTime:       0,
@@ -776,8 +806,8 @@ func TestGetSystemTopology(t *testing.T) {
 
 	want := &models.SystemTopologyResponse{
 		CollectionName: collectionName,
-		SystemTopology: models.SystemTopology{
-			LogicalCores: []models.LogicalCore{{
+		SystemTopology: &models.SystemTopology{
+			LogicalCores: []*models.LogicalCore{{
 				SocketID:   0,
 				DieID:      0,
 				ThreadID:   0,

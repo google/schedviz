@@ -14,10 +14,12 @@
 // limitations under the License.
 //
 //
-import {ChangeDetectorRef, Component, Input, OnDestroy, OnInit} from '@angular/core';
-import {BehaviorSubject, combineLatest, ReplaySubject, Subject} from 'rxjs';
-import {filter, takeUntil} from 'rxjs/operators';
+import {ChangeDetectorRef, Component, Input, OnInit} from '@angular/core';
+import {Sort} from '@angular/material/sort';
+import {BehaviorSubject, ReplaySubject} from 'rxjs';
+import {takeUntil} from 'rxjs/operators';
 
+import {ThreadInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
 
 import {jumpToTime} from './jump_to_time';
@@ -31,11 +33,9 @@ import {SelectableTable} from './selectable_table';
   styleUrls: ['./thread_table.css'],
   templateUrl: 'antagonist_table.ng.html',
 })
-export class AntagonistTable extends SelectableTable implements OnInit,
-                                                                OnDestroy {
-  @Input() jumpToTimeEnabled!: BehaviorSubject<boolean>;
+export class AntagonistTable extends SelectableTable implements OnInit {
   @Input() jumpToTimeNs!: ReplaySubject<number>;
-  private readonly unsub$ = new Subject<void>();
+  sort = new BehaviorSubject<Sort>({active: '', direction: ''});
 
   constructor(
       public colorService: ColorService, protected cdr: ChangeDetectorRef) {
@@ -47,22 +47,35 @@ export class AntagonistTable extends SelectableTable implements OnInit,
   ngOnInit() {
     super.ngOnInit();
 
-    if (!this.jumpToTimeEnabled) {
-      throw new Error('Missing Observable for jump to time enabled');
-    }
     if (!this.jumpToTimeNs) {
       throw new Error('Missing Observable for jump to time');
     }
 
-    combineLatest(this.jumpToTimeEnabled, this.jumpToTimeNs)
-        .pipe(takeUntil(this.unsub$), filter(([enabled]) => enabled))
-        .subscribe(([_, timeNs]) => {
-          jumpToTime(this.dataSource, timeNs);
-        });
+    this.dataSource.sortingDataAccessor = (data, sortHeaderId) =>
+        this.getSortingValue(data as ThreadInterval, sortHeaderId);
+
+    this.jumpToTimeNs.pipe(takeUntil(this.unsub$)).subscribe((timeNs) => {
+      jumpToTime(this.dataSource, timeNs);
+    });
   }
 
-  ngOnDestroy() {
-    this.unsub$.next();
-    this.unsub$.complete();
+  getSortingValue(thread: ThreadInterval, sortHeaderId: string): string|number {
+    switch (sortHeaderId) {
+      case 'selected':
+        return thread.selected ? 1 : 0;
+      case 'pid':
+        return thread.pid;
+      case 'command':
+        return thread.command;
+      case 'startTimeNs':
+        return thread.startTimeNs;
+      case 'endTimeNs':
+        return thread.endTimeNs;
+      case 'duration':
+        return thread.duration;
+      default:
+        this.outputErrorThrottled(`Unknown header: ${sortHeaderId}`);
+        return '';
+    }
   }
 }

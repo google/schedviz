@@ -21,9 +21,9 @@ package eventsetbuilder
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
+	elpb "github.com/google/schedviz/analysis/event_loaders_go_proto"
 	eventpb "github.com/google/schedviz/tracedata/schedviz_events_go_proto"
 	tp "github.com/google/schedviz/traceparser/traceparser"
 )
@@ -153,6 +153,12 @@ func (b *Builder) WithEvent(eventName string, cpu int64, timestampNs int64, clip
 				return b
 			}
 			traceEvent.NumberProperties[field.Name] = int64(v)
+		case int64:
+			if field.ProtoType != "int64" {
+				b.errs = append(b.errs, fmt.Errorf("expected integer argument for property %d", i))
+				return b
+			}
+			traceEvent.NumberProperties[field.Name] = v
 		case string:
 			if field.ProtoType != "string" {
 				b.errs = append(b.errs, fmt.Errorf("expected string argument for property %d", i))
@@ -160,7 +166,7 @@ func (b *Builder) WithEvent(eventName string, cpu int64, timestampNs int64, clip
 			}
 			traceEvent.TextProperties[field.Name] = v
 		default:
-			b.errs = append(b.errs, fmt.Errorf("unknown type for property %d", i))
+			b.errs = append(b.errs, fmt.Errorf("unknown type for property %d (%#v, %T)", i, prop, prop))
 			return b
 		}
 	}
@@ -170,15 +176,21 @@ func (b *Builder) WithEvent(eventName string, cpu int64, timestampNs int64, clip
 	return b
 }
 
-// TestProtobuf returns the EventSet built by the Builder.  If the
-// builder is in error, it fails on the provided testing.T.
-func (b *Builder) TestProtobuf(t *testing.T) *eventpb.EventSet {
-	if len(b.errs) > 0 {
-		var errStrs []string
-		for _, err := range b.errs {
-			errStrs = append(errStrs, err.Error())
-		}
-		t.Fatalf("Failed to construct EventSet protobuf: %s", strings.Join(errStrs, ", "))
+// WithDefaultEventLoadersType specifies the default event loaders that should
+// be used to interpret this trace.
+func (b *Builder) WithDefaultEventLoadersType(elt elpb.LoadersType) *Builder {
+	b.esb.SetDefaultEventLoadersType(elt)
+	return b
+}
+
+// EventSet returns the constructed EventSet protobuf, along with any errors
+// encountered in building.  If the errors slice is nonempty, the returned
+// EventSet is invalid.
+func (b *Builder) EventSet() (*eventpb.EventSet, []error) {
+	es, err := b.esb.Finalize()
+	errors := b.errs
+	if err != nil {
+		errors = append(errors, err)
 	}
-	return b.esb.EventSet
+	return es, errors
 }

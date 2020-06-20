@@ -51,6 +51,7 @@ function setupThreadTable(component: ThreadTable) {
   component.expandedFtraceIntervals = new BehaviorSubject<FtraceInterval[]>([]);
   component.expandedThreadAntagonists =
       new BehaviorSubject<ThreadInterval[]>([]);
+  component.expandedThreadIntervals = new BehaviorSubject<ThreadInterval[]>([]);
   component.tab = new BehaviorSubject<number>(0);
 }
 

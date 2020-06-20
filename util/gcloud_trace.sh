@@ -31,6 +31,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
   -z|-zone) GCP_ZONE="$2"; shift;;
   -s|-script) LOCAL_PATH_TO_SCRIPT="$2"; shift;;
   -ta|-trace_args) TRACE_ARGS="$2"; shift;;
+  -h|-help) echo "$USAGE"; exit 0;;
   *) echo "Unknown parameter passed: $1"; echo ${USAGE}; exit 1;;
 esac; shift; done
 

@@ -56,7 +56,7 @@ func (c *Collection) PerThreadEventSeries(pid PID, startTimestamp, endTimestamp 
 }
 
 // ThreadSummaries returns a set of thread summaries for a specified collection over a specified interval.
-func (c *Collection) ThreadSummaries(filters ...Filter) ([]Metrics, error) {
+func (c *Collection) ThreadSummaries(filters ...Filter) ([]*Metrics, error) {
 	f := buildFilter(c, filters)
 	pidsAndComms, err := c.PIDsAndComms()
 	if err != nil {
@@ -83,7 +83,7 @@ func (c *Collection) ThreadSummaries(filters ...Filter) ([]Metrics, error) {
 	cpuFilter := CPUs(cpuIDs...)
 	filterCPUs := c.CPUs(cpuFilter)
 
-	var pidMetrics = []Metrics{}
+	var pidMetrics = []*Metrics{}
 	// Get timestamps from collection if not provided.
 	startTS := f.startTimestamp
 	if startTS <= trace.UnknownTimestamp {
@@ -128,7 +128,7 @@ type metric struct {
 	cpus          map[CPUID]struct{}
 	priorities    map[Priority]struct{}
 	commands      map[string]struct{}
-	s             Metrics
+	s             *Metrics
 	c             *Collection
 	intervalCount int
 }
@@ -144,7 +144,7 @@ func newMetric(c *Collection, filters ...Filter) metric {
 	}
 
 	startTS, endTS := m.c.Interval(m.filters...)
-	m.s = Metrics{
+	m.s = &Metrics{
 		StartTimestampNs: startTS,
 		EndTimestampNs:   endTS,
 	}
@@ -206,18 +206,18 @@ func (m *metric) recordInterval(filterCPUs map[CPUID]struct{}, startTimestamp, e
 func (m *metric) recordDuration(dur trace.Timestamp, state ThreadState) {
 	duration := Duration(dur)
 	switch state {
-	case UnknownState:
-		m.s.UnknownTimeNs += duration
 	case RunningState:
 		m.s.RunTimeNs += duration
 	case WaitingState:
 		m.s.WaitTimeNs += duration
 	case SleepingState:
 		m.s.SleepTimeNs += duration
+	default:
+		m.s.UnknownTimeNs += duration
 	}
 }
 
-func (m *metric) finalize() Metrics {
+func (m *metric) finalize() *Metrics {
 	m.s.Cpus = nil
 	for cpu := range m.cpus {
 		m.s.Cpus = append(m.s.Cpus, cpu)

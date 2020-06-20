@@ -36,164 +36,174 @@
     </mat-icon>
   </button>
 
-  <mat-table [class.embedded-table]="embedded"
-             [dataSource]="dataSource"
-             matSort (matSortChange)="this.sort.next($event)"
-             [matSortActive]="sort.value.active"
-             [matSortDirection]="sort.value.direction"
-             multiTemplateDataRows
-             (mouseout)="previewRow()">
+  <div class="thread-table-container">
+    <table mat-table
+           [class.embedded-table]="embedded"
+           [dataSource]="dataSource"
+           matSort (matSortChange)="this.sort.next($event)"
+           [matSortActive]="sort.value.active"
+           [matSortDirection]="sort.value.direction"
+           multiTemplateDataRows
+           (mouseout)="previewRow()">
 
-    <!-- Checkbox Column -->
-    <ng-container matColumnDef="selected">
-      <mat-header-cell mat-header-cell
-                       *matHeaderCellDef
-                       mat-sort-header
-                       matTooltip="Sort by Selected">
-        <mat-icon>
-          layers
-        </mat-icon>
-      </mat-header-cell>
-      <mat-cell *matCellDef="let row">
-        <layer-toggle (click)="$event.stopPropagation()"
-                      (mouseenter)="previewRow(row)"
-                      [color]="colorService.getColorFor(row.label)"
-                      [toggledOn]="selection.isSelected(row.label)"
-                      (toggledOnChange)="toggleSelection(row)"></layer-toggle>
-      </mat-cell>
-    </ng-container>
+      <!-- Checkbox Column -->
+      <ng-container matColumnDef="selected">
+        <th mat-header-cell
+            *matHeaderCellDef
+            mat-sort-header
+            matTooltip="Sort by Selected">
+          <mat-icon>
+            layers
+          </mat-icon>
+        </th>
+        <td mat-cell *matCellDef="let row">
+          <layer-toggle (click)="$event.stopPropagation()"
+                        (mouseenter)="previewRow(row)"
+                        [color]="colorService.getColorFor(row.label)"
+                        [toggledOn]="selection.isSelected(row.label)"
+                        (toggledOnChange)="toggleSelection(row)"></layer-toggle>
+        </td>
+      </ng-container>
 
-    <!-- PID Column -->
-    <ng-container matColumnDef="pid">
-      <mat-header-cell *matHeaderCellDef mat-sort-header>PID</mat-header-cell>
-      <mat-cell *matCellDef="let thread">{{thread.pid}}</mat-cell>
-    </ng-container>
+      <!-- PID Column -->
+      <ng-container matColumnDef="pid">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>PID</th>
+        <td mat-cell *matCellDef="let thread">{{thread.pid}}</td>
+      </ng-container>
 
-    <!-- Command Column -->
-    <ng-container matColumnDef="command">
-      <mat-header-cell *matHeaderCellDef mat-sort-header>Command</mat-header-cell>
-      <mat-cell *matCellDef="let thread">{{thread.command}}</mat-cell>
-    </ng-container>
+      <!-- Command Column -->
+      <ng-container matColumnDef="command">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Command</th>
+        <td mat-cell *matCellDef="let thread">{{thread.command}}</td>
+      </ng-container>
 
-    <!-- Wakeups Column -->
-    <ng-container matColumnDef="wakeups">
-      <mat-header-cell *matHeaderCellDef mat-sort-header>
-        {{aggregateWakeups}} <br> Wakeups
-      </mat-header-cell>
-      <mat-cell class="metric-cell" *matCellDef="let thread">{{thread.wakeups}}</mat-cell>
-    </ng-container>
+      <!-- Wakeups Column -->
+      <ng-container matColumnDef="wakeups">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>
+          {{aggregateWakeups}} <br> Wakeups
+        </th>
+        <td mat-cell class="metric-cell" *matCellDef="let thread">{{thread.wakeups}}</td>
+      </ng-container>
 
-    <!-- Migrations Column -->
-    <ng-container matColumnDef="migrations">
-      <mat-header-cell *matHeaderCellDef mat-sort-header>
-        {{aggregateMigrations}} <br> Migrations
-      </mat-header-cell>
-      <mat-cell class="metric-cell" *matCellDef="let thread">{{thread.migrations}}</mat-cell>
-    </ng-container>
+      <!-- Migrations Column -->
+      <ng-container matColumnDef="migrations">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>
+          {{aggregateMigrations}} <br> Migrations
+        </th>
+        <td mat-cell class="metric-cell" *matCellDef="let thread">{{thread.migrations}}</td>
+      </ng-container>
 
-    <!-- Wait Time Column -->
-    <ng-container matColumnDef="waittime">
-      <mat-header-cell *matHeaderCellDef mat-sort-header>
-        {{formatTime(aggregateWaitTime)}} <br> Waiting
-      </mat-header-cell>
-      <mat-cell class="metric-cell" *matCellDef="let thread">
-        {{formatTime(thread.waittime)}}
-      </mat-cell>
-    </ng-container>
+      <!-- Wait Time Column -->
+      <ng-container matColumnDef="waittime">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>
+          {{formatTime(aggregateWaitTime)}} <br> Waiting
+        </th>
+        <td mat-cell class="metric-cell" *matCellDef="let thread">
+          {{formatTime(thread.waittime)}}
+        </td>
+      </ng-container>
 
-    <!-- Run Time Column -->
-    <ng-container matColumnDef="runtime">
-      <mat-header-cell *matHeaderCellDef mat-sort-header>
-        {{formatTime(aggregateRunTime)}} <br> Running
-      </mat-header-cell>
-      <mat-cell class="metric-cell" *matCellDef="let thread">
-        {{formatTime(thread.runtime)}}
-      </mat-cell>
-    </ng-container>
+      <!-- Run Time Column -->
+      <ng-container matColumnDef="runtime">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>
+          {{formatTime(aggregateRunTime)}} <br> Running
+        </th>
+        <td mat-cell class="metric-cell" *matCellDef="let thread">
+          {{formatTime(thread.runtime)}}
+        </td>
+      </ng-container>
 
-    <!-- Sleep Time Column -->
-    <ng-container matColumnDef="sleeptime">
-      <mat-header-cell *matHeaderCellDef mat-sort-header>
-        {{formatTime(aggregateSleepTime)}} <br> Sleeping
-      </mat-header-cell>
-      <mat-cell class="metric-cell" *matCellDef="let thread">
-        {{formatTime(thread.sleeptime)}}
-      </mat-cell>
-    </ng-container>
+      <!-- Sleep Time Column -->
+      <ng-container matColumnDef="sleeptime">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>
+          {{formatTime(aggregateSleepTime)}} <br> Sleeping
+        </th>
+        <td mat-cell class="metric-cell" *matCellDef="let thread">
+          {{formatTime(thread.sleeptime)}}
+        </td>
+      </ng-container>
 
-    <!-- Unknown Time Column -->
-    <ng-container matColumnDef="unknowntime">
-      <mat-header-cell *matHeaderCellDef mat-sort-header>
-        {{formatTime(aggregateUnknownTime)}} <br> Unknown
-      </mat-header-cell>
-      <mat-cell class="metric-cell" *matCellDef="let thread">
-        {{formatTime(thread.unknowntime)}}
-      </mat-cell>
-    </ng-container>
+      <!-- Unknown Time Column -->
+      <ng-container matColumnDef="unknowntime">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>
+          {{formatTime(aggregateUnknownTime)}} <br> Unknown
+        </th>
+        <td mat-cell class="metric-cell" *matCellDef="let thread">
+          {{formatTime(thread.unknowntime)}}
+        </td>
+      </ng-container>
 
-    <!-- Expanded Content Column - The detail row is made up of this one column that spans across all columns -->
-    <ng-container matColumnDef="expandedDetail">
+      <!-- Expanded Content Column - The detail row is made up of this one column that spans across all columns -->
+      <ng-container matColumnDef="expandedDetail">
 
-      <mat-cell *matCellDef="let thread" [attr.colspan]="displayedColumns.length">
-        <!-- TODO(sainsley): Move out of template and insert as needed to avoid repeat use -->
-        <div class="thread-detail" *ngIf="!embedded"
-             [@detailExpand]="thread.label === expandedThread.value ? 'expanded' : 'collapsed'">
-          <div *ngIf="thread.label === expandedThread.value">
-            <div class="expanded-controls">
-              <mat-form-field>
-                <input matInput
-                       matTooltip="Allowed units are nanoseconds, microseconds, milliseconds, seconds, minutes, and hours. The events table will be sorted by start time whenever the jump time is changed."
-                       isDuration
-                       [errorStateMatcher]="jumpToTimeMatcher"
-                       placeholder="Jump to time (e.g. '30 ms')"
-                       [ngModel]="jumpToTimeInput.value"
-                       (ngModelChange)="jumpToTimeInput.next($event)">
-                <mat-error>
-                  Invalid time format
-                </mat-error>
-              </mat-form-field>
-              <mat-slide-toggle [checked]="antagonistJumpToTimeEnabled.value"
-                                (change)="antagonistJumpToTimeEnabled.next($event.checked)"
-                                matTooltip="Enable advancing the antagonists table as well. This will sort the table by start time whenever the jump time is changed.">
-                Advance antagonists
-              </mat-slide-toggle>
-            </div>
-            <div class="expanded-details">
-              <event-table class="detail-table"
-                           [data]="expandedFtraceIntervals"
-                           [preview]="preview"
-                           [layers]="layers"
-                           [sort]="sort"
-                           [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
-                           [dataPending]="thread.eventsPending">
-              </event-table>
-              <antagonist-table class="detail-table"
-                                [data]="expandedThreadAntagonists"
-                                [preview]="preview"
-                                [layers]="layers"
-                                [sort]="sort"
-                                [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
-                                [jumpToTimeEnabled]="antagonistJumpToTimeEnabled"
-                                [dataPending]="thread.antagonistsPending">
-              </antagonist-table>
+        <td mat-cell *matCellDef="let thread" [attr.colspan]="displayedColumns.length">
+          <!-- TODO(sainsley): Move out of template and insert as needed to avoid repeat use -->
+          <div class="thread-detail" *ngIf="!embedded"
+               [@detailExpand]="thread.label === expandedThread.value ? 'expanded' : 'collapsed'">
+            <div *ngIf="thread.label === expandedThread.value">
+              <div class="expanded-controls">
+                <mat-form-field>
+                  <input matInput
+                         matTooltip="Allowed units are nanoseconds, microseconds, milliseconds, seconds, minutes, and hours. The events table will be sorted by start time whenever the jump time is changed."
+                         isDuration
+                         [errorStateMatcher]="jumpToTimeMatcher"
+                         placeholder="Jump to time (e.g. '30 ms')"
+                         [ngModel]="jumpToTimeInput.value"
+                         (ngModelChange)="jumpToTimeInput.next($event)">
+                  <mat-error>
+                    Invalid time format
+                  </mat-error>
+                </mat-form-field>
+              </div>
+              <div class="expanded-details">
+                <mat-tab-group>
+                  <mat-tab label="Raw Events">
+                    <event-table class="detail-table"
+                                 [data]="expandedFtraceIntervals"
+                                 [preview]="preview"
+                                 [layers]="layers"
+                                 [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
+                                 [dataPending]="thread.eventsPending">
+                    </event-table>
+                  </mat-tab>
+                  <mat-tab label="Intervals">
+                    <interval-table class="detail-table"
+                                    [data]="expandedThreadIntervals"
+                                    [preview]="preview"
+                                    [layers]="layers"
+                                    [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
+                                    [dataPending]="thread.intervalsPending">
+                    </interval-table>
+                  </mat-tab>
+                  <mat-tab label="Antagonists">
+                    <antagonist-table class="detail-table"
+                                      [data]="expandedThreadAntagonists"
+                                      [preview]="preview"
+                                      [layers]="layers"
+                                      [jumpToTimeNs]="thread.label === expandedThread.value && jumpToTimeNs"
+                                      [dataPending]="thread.antagonistsPending">
+                    </antagonist-table>
+                  </mat-tab>
+                </mat-tab-group>
+              </div>
             </div>
           </div>
-        </div>
-      </mat-cell>
-    </ng-container>
+        </td>
+      </ng-container>
 
-    <mat-header-row *matHeaderRowDef="displayedColumns; sticky: true" (mouseenter)="previewRow()">
-    </mat-header-row>
-    <mat-row *matRowDef="let thread; columns: displayedColumns;"
-             class="selectable-row thread-row"
-             (mouseenter)="previewRow(thread)"
-             (mouseout)="$event.stopPropagation();"
-             [class.expanded-row]="expandedThread.value === thread.label"
-             (click)="!isTextSelected() && expandThread(thread)">
-    </mat-row>
-    <mat-row *matRowDef="let row; columns: ['expandedDetail']" class="detail-row">
-    </mat-row>
-  </mat-table>
+      <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true" (mouseenter)="previewRow()">
+      </tr>
+      <tr mat-row *matRowDef="let thread; columns: displayedColumns;"
+               class="selectable-row thread-row"
+               (mouseenter)="previewRow(thread)"
+               (mouseout)="$event.stopPropagation();"
+               [class.expanded-row]="expandedThread.value === thread.label"
+               (click)="!isTextSelected() && expandThread(thread)">
+      </tr>
+      <tr mat-row *matRowDef="let row; columns: ['expandedDetail']" class="detail-row">
+      </tr>
+    </table>
+  </div>
   <div *ngIf="data.value.length == 0" class="spinner-container">
     <mat-progress-spinner *ngIf="dataPending; else noData"
       color="primary"

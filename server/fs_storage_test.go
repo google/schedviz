@@ -47,15 +47,20 @@ var (
 
 // TODO(tracked) Consider using schedtestcommon.TestTrace1(t) here
 // as a lighter-weight alternative.
-var fh = func(t *testing.T) io.Reader {
+func getTestTarFile(t *testing.T, name string) io.Reader {
 	t.Helper()
 	// Bazel stores test location in these environment variables
 	runFiles := path.Join(os.Getenv("TEST_SRCDIR"), os.Getenv("TEST_WORKSPACE"))
-	file, err := os.Open(path.Join(runFiles, "server", "testdata", "test.tar.gz"))
+	file, err := os.Open(path.Join(runFiles, "server", "testdata", name))
 	if err != nil {
 		t.Fatalf("error fetching test tar: %s", err)
 	}
 	return file
+}
+
+var fh = func(t *testing.T) io.Reader {
+	t.Helper()
+	return getTestTarFile(t, "test.tar.gz")
 }
 
 func createCollectionDir() (string, error) {
@@ -89,42 +94,122 @@ func TestFsStorage_UploadFile(t *testing.T) {
 	defer cleanup(t, tmpDir)
 	fsStorage := createFSStorage(t, tmpDir, 1)
 
-	collectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
-	if err != nil {
-		t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
+	tests := []struct {
+		file               io.Reader
+		wantNumEvents      int
+		wantStart          trace.Timestamp
+		wantEnd            trace.Timestamp
+		wantSystemTopology models.SystemTopology
+	}{
+		{
+			file:          getTestTarFile(t, "test.tar.gz"),
+			wantNumEvents: 28922,
+			wantStart:     0,
+			wantEnd:       2009150555,
+			wantSystemTopology: models.SystemTopology{
+				LogicalCores: []*models.LogicalCore{{
+					SocketID:   0,
+					DieID:      0,
+					ThreadID:   0,
+					NumaNodeID: 0,
+					CPUID:      0,
+					CoreID:     0,
+				}},
+			},
+		},
+		{
+			file:          getTestTarFile(t, "test_no_metadata.tar.gz"),
+			wantNumEvents: 28922,
+			wantStart:     0,
+			wantEnd:       2009150555,
+			wantSystemTopology: models.SystemTopology{
+				LogicalCores: []*models.LogicalCore{{
+					SocketID:   0,
+					DieID:      0,
+					ThreadID:   0,
+					NumaNodeID: 0,
+					CPUID:      0,
+					CoreID:     0,
+				}},
+			},
+		},
+		{
+			file:          getTestTarFile(t, "ebpf_trace.tar.gz"),
+			wantNumEvents: 991,
+			wantStart:     0,
+			wantEnd:       12321353,
+			wantSystemTopology: models.SystemTopology{
+				LogicalCores: []*models.LogicalCore{
+					{
+						SocketID:   0,
+						DieID:      0,
+						ThreadID:   0,
+						NumaNodeID: 0,
+						CPUID:      0,
+						CoreID:     0,
+					},
+					{
+						SocketID:   0,
+						DieID:      0,
+						ThreadID:   0,
+						NumaNodeID: 0,
+						CPUID:      1,
+						CoreID:     1,
+					},
+					{
+						SocketID:   0,
+						DieID:      0,
+						ThreadID:   1,
+						NumaNodeID: 0,
+						CPUID:      2,
+						CoreID:     0,
+					},
+					{
+						SocketID:   0,
+						DieID:      0,
+						ThreadID:   1,
+						NumaNodeID: 0,
+						CPUID:      3,
+						CoreID:     1,
+					},
+				},
+			},
+		},
 	}
 
-	cachedValue, err := fsStorage.GetCollection(ctx, collectionName)
-	if err != nil {
-		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
-	}
+	for _, test := range tests {
+		collectionName, err := fsStorage.UploadFile(ctx, colRequest, test.file)
+		if err != nil {
+			t.Fatalf("unexpected error thrown by FsStorage::UploadFile: %s", err)
+		}
 
-	rawEvents, err := cachedValue.Collection.GetRawEvents()
-	if err != nil {
-		t.Fatalf("unexpected error thrown while checking number of raw events: %s", err)
-	}
-	if len(rawEvents) != 28922 {
-		t.Errorf("wrong number of events in event set. got: %d, want: %d", len(rawEvents), 28922)
-	}
-	gotStart, gotEnd := cachedValue.Collection.Interval()
-	if gotStart != 0 {
-		t.Errorf("wrong start time of collection. got: %d, want: %d", gotStart, 0)
-	}
-	if gotEnd != 2009150555 {
-		t.Errorf("wrong end time of collection. got: %d, want: %d", gotEnd, 2009150555)
-	}
+		cachedValue, err := fsStorage.GetCollection(ctx, collectionName)
+		if err != nil {
+			t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
+		}
 
-	wantLogicalCores := []models.LogicalCore{{
-		SocketID:   0,
-		DieID:      0,
-		ThreadID:   0,
-		NumaNodeID: 0,
-		CPUID:      0,
-		CoreID:     0,
-	}}
+		rawEvents, err := cachedValue.Collection.GetRawEvents()
+		if err != nil {
+			t.Fatalf("unexpected error thrown while checking number of raw events: %s", err)
+		}
+		if len(rawEvents) != test.wantNumEvents {
+			t.Errorf("wrong number of events in event set. got: %d, want: %d", len(rawEvents), test.wantNumEvents)
+		}
+		gotStart, gotEnd := cachedValue.Collection.Interval()
+		if gotStart != test.wantStart {
+			t.Errorf("wrong start time of collection. got: %d, want: %d", gotStart, test.wantStart)
+		}
+		if gotEnd != test.wantEnd {
+			t.Errorf("wrong end time of collection. got: %d, want: %d", gotEnd, test.wantEnd)
+		}
 
-	if diff := cmp.Diff(cachedValue.SystemTopology.LogicalCores, wantLogicalCores); diff != "" {
-		t.Errorf("wrong system topology returned; Diff -want +got %v", diff)
+		sort.Slice(cachedValue.SystemTopology.LogicalCores, func(i, j int) bool {
+			lc := cachedValue.SystemTopology.LogicalCores
+			return lc[i].CPUID < lc[j].CPUID
+		})
+		if diff := cmp.Diff(test.wantSystemTopology, cachedValue.SystemTopology); diff != "" {
+			t.Errorf("wrong system topology returned; Diff -want +got %v", diff)
+		}
 	}
 }
 
@@ -165,15 +250,13 @@ func TestFsStorage_GetCollection(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateFSStorage returned wrong type")
 	}
-
-	origAddToCache := addToCache
-	cacheAdds := 0
-	addToCache = func(sb *storageBase, path string, collection *CachedCollection) {
-		cacheAdds++
-		origAddToCache(sb, path, collection)
+	// checkAddsAndEvictions checks actual cache additions and evictions against expected.
+	checkAddsAndEvictions := func(t *testing.T, fs *FsStorage, wantAdds, wantEvictions int) {
+		t.Helper()
+		if gotAdds, gotEvictions := fs.cacheStats(); gotAdds != wantAdds || gotEvictions != wantEvictions {
+			t.Errorf("Expected %d cache adds and %d cache evictions, got %d adds and %d evictions", wantAdds, wantEvictions, gotAdds, gotEvictions)
+		}
 	}
-	defer func() { addToCache = origAddToCache }()
-
 	// Adds an entry to the cache.
 	firstCollectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
@@ -183,9 +266,7 @@ func TestFsStorage_GetCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if cacheAdds != 1 {
-		t.Errorf("Expected 1 cache adds after first GetCollection, got %d", cacheAdds)
-	}
+	checkAddsAndEvictions(t, fsStorage, 1, 0)
 	// Adds an entry to the cache, evicting the old one.
 	secondCollectionName, err := fsStorage.UploadFile(ctx, colRequest, fh(t))
 	if err != nil {
@@ -196,25 +277,19 @@ func TestFsStorage_GetCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if cacheAdds != 2 {
-		t.Errorf("Expected 2 cache adds after second GetCollection, got %d", cacheAdds)
-	}
+	checkAddsAndEvictions(t, fsStorage, 2, 1)
 	// Adds an entry to the cache, evicting the old one.
 	_, err = fsStorage.GetCollection(ctx, firstCollectionName)
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if cacheAdds != 3 {
-		t.Errorf("Expected 3 cache adds after third GetCollection, got %d", cacheAdds)
-	}
+	checkAddsAndEvictions(t, fsStorage, 3, 2)
 	// Should hit cache
 	_, err = fsStorage.GetCollection(ctx, firstCollectionName)
 	if err != nil {
 		t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 	}
-	if cacheAdds != 3 {
-		t.Errorf("Expected 3 cache adds after fourth GetCollection, got %d", cacheAdds)
-	}
+	checkAddsAndEvictions(t, fsStorage, 3, 2)
 }
 
 func TestFsStorage_GetCollectionMetadata(t *testing.T) {
@@ -240,7 +315,12 @@ func TestFsStorage_GetCollectionMetadata(t *testing.T) {
 		Tags:                 []string{"test"},
 		Description:          "test",
 		CreationTime:         1,
-		FtraceEvents:         []string{},
+		FtraceEvents: []string{
+			"sched_migrate_task",
+			"sched_switch",
+			"sched_wakeup",
+			"sched_wakeup_new",
+		},
 	}
 
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -280,7 +360,12 @@ func TestFsStorage_EditCollection(t *testing.T) {
 		Tags:                 []string{"edited"},
 		Description:          "abc",
 		CreationTime:         1,
-		FtraceEvents:         []string{},
+		FtraceEvents: []string{
+			"sched_migrate_task",
+			"sched_switch",
+			"sched_wakeup",
+			"sched_wakeup_new",
+		},
 	}
 
 	got, err := fsStorage.GetCollectionMetadata(ctx, collectionName)
@@ -400,19 +485,19 @@ func TestFsStorage_GetFtraceEvents(t *testing.T) {
 				Timestamp: 21845,
 				Clipped:   false,
 				TextProperties: map[string]string{
-					"common_flags":         "\x01",
-					"common_preempt_count": "",
-					"prev_comm":            "trace.sh",
-					"next_comm":            "kauditd",
+					"prev_comm": "trace.sh",
+					"next_comm": "kauditd",
 				},
 				NumberProperties: map[string]int64{
-					"common_type": 0,
-					"common_pid":  17254,
-					"prev_pid":    17254,
-					"prev_prio":   120,
-					"prev_state":  4096,
-					"next_pid":    430,
-					"next_prio":   120,
+					"common_type":          0,
+					"common_flags":         1,
+					"common_pid":           17254,
+					"common_preempt_count": 0,
+					"prev_pid":             17254,
+					"prev_prio":            120,
+					"prev_state":           4096,
+					"next_pid":             430,
+					"next_prio":            120,
 				},
 			}},
 		},
@@ -464,6 +549,93 @@ func TestConvertIntRangeToList(t *testing.T) {
 				t.Errorf("Expected %q error, but got %q error instead", test.err, err)
 			} else if diff := cmp.Diff(got, test.out); diff != "" {
 				t.Errorf("convertIntRangeToList(%q): Diff -want +got: \n%s", test.in, diff)
+			}
+		})
+	}
+}
+
+func TestReadOptions(t *testing.T) {
+	tests := []struct {
+		file        io.Reader
+		wantOptions map[string]bool
+		wantErr     string
+	}{
+		{
+			file: getTestTarFile(t, "test.tar.gz"),
+			wantOptions: map[string]bool{
+				"annotate":           true,
+				"bin":                false,
+				"blk_cgname":         false,
+				"blk_cgroup":         false,
+				"blk_classic":        false,
+				"block":              false,
+				"context-info":       true,
+				"disable_on_free":    true,
+				"display-graph":      false,
+				"event-fork":         false,
+				"func_stack_trace":   false,
+				"funcgraph-abstime":  false,
+				"funcgraph-cpu":      true,
+				"funcgraph-duration": true,
+				"funcgraph-irqs":     true,
+				"funcgraph-overhead": true,
+				"funcgraph-overrun":  false,
+				"funcgraph-proc":     false,
+				"funcgraph-tail":     false,
+				"function-fork":      false,
+				"function-trace":     true,
+				"graph-time":         true,
+				"hex":                false,
+				"irq-info":           true,
+				"latency-format":     false,
+				"markers":            true,
+				"overwrite":          false,
+				"print-parent":       true,
+				"printk-msg-only":    false,
+				"raw":                false,
+				"record-cmd":         true,
+				"record-tgid":        false,
+				"sleep-time":         true,
+				"stacktrace":         false,
+				"sym-addr":           false,
+				"sym-offset":         false,
+				"sym-userobj":        false,
+				"test_nop_accept":    false,
+				"test_nop_refuse":    false,
+				"trace_printk":       true,
+				"userstacktrace":     false,
+				"verbose":            false,
+			},
+		},
+		{
+			file:        getTestTarFile(t, "test_no_metadata.tar.gz"),
+			wantOptions: nil,
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("TestReadOptions Case: %d", i), func(t *testing.T) {
+			tmpDir, err := ioutil.TempDir("", "testreadoptionstar")
+			if err != nil {
+				t.Fatalf("failed to create temp directory: %s", err)
+			}
+			defer func() {
+				// Clean up temp directory after parsing or on error.
+				if err := os.RemoveAll(tmpDir); err != nil {
+					t.Fatalf("failed to clean up temp directory while parsing tar: %s", err)
+				}
+			}()
+
+			if err := untar(test.file, tmpDir); err != nil {
+				t.Fatalf("failed to untar test file: %s", err)
+			}
+			gotOptions, err := readOptions(path.Join(tmpDir, "options"))
+			if test.wantErr != "" && err == nil {
+				t.Errorf("Expected %q error, but no error was thrown", test.wantErr)
+			} else if err != nil && err.Error() != test.wantErr {
+				t.Errorf("Expected %q error, but got %q error instead", test.wantErr, err)
+			} else if diff := cmp.Diff(gotOptions, test.wantOptions); diff != "" {
+				t.Errorf("readOptions(%d): Diff -want +got: \n%s", i, diff)
 			}
 		})
 	}

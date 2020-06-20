@@ -34,4 +34,7 @@ export declare interface Metadata {
   ftraceEvents: string[];
   // The target machine on which the collection was performed.
   targetMachine: string;
+  // The schedviz.analysis.event_loaders.LoadersType used by default for this
+  // collection.
+  defaultEventLoader: number;
 }

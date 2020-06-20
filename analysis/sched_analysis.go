@@ -20,7 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 
+	"github.com/golang/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"github.com/google/schedviz/tracedata/trace"
 )
 
@@ -37,8 +41,8 @@ type antagonistBuilder struct {
 	startTimestamp trace.Timestamp
 	endTimestamp   trace.Timestamp
 	stringTable    *stringTable
-	victims        map[string]Thread
-	antagonisms    []Antagonism
+	victims        map[string]*Thread
+	antagonisms    []*Antagonism
 }
 
 func newAntagonistBuilder(pid PID, startTimestamp, endTimestamp trace.Timestamp, sTbl *stringTable) *antagonistBuilder {
@@ -47,8 +51,8 @@ func newAntagonistBuilder(pid PID, startTimestamp, endTimestamp trace.Timestamp,
 		startTimestamp: startTimestamp,
 		endTimestamp:   endTimestamp,
 		stringTable:    sTbl,
-		victims:        make(map[string]Thread),
-		antagonisms:    []Antagonism{},
+		victims:        make(map[string]*Thread),
+		antagonisms:    []*Antagonism{},
 	}
 }
 
@@ -61,7 +65,7 @@ func (ab *antagonistBuilder) addVictim(span *threadSpan) error {
 	if err != nil {
 		return fmt.Errorf("could not get victim command with string ID %d", span.command)
 	}
-	ab.victims[fmt.Sprintf("%d:%s", span.pid, cmd)] = Thread{
+	ab.victims[fmt.Sprintf("%d:%s", span.pid, cmd)] = &Thread{
 		Priority: span.priority,
 		Command:  cmd,
 		PID:      span.pid,
@@ -99,8 +103,8 @@ func (ab *antagonistBuilder) RecordAntagonism(waiting, antagonist *threadSpan) e
 		return nil
 	}
 
-	ab.antagonisms = append(ab.antagonisms, Antagonism{
-		RunningThread: Thread{
+	ab.antagonisms = append(ab.antagonisms, &Antagonism{
+		RunningThread: &Thread{
 			PID:      antagonist.pid,
 			Command:  cmd,
 			Priority: antagonist.priority,
@@ -114,7 +118,7 @@ func (ab *antagonistBuilder) RecordAntagonism(waiting, antagonist *threadSpan) e
 
 // Antagonists returns a Antagonists that contains all of the recorded antagonists.
 func (ab *antagonistBuilder) Antagonists() Antagonists {
-	var victims = []Thread{}
+	var victims = []*Thread{}
 	for _, v := range ab.victims {
 		victims = append(victims, v)
 	}
@@ -300,4 +304,109 @@ func (c *Collection) UtilizationMetrics(filters ...Filter) (Utilization, error) 
 			um.PerThreadTime += Duration(minPerThreadCount) * intervalDuration
 		}
 	}
+}
+
+// ThreadStatistics encapsulates statistics from one or more threads, on a set
+// of CPUs, and over a duration of time.
+type ThreadStatistics struct {
+	// Total time spent by the requested threads waiting on the requested CPUs
+	// over the requested interval.
+	WaitTime Duration
+	// Total time spent by the requested threads waiting after a wakeup on the
+	// requested CPUs over the requested interval.  Non-post-wakeup waiting is
+	// round-robin.
+	PostWakeupWaitTime Duration
+	// Total time spent by the requested threads running on the requested CPUs
+	// over the requested interval.
+	RunTime Duration
+	// Total time spent by the requested threads sleeping on the requested CPUs
+	// over the requested interval.
+	SleepTime Duration
+	// Total number of wakeups of the requested threads on the requested CPUs
+	// over the requested interval.  Only wakeups contained *within* the
+	// requested interval are counted; those lying on the boundary are not.
+	Wakeups int64
+	// Total number of migrations of the requested threads from or to the
+	// requested CPUs over the requested interval.  Only migrations contained
+	// *within* the requested interval are counted; those lying on the boundary
+	// are not.
+	Migrations int64
+}
+
+func (a *ThreadStatistics) add(b *ThreadStatistics) {
+	a.WaitTime += b.WaitTime
+	a.PostWakeupWaitTime += b.PostWakeupWaitTime
+	a.RunTime += b.RunTime
+	a.SleepTime += b.SleepTime
+	a.Wakeups += b.Wakeups
+	a.Migrations += b.Migrations
+}
+
+// ThreadStats returns ThreadStatistics aggregated across the filtered-in
+// trace.
+func (c *Collection) ThreadStats(filters ...Filter) (*ThreadStatistics, error) {
+	f := buildFilter(c, filters)
+	var m sync.Mutex
+	perPIDStats := map[PID]*ThreadStatistics{}
+	eg := errgroup.Group{}
+	for pid := range f.pids {
+		func(pid PID) {
+			eg.Go(func() error {
+				// Override the filtered-in PIDs and minimum interval duration.
+				ivals, err := c.ThreadIntervals(duplicateFilter(f), PIDs(pid), MinIntervalDuration(0), TruncateToTimeRange(true))
+				if err != nil {
+					return status.Errorf(codes.Internal, "failed to generate thread intervals for PID %d: %s", pid, err)
+				}
+				stats := &ThreadStatistics{}
+				isPostWakeup := false
+				lastCPU := UnknownCPU
+				lastState := AnyState
+				for _, ival := range ivals {
+					// Since the minimum interval duration is 0, there should be only one
+					// thread residency.
+					if len(ival.ThreadResidencies) != 1 {
+						return status.Errorf(codes.Internal, "expected 1 thread residency for PID %d at time %s; got %d", pid, ival.StartTimestamp, (ival.ThreadResidencies))
+					}
+					res := ival.ThreadResidencies[0]
+					if isPostWakeup && res.State != WaitingState {
+						isPostWakeup = false
+					}
+					// Track migrations
+					if lastCPU != UnknownCPU && lastCPU != ival.CPU {
+						stats.Migrations++
+					}
+					// Track wakeups
+					if (lastState == SleepingState && res.State == RunningState) || (lastState != WaitingState && res.State == WaitingState) {
+						isPostWakeup = true
+						stats.Wakeups++
+					}
+					switch res.State {
+					case RunningState:
+						stats.RunTime += res.Duration
+					case SleepingState:
+						stats.SleepTime += res.Duration
+					case WaitingState:
+						stats.WaitTime += res.Duration
+					}
+					if isPostWakeup {
+						stats.PostWakeupWaitTime += res.Duration
+					}
+					lastCPU = ival.CPU
+					lastState = res.State
+				}
+				m.Lock()
+				defer m.Unlock()
+				perPIDStats[pid] = stats
+				return nil
+			})
+		}(pid)
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	summaryStats := &ThreadStatistics{}
+	for _, stat := range perPIDStats {
+		summaryStats.add(stat)
+	}
+	return summaryStats, nil
 }

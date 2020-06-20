@@ -19,7 +19,6 @@ import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, In
 import {FormControl} from '@angular/forms';
 import {ErrorStateMatcher} from '@angular/material/core';
 import {BehaviorSubject, Observable} from 'rxjs';
-import {debounceTime, filter, map} from 'rxjs/operators';
 
 import {FtraceInterval, Interval, Layer, Thread, ThreadInterval} from '../../models';
 import {ColorService} from '../../services/color_service';
@@ -75,10 +74,10 @@ export class ThreadTable extends SelectableTable implements OnInit,
   @Input() expandedThread!: BehaviorSubject<string|undefined>;
   @Input() expandedFtraceIntervals!: BehaviorSubject<FtraceInterval[]>;
   @Input() expandedThreadAntagonists!: BehaviorSubject<ThreadInterval[]>;
+  @Input() expandedThreadIntervals!: BehaviorSubject<ThreadInterval[]>;
   @Input() filter!: BehaviorSubject<string>;
   @Input() tab!: BehaviorSubject<number>;
   @Input() jumpToTimeInput = new BehaviorSubject<string>('');
-  @Input() antagonistJumpToTimeEnabled = new BehaviorSubject<boolean>(true);
   jumpToTimeNs = new Observable<number>();
   jumpToTimeMatcher = new ImmediateErrorStateMatcher();
   aggregateWakeups = 0;
@@ -128,7 +127,13 @@ export class ThreadTable extends SelectableTable implements OnInit,
     if (!this.expandedThreadAntagonists) {
       throw new Error('Missing Observable for expanded thread antagonists');
     }
+    if (!this.expandedThreadIntervals) {
+      throw new Error('Missing Observable for expanded thread intervals');
+    }
     this.dataSource.filterPredicate = this.filterPredicate;
+    this.dataSource.sortingDataAccessor = (data, sortHeaderId) =>
+        this.getSortingValue(data as Thread, sortHeaderId);
+
     // Subscribe to filter changes
     this.filter.subscribe((filter: string) => {
       this.dataSource.filter = filter;
@@ -236,6 +241,32 @@ export class ThreadTable extends SelectableTable implements OnInit,
     const expandedThreadLabel =
         this.expandedThread.value === thread.label ? undefined : thread.label;
     this.expandedThread.next(expandedThreadLabel);
+  }
+
+  getSortingValue(interval: Thread, sortHeaderId: string): string|number {
+    switch (sortHeaderId) {
+      case 'selected':
+        return interval.selected ? 1 : 0;
+      case 'pid':
+        return interval.pid;
+      case 'command':
+        return interval.command;
+      case 'wakeups':
+        return interval.wakeups;
+      case 'migrations':
+        return interval.migrations;
+      case 'waittime':
+        return interval.waittime;
+      case 'runtime':
+        return interval.runtime;
+      case 'sleeptime':
+        return interval.sleeptime;
+      case 'unknowntime':
+        return interval.unknowntime;
+      default:
+        this.outputErrorThrottled(`Unknown header: ${sortHeaderId}`);
+        return '';
+    }
   }
 
 }

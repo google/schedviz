@@ -7,9 +7,15 @@
   width: 100%;
 }
 
-.mat-table {
+.thread-table-container {
   height: calc(100% - 95px);
   overflow: auto;
+  width: 100%;
+  display: block;
+}
+
+.mat-table {
+  width: 100%;
 }
 
 .sched-events-mat-table {
@@ -34,13 +40,8 @@
   margin-left: 10px;
 }
 
-.mat-column-command {
-  flex: 0 0 120px;
-  padding-left: 10px;
-}
-
 .mat-column-selected {
-  flex: 0 0 36px;
+  max-width: 36px;
 }
 
 .timestamp {
@@ -57,36 +58,59 @@
 }
 
 .metric-cell {
-  justify-content: flex-end;
   padding-right: 10px;
+  text-align: right;
 }
 
-mat-cell:first-of-type {
+th ::ng-deep .mat-sort-header-container {
+  justify-content: flex-end;
+}
+
+.mat-column-selected, .mat-column-command, .mat-column-name {
+  text-align: left;
+}
+
+.mat-column-selected ::ng-deep .mat-sort-header-container,
+.mat-column-command ::ng-deep .mat-sort-header-container,
+.mat-column-name ::ng-deep .mat-sort-header-container {
+  justify-content: flex-start;
+}
+
+.mat-cell:first-of-type {
   padding-left: 10px;
 }
 
-mat-header-cell:first-of-type {
+.mat-header-cell:first-of-type {
   padding-left: 10px;
 }
 
-mat-header-cell:last-of-type {
-  padding-right: 0px;
+.mat-header-cell:last-of-type {
+  padding-right: 0;
 }
 
-mat-header-cell {
+.mat-header-cell {
   line-height: 12pt;
 }
 
-mat-cell {
+.mat-cell {
   font-size: 12px;
 }
 
-mat-cell:last-of-type {
+.mat-cell:last-of-type {
   padding-right: 10px;
+}
+
+.expanded-row, .expanded-row td {
+  border-bottom: none;
 }
 
 .detail-row {
   min-height: 0;
+  height: auto;
+}
+
+:not(.expanded-row) + .detail-row, :not(.expanded-row) + .detail-row td {
+  border: none;
 }
 
 .selectable-row {
@@ -203,11 +227,12 @@ mat-form-field {
 }
 
 .expanded-controls {
-  float: right;
+  display: flex;
+  justify-content: flex-end;
 }
 
-.expanded-details {
-  float: left;
+.expanded-details ::ng-deep .mat-tab-body-content {
+  height: auto;
 }
 
 .trimmed-text {

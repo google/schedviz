@@ -18,11 +18,9 @@ package sched
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/schedviz/tracedata/trace"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // ConflictPolicy sets a policy to use when two threadTransitions are found
@@ -94,8 +92,14 @@ func resolveConflict(a, b ConflictPolicy) ConflictPolicy {
 	var result ConflictPolicy = -1
 	switch {
 	case a == b:
+		// If the two policies are the same, we have concord.
 		result = a
-	case a == Fail && (b == Drop || b == DropOrInsertSynthetic):
+	case a == Fail && (b&Drop == Drop):
+		// If one policy is Fail and the other includes Drop, we can drop.
+		result = Drop
+	case a == Drop && (b&InsertSynthetic == InsertSynthetic):
+		// If one policy is Drop and the other includes InsertSynthetic,
+		// we can drop.
 		result = Drop
 	default:
 		result = a & b
@@ -155,12 +159,19 @@ type threadTransition struct {
 	// The CPU on which PID was located after this threadTransition.  If Unknown,
 	// may be inferred from other threadTransitions.
 	NextCPU CPUID
-	// The state PID held prior to this threadTransition.  If Unknown, may be
-	// inferred from other threadTransitions.
+	// Whether the CPU can propagate through this transition during inference.
+	// This should be true for events that do not affect a thread's CPU, and
+	// false for events that do.
+	CPUPropagatesThrough bool
+	// The state PID may have held prior to this threadTransition.
 	PrevState ThreadState
 	// The state PID held after this threadTransition.  If Unknown, may be
 	// inferred from other threadTransitions.
 	NextState ThreadState
+	// Whether states can propagate through this transition during inference.
+	// This should be true for events that do not affect a thread's state, and
+	// false for events that do.
+	StatePropagatesThrough bool
 	// Conflict resolution policies.  Some events are unreliable; for example,
 	// sched_wakeup can occur on a running or waiting thread.  Events that can be
 	// emitted as part of an interrupt are perhaps more prone to require these
@@ -184,118 +195,86 @@ type threadTransition struct {
 // inference passes on groups of adjacent transitions which start with, and run
 // up to just prior to, forward barriers.
 func (tt *threadTransition) isForwardBarrier() bool {
-	return tt.NextCPU != UnknownCPU && tt.NextState != UnknownState &&
+	return tt.NextCPU != UnknownCPU && tt.NextState.isKnown() &&
 		(tt.onForwardsStateConflict&Drop) != Drop && (tt.onForwardsCPUConflict&Drop) != Drop
 }
 
 // setCPUForwards propagates a CPU, known to hold for the receiver's PID just
-// prior to its timestamp, forward into and possibly through the receiver.
-func (tt *threadTransition) setCPUForwards(cpu CPUID) error {
+// prior to its timestamp, forward into and, if requested, through the
+// receiver.  If the CPU cannot be propagated, returns false.
+func (tt *threadTransition) setCPUForwards(cpu CPUID) bool {
 	if cpu == UnknownCPU || tt.PrevCPU == cpu {
-		return nil
+		return true
 	}
 	if tt.PrevCPU != UnknownCPU {
-		return status.Errorf(codes.Internal, "setCPUForwards called on threadTransition with different PrevCPU")
+		return false
 	}
 	tt.PrevCPU = cpu
-	// If both previous and next CPUs were Unknown, propagate through to Next.
-	if tt.NextCPU == UnknownCPU {
+	if tt.CPUPropagatesThrough {
+		if tt.NextCPU != UnknownCPU {
+			return false
+		}
 		tt.NextCPU = cpu
 	}
-	return nil
+	return true
 }
 
 // setCPUBackwards propagates a CPU, known to hold for the receiver's PID just
-// after its Timestamp, backward into and possibly through the receiver.
-func (tt *threadTransition) setCPUBackwards(cpu CPUID) error {
+// after its Timestamp, backward into and, if requested, through the receiver.
+// If the CPU cannot be propagated, returns false.
+func (tt *threadTransition) setCPUBackwards(cpu CPUID) bool {
 	if cpu == UnknownCPU || tt.NextCPU == cpu {
-		return nil
+		return true
 	}
 	if tt.NextCPU != UnknownCPU {
-		return status.Errorf(codes.Internal, "setCPUBackwards called on threadTransition with different NextCPU")
+		return false
 	}
 	tt.NextCPU = cpu
-	if tt.PrevCPU == UnknownCPU {
+	if tt.CPUPropagatesThrough {
+		if tt.PrevCPU != UnknownCPU {
+			return false
+		}
 		tt.PrevCPU = cpu
 	}
-	return nil
+	return true
 }
 
 // setStateForwards propagates a thread state, known to hold for the receiver's
-// PID just prior to its timestamp, forward into and possibly through the
-// receiver.
-func (tt *threadTransition) setStateForwards(state ThreadState) error {
-	if state == UnknownState || tt.PrevState == state {
-		return nil
+// PID just prior to its timestamp, forward into and, if requested, through
+// the receiver.  If the state cannot be propagated, returns false.
+func (tt *threadTransition) setStateForwards(state ThreadState) bool {
+	prevState, merged := mergeState(state, tt.PrevState)
+	if !merged {
+		return false
 	}
-	if tt.PrevState != UnknownState {
-		return status.Errorf(codes.Internal, "setStateForwards called on threadTransition with different PrevState")
+	tt.PrevState = prevState
+	if tt.StatePropagatesThrough {
+		nextState, merged := mergeState(tt.PrevState, tt.NextState)
+		if !merged {
+			return false
+		}
+		tt.NextState = nextState
 	}
-	tt.PrevState = state
-	if tt.NextState == UnknownState {
-		tt.NextState = state
-	}
-	return nil
+	return true
 }
 
 // setStateBackwards propagates a thread state, known to hold for the
-// receiver's PID just after its timestamp, forward into and possibly through
-// the receiver.
-func (tt *threadTransition) setStateBackwards(state ThreadState) error {
-	if state == UnknownState || tt.NextState == state {
-		return nil
+// receiver's PID just after its timestamp, backwards into and, if requested,
+// through the receiver.  If the state cannot be propagated, returns false.
+func (tt *threadTransition) setStateBackwards(state ThreadState) bool {
+	nextState, merged := mergeState(state, tt.NextState)
+	if !merged {
+		return false
 	}
-	if tt.NextState != UnknownState {
-		return status.Errorf(codes.Internal, "setStateBackwards called on threadTransition with different NextState")
+	tt.NextState = nextState
+	if tt.StatePropagatesThrough {
+		prevState, merged := mergeState(tt.NextState, tt.PrevState)
+		if !merged {
+			return false
+		}
+		tt.PrevState = prevState
 	}
-	tt.NextState = state
-	if tt.PrevState == UnknownState {
-		tt.PrevState = state
-	}
-	return nil
-}
-
-// mergeSynthetic accepts two synthetic threadTransitions affecting the same
-// thread at the same timestamp, and returns their merger, or an error if they
-// cannot be merged.  Two threadTransitions cannot be merged if:
-// * either is not synthetic,
-// * their PIDs disagree,
-// * their timestamps disagree, or
-// * their PrevCPUs, NextCPUs, PrevStates, NextStates cannot be merged.
-func mergeSynthetic(a, b *threadTransition) (*threadTransition, error) {
-	if !(a.synthetic && b.synthetic) {
-		return nil, status.Errorf(codes.Internal, "can't merge non-synthetic transitions")
-	}
-	if a.PID != b.PID {
-		return nil, status.Errorf(codes.Internal, "can't merge transitions from different threads")
-	}
-	if a.Timestamp != b.Timestamp {
-		return nil, status.Errorf(codes.Internal, "can't merge transitions with different timestamps")
-	}
-	newTransition := &threadTransition{
-		EventID:      Unknown,
-		Timestamp:    a.Timestamp,
-		PID:          a.PID,
-		PrevCommand:  UnknownCommand,
-		NextCommand:  UnknownCommand,
-		PrevPriority: UnknownPriority,
-		NextPriority: UnknownPriority,
-		synthetic:    true,
-	}
-	var err error
-	if newTransition.PrevState, err = mergeState(a.PrevState, b.PrevState); err != nil {
-		return nil, err
-	}
-	if newTransition.NextState, err = mergeState(a.NextState, b.NextState); err != nil {
-		return nil, err
-	}
-	if newTransition.PrevCPU, err = mergeCPU(a.PrevCPU, b.PrevCPU); err != nil {
-		return nil, err
-	}
-	if newTransition.NextCPU, err = mergeCPU(a.NextCPU, b.NextCPU); err != nil {
-		return nil, err
-	}
-	return newTransition, nil
+	return true
 }
 
 func (tt *threadTransition) String() string {
@@ -314,5 +293,15 @@ func (tt *threadTransition) String() string {
 	}
 	ret = ret + fmt.Sprintf("CPU policies: [%s, %s] ", tt.onBackwardsCPUConflict, tt.onForwardsCPUConflict)
 	ret = ret + fmt.Sprintf("State policies: [%s, %s] ", tt.onBackwardsStateConflict, tt.onForwardsStateConflict)
+	propagates := []string{}
+	if tt.StatePropagatesThrough {
+		propagates = append(propagates, "state")
+	}
+	if tt.CPUPropagatesThrough {
+		propagates = append(propagates, "CPU")
+	}
+	if len(propagates) > 0 {
+		ret = ret + "(" + strings.Join(propagates, ", ") + " propagates through) "
+	}
 	return ret + fmt.Sprintf("@%-18d %s Command: [%d->%d] Priority: [%d->%d] CPU: [%s->%s] State: [%s->%s]", tt.Timestamp, tt.PID, tt.PrevCommand, tt.NextCommand, tt.PrevPriority, tt.NextPriority, tt.PrevCPU, tt.NextCPU, tt.PrevState, tt.NextState)
 }

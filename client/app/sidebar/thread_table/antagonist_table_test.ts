@@ -51,7 +51,6 @@ export function setupAntagonistTable(component: AntagonistTable) {
   component.sort = new BehaviorSubject<Sort>({active: '', direction: ''});
   component.tab = new BehaviorSubject<number>(0);
   component.jumpToTimeNs = new ReplaySubject<number>();
-  component.jumpToTimeEnabled = new BehaviorSubject<boolean>(true);
 }
 
 function createTableWithMockData(): ComponentFixture<AntagonistTable> {
@@ -87,7 +86,6 @@ describe('AntagonistTable', () => {
     const fixture = createTableWithMockData();
     const component = fixture.componentInstance;
 
-    component.jumpToTimeEnabled.next(true);
     const jumpSpy = spyOn(jumpToTime, 'jumpToTime');
 
     const firstJumpNs = 3000;
@@ -99,26 +97,6 @@ describe('AntagonistTable', () => {
     component.jumpToTimeNs.next(secondJumpNs);
     expect(jumpSpy).toHaveBeenCalledWith(component.dataSource, secondJumpNs);
     expect(jumpSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it('should honor jump enabled flag', () => {
-    const fixture = createTableWithMockData();
-    const component = fixture.componentInstance;
-
-    component.jumpToTimeEnabled.next(true);
-    const jumpSpy = spyOn(jumpToTime, 'jumpToTime');
-
-    // jump forward
-    const firstJumpNs = 3000;
-    component.jumpToTimeNs.next(firstJumpNs);
-    expect(jumpSpy).toHaveBeenCalledWith(component.dataSource, firstJumpNs);
-    expect(jumpSpy).toHaveBeenCalledTimes(1);
-
-    component.jumpToTimeEnabled.next(false);
-
-    const secondJumpMs = 1000000000;
-    component.jumpToTimeNs.next(secondJumpMs);
-    expect(jumpSpy).toHaveBeenCalledTimes(1);
   });
 
   it('should create layer on toggle click', () => {

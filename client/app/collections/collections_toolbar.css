@@ -6,3 +6,7 @@
   height: 100%;
   padding-left: 16px;
 }
+
+.toolbar-buttons {
+  margin-top: -3px;
+}

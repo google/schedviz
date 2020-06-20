@@ -25,8 +25,10 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"path"
 	"strings"
+
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/mux"
@@ -41,23 +43,22 @@ import (
 )
 
 var (
-	port         = flag.Int("port", 7402, "The SchedViz HTTP port.")
-	resourceRoot = flag.String("resources_root", "client", "The folder where the static files are stored.")
-	storagePath  = flag.String("storage_path", "", "The folder where trace data is/will be stored.")
-	cacheSize    = flag.Int("cache_size", 25, "The maximum number of collections to keep open at once.")
+	port                     = flag.Int("port", 7402, "The SchedViz HTTP port.")
+	resourceRoot             = flag.String("resources_root", "client", "The folder where the static files are stored.")
+	storagePath              = flag.String("storage_path", "", "The folder where trace data is/will be stored.")
+	cacheSize                = flag.Int("cache_size", 25, "The maximum number of collections to keep open at once.")
+	failOnUnknownEventFormat = flag.Bool("fail_on_unknown_event_format", true, "Whether or not to continue parsing when an unknown event is encountered")
 )
 
 
-const (
-	err404 = "Failed to fetch requested resource: %s"
-	err500 = "Internal Server Error"
-)
+const err404 = "Failed to fetch requested resource: %s"
 
 // Tag for serialized proto requests in JSON.
 const requestTag = "request"
 const fileTag = "file"
 
 var storageService storageservice.StorageService
+
 
 var defaultHTTPUser = "local_user"
 
@@ -74,14 +75,16 @@ func newStaticHandler(resourceRoot string, privatePath string, contentType strin
 	return func(w http.ResponseWriter, req *http.Request) {
 		fileContent, err := ioutil.ReadFile(internalPath)
 		if err != nil {
-			http.Error(w, fmt.Sprintf(err404, req.URL.Path), http.StatusNotFound)
+			errMsg := fmt.Sprintf(err404, req.URL.Path)
+			log.Warning(errMsg)
+			http.Error(w, errMsg, http.StatusNotFound)
 			return
 		}
 
 		w.Header().Add("Content-Type", contentType)
 		_, err = fmt.Fprintf(w, "%s", fileContent)
 		if err != nil {
-			http.Error(w, err500, http.StatusInternalServerError)
+			httpErrorInternal(w, req, fmt.Sprintf("Failed to write file contents: %s", err))
 		}
 	}
 }
@@ -106,6 +109,31 @@ func registerStaticHandlers(r *mux.Router, resourceRoot string) {
 	handle(r, "/material-theme", styleHandler)
 }
 
+func dumpRequest(req *http.Request) string {
+	var dumpStr string
+	dump, err := httputil.DumpRequest(req, true /*=body*/)
+	if err != nil {
+		dumpStr = req.URL.String()
+	} else {
+		dumpStr = fmt.Sprintf("%s", dump)
+	}
+	return dumpStr
+}
+
+func httpErrorInternal(w http.ResponseWriter, req *http.Request, errorStr string) {
+	dump := dumpRequest(req)
+	fullMsg := fmt.Sprintf("Internal Server Error:\n%s\n\nRequest:\n%s", errorStr, dump)
+	log.Error(fullMsg)
+	http.Error(w, fullMsg, http.StatusInternalServerError)
+}
+
+func httpErrorBadRequest(w http.ResponseWriter, req *http.Request, errorStr string) {
+	dump := dumpRequest(req)
+	fullMsg := fmt.Sprintf("Bad Request:\n%s\n\nRequest:\n%s", errorStr, dump)
+	log.Error(fullMsg)
+	http.Error(w, fullMsg, http.StatusInternalServerError)
+}
+
 type storageServiceHTTPHandler struct{ storageservice.StorageService }
 
 
@@ -113,37 +141,36 @@ func (s *storageServiceHTTPHandler) handleUpload(w http.ResponseWriter, req *htt
 	ctx := req.Context()
 	user, err := httpUser(w, req)
 	if err != nil {
-		http.Error(w, "Failed to get HTTP user: "+err.Error(), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get HTTP user: %s", err))
 		return
 	}
 	// 100 MB memory limit
 	if err := req.ParseMultipartForm(100 * 1024 * 1024); err != nil {
-		log.Error(err)
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 
 	jsonreq := &models.CreateCollectionRequest{}
 	if err := json.Unmarshal([]byte(req.Form.Get(requestTag)), jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request: %s", err))
 		return
 	}
 	jsonreq.Creator = user
 
 	file, err := req.MultipartForm.File[fileTag][0].Open()
 	if err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to open trace file: %s", err))
 		return
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Errorf("failed to close multipart temp file: %s", err)
+			log.Errorf("Failed to close multipart temp file: %s", err)
 		}
 	}()
 
 	collectionName, err := s.UploadFile(ctx, jsonreq, file)
 	if err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to upload trace file: %s", err))
 		return
 	}
 	sendStringHTTPResponse(req, collectionName, w)
@@ -152,18 +179,18 @@ func (s *storageServiceHTTPHandler) handleUpload(w http.ResponseWriter, req *htt
 func (s *storageServiceHTTPHandler) handleGetCollectionMetadata(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 
 	un := req.Form.Get(requestTag)
 	md, err := s.GetCollectionMetadata(ctx, un)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get collection metadata: %s", err), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get collection metadata: %s", err))
 		return
 	}
 	if cmp.Equal(md, models.Metadata{}) {
-		http.Error(w, fmt.Sprintf("Couldn't find metadata for collection %s", un), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Couldn't find metadata for collection %s", un))
 		return
 	}
 	sendStructHTTPResponse(req, md, w)
@@ -173,18 +200,16 @@ func (s *storageServiceHTTPHandler) handleDeleteCollection(w http.ResponseWriter
 	ctx := req.Context()
 	user, err := httpUser(w, req)
 	if err != nil {
-		http.Error(w, "Failed to get HTTP user: "+err.Error(), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get HTTP user: %s", err))
 		return
 	}
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	un := req.Form.Get(requestTag)
 	if err := s.DeleteCollection(ctx, user, un); err != nil {
-		http.Error(w,
-			fmt.Sprintf("Failed to delete collection: %s", err),
-			http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to delete collection: %s", err))
 		return
 	}
 }
@@ -193,22 +218,20 @@ func (s *storageServiceHTTPHandler) handleEditCollection(w http.ResponseWriter, 
 	ctx := req.Context()
 	user, err := httpUser(w, req)
 	if err != nil {
-		http.Error(w, "Failed to get HTTP user: "+err.Error(), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get HTTP user: %s", err))
 		return
 	}
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	jsonreq := &models.EditCollectionRequest{}
 	if err := readRequestBodyIntoStruct(req, jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request body: %s", err))
 		return
 	}
 	if err := s.EditCollection(ctx, user, jsonreq); err != nil {
-		http.Error(w,
-			fmt.Sprintf("Failed to edit collection: %s", err),
-			http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to edit collection: %s", err))
 		return
 	}
 }
@@ -216,15 +239,13 @@ func (s *storageServiceHTTPHandler) handleEditCollection(w http.ResponseWriter, 
 func (s *storageServiceHTTPHandler) handleGetCollectionParameters(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	cn := req.Form.Get(requestTag)
 	params, err := s.GetCollectionParameters(ctx, cn)
 	if err != nil {
-		http.Error(w,
-			fmt.Sprintf("Failed to get collection parameters: %s", err),
-			http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get collection parameters: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, params, w)
@@ -234,19 +255,17 @@ func (s *storageServiceHTTPHandler) handleListCollectionMetadata(w http.Response
 	ctx := req.Context()
 	user, err := httpUser(w, req)
 	if err != nil {
-		http.Error(w, "Failed to get HTTP user: "+err.Error(), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get HTTP user: %s", err))
 		return
 	}
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	cn := req.Form.Get(requestTag)
 	res, err := s.ListCollectionMetadata(ctx, user, cn)
 	if err != nil {
-		http.Error(w,
-			fmt.Sprintf("Failed to list collection metadata: %s", err),
-			http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to list collection metadata: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, res, w)
@@ -255,19 +274,17 @@ func (s *storageServiceHTTPHandler) handleListCollectionMetadata(w http.Response
 func (s *storageServiceHTTPHandler) handleGetFtraceEvents(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	jsonreq := &models.FtraceEventsRequest{}
 	if err := readRequestBodyIntoStruct(req, jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request body: %s", err))
 		return
 	}
 	res, err := s.GetFtraceEvents(ctx, jsonreq)
 	if err != nil {
-		http.Error(w,
-			fmt.Sprintf("Failed to get Ftrace events: %s", err),
-			http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get Ftrace events: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, res, w)
@@ -289,19 +306,17 @@ type apiServiceHTTPHandler struct{ *apiservice.APIService }
 func (a *apiServiceHTTPHandler) handleGetCPUIntervals(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	jsonreq := &models.CPUIntervalsRequest{}
 	if err := readRequestBodyIntoStruct(req, jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request body: %s", err))
 		return
 	}
 	res, err := a.GetCPUIntervals(ctx, jsonreq)
 	if err != nil {
-		http.Error(w,
-			fmt.Sprintf("Failed to get cpu intervals: %s", err),
-			http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get cpu intervals: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, res, w)
@@ -310,19 +325,17 @@ func (a *apiServiceHTTPHandler) handleGetCPUIntervals(w http.ResponseWriter, req
 func (a *apiServiceHTTPHandler) handleGetPIDIntervals(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	jsonreq := &models.PidIntervalsRequest{}
 	if err := readRequestBodyIntoStruct(req, jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request body: %s", err))
 		return
 	}
 	res, err := a.GetPIDIntervals(ctx, jsonreq)
 	if err != nil {
-		http.Error(w,
-			fmt.Sprintf("Failed to get pid intervals: %s", err),
-			http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get pid intervals: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, res, w)
@@ -331,19 +344,17 @@ func (a *apiServiceHTTPHandler) handleGetPIDIntervals(w http.ResponseWriter, req
 func (a *apiServiceHTTPHandler) handleGetAntagonists(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	jsonreq := &models.AntagonistsRequest{}
 	if err := readRequestBodyIntoStruct(req, jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request body: %s", err))
 		return
 	}
 	res, err := a.GetAntagonists(ctx, jsonreq)
 	if err != nil {
-		http.Error(w,
-			fmt.Sprintf("Failed to get antagonists: %s", err),
-			http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get antagonists: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, res, w)
@@ -352,17 +363,17 @@ func (a *apiServiceHTTPHandler) handleGetAntagonists(w http.ResponseWriter, req 
 func (a *apiServiceHTTPHandler) handleGetPerThreadEventSeries(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	jsonreq := &models.PerThreadEventSeriesRequest{}
 	if err := readRequestBodyIntoStruct(req, jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request body: %s", err))
 		return
 	}
 	res, err := a.GetPerThreadEventSeries(ctx, jsonreq)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get per thread event series: %s", err), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get per thread event series: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, res, w)
@@ -371,17 +382,17 @@ func (a *apiServiceHTTPHandler) handleGetPerThreadEventSeries(w http.ResponseWri
 func (a *apiServiceHTTPHandler) handleGetThreadSummaries(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	jsonreq := &models.ThreadSummariesRequest{}
 	if err := readRequestBodyIntoStruct(req, jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request body: %s", err))
 		return
 	}
 	res, err := a.GetThreadSummaries(ctx, jsonreq)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get per thread summaries: %s", err), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get per thread summaries: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, res, w)
@@ -390,17 +401,17 @@ func (a *apiServiceHTTPHandler) handleGetThreadSummaries(w http.ResponseWriter, 
 func (a *apiServiceHTTPHandler) handleGetUtilizationMetrics(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	jsonreq := &models.UtilizationMetricsRequest{}
 	if err := readRequestBodyIntoStruct(req, jsonreq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpErrorBadRequest(w, req, fmt.Sprintf("Failed to parse request body: %s", err))
 		return
 	}
 	res, err := a.GetUtilizationMetrics(ctx, jsonreq)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get utilization metrics: %s", err), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get utilization metrics: %s", err))
 		return
 	}
 	sendStructHTTPResponse(req, res, w)
@@ -409,13 +420,13 @@ func (a *apiServiceHTTPHandler) handleGetUtilizationMetrics(w http.ResponseWrite
 func (a *apiServiceHTTPHandler) handleSystemTopology(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if err := req.ParseForm(); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to parse form: %s", err))
 		return
 	}
 	cn := req.Form.Get(requestTag)
 	st, err := a.GetSystemTopology(ctx, cn)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get system topology: %s", err), http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to get system topology: %s", err))
 		return
 	}
 
@@ -425,6 +436,7 @@ func (a *apiServiceHTTPHandler) handleSystemTopology(w http.ResponseWriter, req 
 	}
 	sendStructHTTPResponse(req, jsonresp, w)
 }
+
 
 func registerAPIService(r *mux.Router, a *apiservice.APIService) {
 	ah := &apiServiceHTTPHandler{a}
@@ -436,7 +448,6 @@ func registerAPIService(r *mux.Router, a *apiservice.APIService) {
 	handle(r, "/get_utilization_metrics", ah.handleGetUtilizationMetrics)
 	handle(r, "/get_system_topology", ah.handleSystemTopology)
 }
-
 
 var startServer = func(r *mux.Router) {
 		http.Handle("/", r)
@@ -453,6 +464,8 @@ var setStorageService = func(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	ss.SetFailOnUnknownEventFormat(*failOnUnknownEventFormat)
+
 	storageService = ss
 	return nil
 }
@@ -462,7 +475,6 @@ func runServer(ctx context.Context) {
 	if err := setStorageService(ctx); err != nil {
 		log.Exit(err)
 	}
-	// END-INTERNAL
 
 	apiService := &apiservice.APIService{StorageService: storageService}
 
@@ -499,7 +511,7 @@ func sendStringHTTPResponse(req *http.Request, res string, w http.ResponseWriter
 	writer, closer := gzipEnabledWriter(req, w)
 	defer func() { _ = closer() }()
 	if _, err := writer.Write([]byte(res)); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to write string: %s", err))
 	}
 }
 
@@ -508,7 +520,7 @@ func sendStructHTTPResponse(req *http.Request, res interface{}, w http.ResponseW
 	writer, closer := gzipEnabledWriter(req, w)
 	defer func() { _ = closer() }()
 	if err := json.NewEncoder(writer).Encode(res); err != nil {
-		http.Error(w, err500, http.StatusInternalServerError)
+		httpErrorInternal(w, req, fmt.Sprintf("Failed to encode JSON: %s", err))
 	}
 }
 

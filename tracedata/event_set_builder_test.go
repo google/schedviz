@@ -140,7 +140,14 @@ func TestBuilder(t *testing.T) {
 			if len(test.esb.errs) > 0 || test.wantErr {
 				return
 			}
-			gotEventSet := test.esb.TestProtobuf(t)
+			gotEventSet, errs := test.esb.EventSet()
+			if len(errs) > 0 {
+				t.Error("Errors building EventSet:")
+				for err := range errs {
+					t.Errorf("  %s", err)
+				}
+				t.Fatalf("Bailing...")
+			}
 			if diff, eq := testhelpers.DiffProto(t, test.wantEventSet, gotEventSet); !eq {
 				t.Errorf("eventSetBuilder.pb() = %#v,\ndiff (want->got) \n%s", gotEventSet, diff)
 			}

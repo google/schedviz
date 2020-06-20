@@ -40,16 +40,20 @@ func mergeCPU(a, b CPUID) (CPUID, error) {
 	return a, nil
 }
 
-// Unknown thread index, thread state, PID, CPU, or priority.
+// Unknown thread index, PID, CPU, or priority.
 const Unknown = -1
+
 
 // ThreadState specifies the state of a thread at an instant in time.
 type ThreadState int8
 
+// ThreadTransitions may specify any combination of RunningState, WaitingState,
+// and SleepingState.
 const (
 	// UnknownState threads are of an indeterminate state, because there is not
-	// yet enough information to infer their state.
-	UnknownState ThreadState = iota + Unknown
+	// yet enough information to infer their state.  When used in ThreadTransitions,
+	// it is a synonym for AnyState.
+	UnknownState ThreadState = 1 << iota
 	// RunningState threads are switched-in on a CPU.
 	RunningState
 	// WaitingState threads are in RUNNABLE state but are not switched in.
@@ -59,33 +63,45 @@ const (
 	SleepingState
 )
 
+
+// AnyState is the superposition of all possible thread states -- Running,
+// Waiting, and Sleeping.
+var AnyState ThreadState = RunningState | WaitingState | SleepingState
+
 func (ts ThreadState) String() string {
-	switch ts {
-	case UnknownState:
-		return "Unknown"
-	case RunningState:
-		return "Running"
-	case WaitingState:
-		return "Waiting"
-	case SleepingState:
-		return "Sleeping"
-	default:
-		return "Invalid State"
+	var ret []string
+	if ts&UnknownState != 0 {
+		ret = append(ret, "Unknown")
 	}
+	if ts&RunningState != 0 {
+		ret = append(ret, "Running")
+	}
+	if ts&WaitingState != 0 {
+		ret = append(ret, "Waiting")
+	}
+	if ts&SleepingState != 0 {
+		ret = append(ret, "Sleeping")
+	}
+	if len(ret) == 0 {
+		ret = []string{"no known state"}
+	}
+	return strings.Join(ret, " || ")
 }
 
-// mergeState accepts two ThreadStates, and returns their merger:
-// * if both have the same value, returns that value,
-// * if one is unknown, returns the other,
-// * if both are known and they disagree, returns an error.
-func mergeState(a, b ThreadState) (ThreadState, error) {
-	if a != UnknownState && b != UnknownState && a != b {
-		return UnknownState, status.Errorf(codes.Internal, "can't merge different unknown states")
+// isKnown returns true iff the receiver is a single known state -- Running,
+// Waiting, or Sleeping.
+func (ts ThreadState) isKnown() bool {
+	return ts == RunningState || ts == WaitingState || ts == SleepingState
+}
+
+// mergeState accepts two ThreadStates, and returns their intersection.
+// If the intersection is nil, returns false, otherwise returns true.
+func mergeState(a, b ThreadState) (ThreadState, bool) {
+	ret := a & b
+	if ret == 0 {
+		return 0, false
 	}
-	if a == UnknownState {
-		return b, nil
-	}
-	return a, nil
+	return ret, true
 }
 
 // PID specifies a kernel thread ID.  Valid PIDs are nonnegative.
@@ -249,7 +265,7 @@ func (ti *Interval) String() string {
 // Antagonism is an interval during which a single thread running on a
 // single CPU antagonized the waiting victim.
 type Antagonism struct {
-	RunningThread  Thread          `json:"runningThread"`
+	RunningThread  *Thread          `json:"runningThread"`
 	CPU            CPUID           `json:"cpu"`
 	StartTimestamp trace.Timestamp `json:"startTimestamp"`
 	EndTimestamp   trace.Timestamp `json:"endTimestamp"`
@@ -257,8 +273,8 @@ type Antagonism struct {
 
 // Antagonists are threads that are running instead of the victim thread
 type Antagonists struct {
-	Victims     []Thread     `json:"victims"`
-	Antagonisms []Antagonism `json:"antagonisms"`
+	Victims     []*Thread     `json:"victims"`
+	Antagonisms []*Antagonism `json:"antagonisms"`
 	// The time range over which these antagonists were gathered.
 	StartTimestamp trace.Timestamp `json:"startTimestamp"`
 	EndTimestamp   trace.Timestamp `json:"endTimestamp"`

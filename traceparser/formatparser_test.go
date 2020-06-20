@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestParseFormat(t *testing.T) {
@@ -75,7 +76,7 @@ print fmt: "%s", print_special_evt(p, (__get_dynamic_array(event)))
 				Format: Format{
 					CommonFields: []*FormatField{
 						{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Offset: 0, Size: 2, NumElements: 1, ElementSize: 2, Signed: false, IsDynamicArray: false},
-						{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
+						{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "int64", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
 					},
 					Fields: []*FormatField{
 						{FieldType: "char prev_comm[16]", Name: "prev_comm", ProtoType: "string", Offset: 8, Size: 16, NumElements: 16, ElementSize: 1, Signed: true, IsDynamicArray: false},
@@ -89,8 +90,8 @@ print fmt: "%s", print_special_evt(p, (__get_dynamic_array(event)))
 				Format: Format{
 					CommonFields: []*FormatField{
 						{FieldType: "unsigned short common_type", Name: "common_type", ProtoType: "int64", Offset: 0, Size: 2, NumElements: 1, ElementSize: 2, Signed: false, IsDynamicArray: false},
-						{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "string", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
-						{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "string", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
+						{FieldType: "unsigned char common_flags", Name: "common_flags", ProtoType: "int64", Offset: 2, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
+						{FieldType: "unsigned char common_preempt_count", Name: "common_preempt_count", ProtoType: "int64", Offset: 3, Size: 1, NumElements: 1, ElementSize: 1, Signed: false, IsDynamicArray: false},
 						{FieldType: "int common_pid", Name: "common_pid", ProtoType: "int64", Offset: 4, Size: 4, NumElements: 1, ElementSize: 4, Signed: true, IsDynamicArray: false},
 					},
 					Fields: []*FormatField{
@@ -106,7 +107,7 @@ print fmt: "%s", print_special_evt(p, (__get_dynamic_array(event)))
 		t.Fatalf("Error in traceparser.New(): %s", err)
 	}
 
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(TraceParser{})); diff != "" {
 		t.Fatalf("TestParseFormatFile: Diff -want +got:\n%s", diff)
 	}
 

@@ -27,12 +27,13 @@ import (
 // slice of threadSpans describing that PID's scheduling behavior, as far as
 // can be inferred, over the trace.
 type threadSpanSet struct {
-	startTimestamp         trace.Timestamp
-	options                *collectionOptions
-	inferrerByPID          map[PID]*threadInferrer
-	spanGeneratorByPID     map[PID]*threadSpanGenerator
-	spansByPID             map[PID][]*threadSpan
-	droppedEventCountsByID map[int]int
+	startTimestamp           trace.Timestamp
+	options                  *collectionOptions
+	inferrerByPID            map[PID]*threadInferrer
+	spanGeneratorByPID       map[PID]*threadSpanGenerator
+	spansByPID               map[PID][]*threadSpan
+	droppedEventCountsByID   map[int]int
+	syntheticTransitionCount int
 }
 
 // newThreadSpanSet returns a new, empty threadSpanSet.  The provided
@@ -62,17 +63,19 @@ func (tss *threadSpanSet) inferrer(pid PID, command stringID, priority Priority)
 		tss.inferrerByPID[pid] = inferrer
 		// Add an initial transition, starting at the trace start timestamp,
 		inferrer.addTransition(&threadTransition{
-			EventID:      Unknown,
-			Timestamp:    tss.startTimestamp,
-			PID:          pid,
-			PrevCommand:  command,
-			NextCommand:  command,
-			PrevPriority: priority,
-			NextPriority: priority,
-			PrevCPU:      UnknownCPU,
-			NextCPU:      UnknownCPU,
-			PrevState:    UnknownState,
-			NextState:    UnknownState,
+			EventID:                Unknown,
+			Timestamp:              tss.startTimestamp,
+			PID:                    pid,
+			PrevCommand:            command,
+			NextCommand:            command,
+			PrevPriority:           priority,
+			NextPriority:           priority,
+			PrevCPU:                UnknownCPU,
+			NextCPU:                UnknownCPU,
+			CPUPropagatesThrough:   true,
+			PrevState:              AnyState,
+			NextState:              AnyState,
+			StatePropagatesThrough: true,
 		})
 	}
 	return inferrer
@@ -98,7 +101,9 @@ func (tss *threadSpanSet) createSpans(pid PID, infTTs []*threadTransition) error
 		if infTT.dropped && infTT.EventID != Unknown {
 			tss.droppedEventCountsByID[infTT.EventID]++
 		}
-
+		if infTT.synthetic {
+			tss.syntheticTransitionCount++
+		}
 		ts, err := sb.addTransition(infTT)
 		if err != nil {
 			return err
@@ -140,17 +145,22 @@ func (tss *threadSpanSet) threadSpans(endTimestamp trace.Timestamp) (map[PID][]*
 	for pid, inferrer := range tss.inferrerByPID {
 		var infTTs = []*threadTransition{}
 		infTTs, err := inferrer.addTransition(&threadTransition{
-			EventID:      Unknown,
-			Timestamp:    endTimestamp,
-			PID:          pid,
-			PrevCommand:  UnknownCommand,
-			NextCommand:  UnknownCommand,
-			PrevPriority: UnknownPriority,
-			NextPriority: UnknownPriority,
-			PrevCPU:      UnknownCPU,
-			NextCPU:      UnknownCPU,
-			PrevState:    UnknownState,
-			NextState:    UnknownState,
+			EventID: Unknown,
+			// End any still-open per-thread spans with a Timestamp just past the
+			// last unclipped Timestamp observed in the trace.  This indicates
+			// that the behavior in the span is ongoing past the end of the trace.
+			Timestamp:              endTimestamp + 1,
+			PID:                    pid,
+			PrevCommand:            UnknownCommand,
+			NextCommand:            UnknownCommand,
+			PrevPriority:           UnknownPriority,
+			NextPriority:           UnknownPriority,
+			PrevCPU:                UnknownCPU,
+			NextCPU:                UnknownCPU,
+			CPUPropagatesThrough:   true,
+			PrevState:              AnyState,
+			NextState:              AnyState,
+			StatePropagatesThrough: true,
 		})
 		if err != nil {
 			return nil, err
