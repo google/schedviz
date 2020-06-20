@@ -1,5 +1,8 @@
-
 # Linux Scheduling Visualization
+
+![Build](https://github.com/FrankSiegemund/schedviz/workflows/Build%20and%20Test%20SchedViz/badge.svg)
+
+----
 
 This is not an officially supported Google product.
 
