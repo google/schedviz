@@ -1,0 +1,23 @@
+# This workflow will do a clean install of SchedViz dependencies, build, and test the source code.
+
+name: Build and Test SchedViz
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js 14.x
+      uses: actions/setup-node@v1
+      with:
+        node-version: 14.x
+    - name: Install dependencies
+      run: yarn install
+    - name: Build the server
+      run: yarn bazel build server
+    - name: Run tests
+      run: yarn bazel test //...

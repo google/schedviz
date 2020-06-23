@@ -1,6 +1,8 @@
 
 # Linux Scheduling Visualization
 
+![Build and Test SchedViz](https://github.com/google/schedviz/workflows/Build%20and%20Test%20SchedViz/badge.svg)
+
 This is not an officially supported Google product.
 
 SchedViz is a tool for gathering and visualizing kernel scheduling traces on
