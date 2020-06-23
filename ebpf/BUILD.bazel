@@ -6,7 +6,7 @@ licenses(["notice"])  # Apache License 2.0
 
 go_library(
     name = "schedbt",
-importpath = "github.com/google/schedviz/ebpf/schedbt",
+    importpath = "github.com/google/schedviz/ebpf/schedbt",
 
     srcs = ["schedbt.go"],
     deps = [

@@ -10,7 +10,7 @@ licenses(["notice"])  # Apache License 2.0
 
 go_library(
     name = "sched",
-importpath = "github.com/google/schedviz/analysis/sched",
+    importpath = "github.com/google/schedviz/analysis/sched",
 
     srcs = [
         "sched_analysis.go",
@@ -74,7 +74,7 @@ go_test(
 
 go_library(
     name = "schedtestcommon",
-importpath = "github.com/google/schedviz/analysis/schedtestcommon",
+    importpath = "github.com/google/schedviz/analysis/schedtestcommon",
 
     testonly = True,
     srcs = ["sched_test_common.go"],
@@ -112,7 +112,7 @@ proto_library(
 
 go_proto_library(
     name = "event_loaders_go_proto",
-importpath = "github.com/google/schedviz/analysis/event_loaders_go_proto",
+    importpath = "github.com/google/schedviz/analysis/event_loaders_go_proto",
 
     proto = ":event_loaders_proto",
     visibility = ["//visibility:public"],

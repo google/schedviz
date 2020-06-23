@@ -25,7 +25,7 @@ cc_binary(
 
 go_library(
     name = "util",
-importpath = "github.com/google/schedviz/util/util",
+    importpath = "github.com/google/schedviz/util/util",
 
     srcs = ["log.go"],
     deps = [

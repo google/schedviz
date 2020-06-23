@@ -7,7 +7,7 @@ licenses(["notice"])  # Apache License 2.0
 
 go_library(
     name = "trace",
-importpath = "github.com/google/schedviz/tracedata/trace",
+    importpath = "github.com/google/schedviz/tracedata/trace",
 
     srcs = ["trace_event.go"],
     visibility = ["//visibility:public"],
@@ -32,7 +32,7 @@ go_test(
 
 go_library(
     name = "eventsetbuilder",
-importpath = "github.com/google/schedviz/tracedata/eventsetbuilder",
+    importpath = "github.com/google/schedviz/tracedata/eventsetbuilder",
 
     srcs = ["event_set_builder.go"],
     visibility = ["//visibility:public"],
@@ -66,7 +66,7 @@ proto_library(
 
 go_proto_library(
     name = "schedviz_events_go_proto",
-importpath = "github.com/google/schedviz/tracedata/schedviz_events_go_proto",
+    importpath = "github.com/google/schedviz/tracedata/schedviz_events_go_proto",
 
     proto = ":schedviz_events_proto",
     visibility = ["//visibility:public"],
@@ -75,7 +75,7 @@ importpath = "github.com/google/schedviz/tracedata/schedviz_events_go_proto",
 
 go_library(
     name = "testeventsetbuilder",
-importpath = "github.com/google/schedviz/tracedata/testeventsetbuilder",
+    importpath = "github.com/google/schedviz/tracedata/testeventsetbuilder",
 
     testonly = True,
     srcs = ["test_event_set_builder.go"],
@@ -88,7 +88,7 @@ importpath = "github.com/google/schedviz/tracedata/testeventsetbuilder",
 
 go_library(
     name = "schedevent",
-importpath = "github.com/google/schedviz/tracedata/schedevent",
+    importpath = "github.com/google/schedviz/tracedata/schedevent",
 
     srcs = ["sched_event.go"],
     visibility = ["//visibility:public"],
@@ -97,7 +97,7 @@ importpath = "github.com/google/schedviz/tracedata/schedevent",
 
 go_library(
     name = "clipping",
-importpath = "github.com/google/schedviz/tracedata/clipping",
+    importpath = "github.com/google/schedviz/tracedata/clipping",
 
     srcs = ["clipping.go"],
     visibility = ["//visibility:public"],

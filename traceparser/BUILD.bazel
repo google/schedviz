@@ -6,7 +6,7 @@ licenses(["notice"])  # Apache License 2.0
 
 go_library(
     name = "traceparser",
-importpath = "github.com/google/schedviz/traceparser/traceparser",
+    importpath = "github.com/google/schedviz/traceparser/traceparser",
 
     srcs = [
         "event_set_builder.go",

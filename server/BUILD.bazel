@@ -79,7 +79,7 @@ go_test(
 
 go_library(
     name = "storageservice",
-importpath = "github.com/google/schedviz/server/storageservice",
+    importpath = "github.com/google/schedviz/server/storageservice",
 
     srcs = [
         "fs_storage.go",
@@ -122,7 +122,7 @@ go_test(
 
 go_library(
     name = "apiservice",
-importpath = "github.com/google/schedviz/server/apiservice",
+    importpath = "github.com/google/schedviz/server/apiservice",
 
     srcs = ["api_service.go"],
     deps = [
@@ -136,7 +136,7 @@ importpath = "github.com/google/schedviz/server/apiservice",
 
 go_library(
     name = "models",
-importpath = "github.com/google/schedviz/server/models",
+    importpath = "github.com/google/schedviz/server/models",
 
     srcs = [
         "collection_data_services.go",
