@@ -77,7 +77,7 @@ func TestInference(t *testing.T) {
 				withStates(RunningState, SleepingState),
 		},
 	}, {
-		description: "inference error",
+		description: "state inference error",
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
 				withStates(AnyState, WaitingState),
@@ -86,7 +86,7 @@ func TestInference(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
-		description: "drop on conflict",
+		description: "drop on CPU conflict",
 		transitions: []*threadTransition{
 			emptyTransition(0, 1000, pid).
 				withCPUs(1, 1).
@@ -94,6 +94,7 @@ func TestInference(t *testing.T) {
 				withStates(AnyState, RunningState),
 			emptyTransition(1, 1010, pid).
 				withCPUs(2, UnknownCPU).
+				withStatePropagatesThrough(true).
 				withCPUConflictPolicies(Drop, Fail),
 			emptyTransition(2, 1020, pid).
 				withCPUPropagatesThrough(true).
@@ -107,10 +108,43 @@ func TestInference(t *testing.T) {
 				withStates(AnyState, RunningState),
 			emptyTransition(1, 1010, 100).
 				withCPUs(2, UnknownCPU).
+				withStatePropagatesThrough(true).
 				withCPUConflictPolicies(Drop, Fail).
 				drop(),
 			emptyTransition(2, 1020, 100).
 				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
+				withStates(RunningState, RunningState).
+				withStatePropagatesThrough(true),
+		},
+	}, {
+		description: "don't drop nextCPU-nextCPU disagreement",
+		transitions: []*threadTransition{
+			emptyTransition(0, 1000, pid).
+				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
+				withStates(AnyState, RunningState),
+			emptyTransition(1, 1010, pid).
+				withCPUs(1, 2).
+				withStatePropagatesThrough(true).
+				withCPUConflictPolicies(Drop, Fail),
+			emptyTransition(2, 1020, pid).
+				withCPUPropagatesThrough(true).
+				withStatePropagatesThrough(true),
+		},
+		wantErr: false,
+		wantTransitions: []*threadTransition{
+			emptyTransition(0, 1000, 100).
+				withCPUs(1, 1).
+				withCPUPropagatesThrough(true).
+				withStates(AnyState, RunningState),
+			emptyTransition(1, 1010, 100).
+				withCPUs(1, 2).
+				withStates(RunningState, RunningState).
+				withStatePropagatesThrough(true).
+				withCPUConflictPolicies(Drop, Fail),
+			emptyTransition(2, 1020, 100).
+				withCPUs(2, 2).
 				withCPUPropagatesThrough(true).
 				withStates(RunningState, RunningState).
 				withStatePropagatesThrough(true),

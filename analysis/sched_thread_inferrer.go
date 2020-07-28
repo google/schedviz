@@ -132,14 +132,14 @@ func (inferrer *threadInferrer) handleConflicts() (retry bool, err error) {
 	syntheticPrevCPU, syntheticNextCPU := UnknownCPU, UnknownCPU
 	syntheticCPUPropagatesThrough := true
 	tt1, tt2 := inferrer.pendingTransitions[idx1], inferrer.pendingTransitions[idx2]
-	// Check for a disagreement on state, and handle failing and dropping if
+	// Check for a disagreement on CPU, and handle failing and dropping if
 	// necessary.
-	if tt1.NextCPU != Unknown && tt2.PrevCPU != Unknown && tt1.NextCPU != tt2.NextCPU {
+	if tt1.NextCPU != Unknown && tt2.PrevCPU != Unknown && tt1.NextCPU != tt2.PrevCPU {
 		// We have a CPU conflict.
 		resolution := resolveConflict(tt1.onForwardsCPUConflict, tt2.onBackwardsCPUConflict)
 		switch resolution {
 		case Fail:
-			return false, status.Errorf(codes.InvalidArgument,
+			return false, status.Errorf(codes.Internal,
 				"inference error (CPU) between '%s' and '%s'",
 				tt1, tt2)
 		case Drop:
@@ -158,12 +158,14 @@ func (inferrer *threadInferrer) handleConflicts() (retry bool, err error) {
 			syntheticCPUPropagatesThrough = false
 		}
 	}
+	// Check for a disagreement on state and handle failing and dropping if
+	// necessary.
 	if _, merged := mergeState(tt1.NextState, tt2.PrevState); !merged {
 		// We have a state conflict.
 		resolution := resolveConflict(tt1.onForwardsStateConflict, tt2.onBackwardsStateConflict)
 		switch resolution {
 		case Fail:
-			return false, status.Errorf(codes.InvalidArgument,
+			return false, status.Errorf(codes.Internal,
 				"inference error (thread state) between '%s' and '%s'",
 				tt1, tt2)
 		case Drop:
@@ -220,12 +222,12 @@ func (inferrer *threadInferrer) inferForwards() error {
 		}
 		if lastKnownCPU != nil {
 			if !tt.setCPUForwards(lastKnownCPU.NextCPU) {
-				return status.Errorf(codes.Internal, "inference error (CPU): at time %d, failed to propagate CPU %d forwards", tt.Timestamp, lastKnownCPU.NextCPU)
+				return status.Errorf(codes.Internal, "inference error (CPU): at time %d, failed to propagate CPU %d forwards from '%s' to '%s'", tt.Timestamp, lastKnownCPU.NextCPU, lastKnownCPU, tt)
 			}
 		}
 		if lastKnownState != nil {
 			if !tt.setStateForwards(lastKnownState.NextState) {
-				return status.Errorf(codes.Internal, "inference error (state): at time %d, failed to propagate state %d forwards", tt.Timestamp, lastKnownState.NextState)
+				return status.Errorf(codes.Internal, "inference error (state): at time %d, failed to propagate state %d forwards from '%s' to '%s'", tt.Timestamp, lastKnownState.NextState, lastKnownState, tt)
 			}
 		}
 		if tt.NextCPU == UnknownCPU {
@@ -250,12 +252,12 @@ func (inferrer *threadInferrer) inferBackwards() error {
 		}
 		if lastKnownCPU != nil {
 			if !tt.setCPUBackwards(lastKnownCPU.PrevCPU) {
-				return status.Errorf(codes.Internal, "inference error (CPU): at time %d, failed to propagate CPU %d backwards", tt.Timestamp, lastKnownCPU.PrevCPU)
+				return status.Errorf(codes.Internal, "inference error (CPU): at time %d, failed to propagate CPU %d backwards from '%s' to '%s'", tt.Timestamp, lastKnownCPU.PrevCPU, lastKnownCPU, tt)
 			}
 		}
 		if lastKnownState != nil {
 			if !tt.setStateBackwards(lastKnownState.PrevState) {
-				return status.Errorf(codes.Internal, "inference error (state): at time %d, failed to propagate state %d backwards", tt.Timestamp, lastKnownState.PrevState)
+				return status.Errorf(codes.Internal, "inference error (state): at time %d, failed to propagate state %d backwards from '%s' to '%s'", tt.Timestamp, lastKnownState.PrevState, lastKnownState, tt)
 			}
 		}
 		if tt.PrevCPU == UnknownCPU {
