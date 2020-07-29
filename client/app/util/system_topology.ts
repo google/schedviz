@@ -34,13 +34,6 @@ export class CpuLabel {
   ) {}
 
   /**
-   * @return This CPUs location within the host, i.e. its topological row.
-   */
-  get locationInHost(): number {
-    return this.cpuIndex;
-  }
-
-  /**
    * @return a label for this CPU.
    */
   get label(): string {

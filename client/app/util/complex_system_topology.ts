@@ -55,16 +55,6 @@ export class ComplexCpuLabel extends CpuLabel {
   }
 
   /**
-   * @return This CPUs location within the host, i.e. its topological row.
-   */
-  get locationInHost(): number {
-    return this.getNumaNode() * this.systemTopology.getBlockSize() *
-        this.systemTopology.getHyperthreadCountPerCore() +
-        this.getCore() * this.systemTopology.getHyperthreadCountPerCore() +
-        this.getHyperThread();
-  }
-
-  /**
    * Returns a label for this CPU.
    * @param includeHyperthread Include the hyperthread index?
    * @param changedComponentsOnly Only label transitions between
@@ -96,6 +86,7 @@ export class ComplexSystemTopology extends SystemTopology {
   hyperthreadCountPerCore = 1;
   numaNodeCount = 1;
   blockSize = 1;
+  maxCoreIDs: number[] = [];
 
   systemTopology: ISystemTopology;
 
@@ -123,7 +114,7 @@ export class ComplexSystemTopology extends SystemTopology {
         this.cpuLabels
             .map((cpuLabel) => (cpuLabel as ComplexCpuLabel).getHyperThread())
             .reduce(
-                (hyperthread, maxHyperthread) =>
+                (maxHyperthread, hyperthread) =>
                     (hyperthread > maxHyperthread) ? hyperthread :
                                                      maxHyperthread,
                 0) +
@@ -132,14 +123,37 @@ export class ComplexSystemTopology extends SystemTopology {
         this.cpuLabels
             .map((cpuLabel) => (cpuLabel as ComplexCpuLabel).getNumaNode())
             .reduce(
-                (numaNode, maxNumaNode) =>
+                (maxNumaNode, numaNode) =>
                     (numaNode > maxNumaNode) ? numaNode : maxNumaNode,
                 0) +
         1;
+
+    this.maxCoreIDs = this.cpuLabels.reduce((maxCoreIDs, cpuLabel) => {
+      const complexLabel = cpuLabel as ComplexCpuLabel;
+      const numaNode = complexLabel.getNumaNode();
+      const coreId = complexLabel.getCore();
+      maxCoreIDs[numaNode] = Math.max(maxCoreIDs[numaNode], coreId);
+      return maxCoreIDs;
+    }, new Array(this.getNumaNodeCount()).fill(0));
+
     this.blockSize = Math.ceil(
         this.cpuCount / this.getHyperthreadCountPerCore() /
         this.getNumaNodeCount());
-    this.cpuLabels.sort((a, b) => a.locationInHost - b.locationInHost);
+
+    (this.cpuLabels as ComplexCpuLabel[]).sort((a, b) => {
+      const numaOrder = a.getNumaNode() - b.getNumaNode();
+      if (numaOrder !== 0) {
+        return numaOrder;
+      }
+
+      const coreOrder = a.getCore() - b.getCore();
+      if (coreOrder !== 0) {
+        return coreOrder;
+      }
+
+      const htOrder = a.getHyperThread() - b.getHyperThread();
+      return htOrder;
+    });
   }
 
   /**
@@ -164,6 +178,12 @@ export class ComplexSystemTopology extends SystemTopology {
     return this.numaNodeCount;
   }
 
+  /**
+   * @return The maximum core ID for each NUMA node
+   */
+  getMaxCoreIDs(): number[] {
+    return this.maxCoreIDs;
+  }
 
   /**
    * Takes a CPU selection string and returns an equivalent but canonicalized

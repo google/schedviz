@@ -51,7 +51,7 @@ export class TopologicalCpuAxisLayer extends CpuAxisLayer {
    */
   getLabelForIndex(
       index: number, cpus: ComplexCpuLabel[], numaBlocks: number[][],
-      blockSize: number) {
+      maxCoreIDs: number[]) {
     const cpuCount = cpus.length;
     if (index < 0 || index >= cpuCount) {
       return '';
@@ -72,7 +72,7 @@ export class TopologicalCpuAxisLayer extends CpuAxisLayer {
     }
     if (showCore) {
       axisLabel += `Core ${core} `;
-      showNuma = numaBlocks[numa][blockSize] === 1;
+      showNuma = numaBlocks[numa][maxCoreIDs[numa] + 1] === 1;
     }
     if (showNuma) {
       axisLabel += `NUMA ${numa}`;
@@ -96,20 +96,24 @@ export class TopologicalCpuAxisLayer extends CpuAxisLayer {
     const cpuCount = this.topology.cpuCount;
     const numaCount = this.topology.getNumaNodeCount();
     const hyperthreadsPerCore = this.topology.getHyperthreadCountPerCore();
-    const blockSize = this.topology.getBlockSize();
+    const maxCoreIDs = this.topology.getMaxCoreIDs();
     const numaBlocks = new Array(numaCount).fill(0).map(
-        () => new Array(blockSize + 1).fill(0));
+        // Array is sized to number that is the next core ID (i.e. max core ID
+        // plus one, as we need space for all the core IDs) plus one (because
+        // length is 1-indexed).
+        (d, i) => new Array(maxCoreIDs[i] + 2).fill(0));
     for (const cpu of cpus) {
       const numa = cpu.getNumaNode();
       const core = cpu.getCore();
       numaBlocks[numa][core]++;
-      numaBlocks[numa][blockSize]++;
+      numaBlocks[numa][maxCoreIDs[numa] + 1]++;
     }
 
     // Add ticks based on block sizes
     const tickValues = new Array(cpus.length).fill(0).map((d, i) => i);
     let i = 0;
     let currentNuma = -1;
+
     for (const cpu of cpus) {
       const numa = cpu.getNumaNode();
       const core = cpu.getCore();
@@ -122,7 +126,7 @@ export class TopologicalCpuAxisLayer extends CpuAxisLayer {
       }
       // Add numa tick
       if (currentNuma !== numa) {
-        const coreCount = numaBlocks[numa][blockSize];
+        const coreCount = numaBlocks[numa][maxCoreIDs[numa] + 1];
         if (coreCount > 1) {
           tickValues.push(i + (coreCount - 0.5) / 2);
         }
@@ -136,7 +140,7 @@ export class TopologicalCpuAxisLayer extends CpuAxisLayer {
     dataGroup.enter()
         .append('text')
         .classed('cpuLabel', true)
-        .text(tick => this.getLabelForIndex(tick, cpus, numaBlocks, blockSize))
+        .text(tick => this.getLabelForIndex(tick, cpus, numaBlocks, maxCoreIDs))
         .on('click', (tick) => {
           const cpu = cpus[Math.floor(tick)];
           const numa = cpu.getNumaNode();
