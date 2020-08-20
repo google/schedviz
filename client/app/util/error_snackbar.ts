@@ -20,6 +20,7 @@ import {ApplicationRef, ChangeDetectorRef, Component, ComponentFactoryResolver, 
 import {MAT_SNACK_BAR_DATA, MatSnackBar, MatSnackBarRef} from '@angular/material/snack-bar';
 import {Subject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
+
 import {recordHttpErrorMessage, SchedVizError} from './helpers';
 
 /**
@@ -46,7 +47,7 @@ export class ErrorWindowComponent implements OnInit, OnDestroy {
 
 
   ngOnInit() {
-    this.popupWindow = window.open( '');
+    this.popupWindow = window.open( ``);
 
     const host = new DomPortalOutlet(
         this.popupWindow!.document.body, this.componentFactoryResolver,
