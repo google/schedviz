@@ -35,6 +35,8 @@ export class CpuRunningLayer extends Layer {
     super('CPU Intervals', 'CPU');
   }
 
+  // tslint:disable-next-line:ban-ts-ignore
+  // @ts-ignore
   set intervals(cpuIntervals: CpuInterval[]) {
     if (!cpuIntervals.length) {
       this.intervalsInternal = cpuIntervals;
