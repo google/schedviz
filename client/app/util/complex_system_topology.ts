@@ -95,7 +95,7 @@ export class ComplexSystemTopology extends SystemTopology {
    * If the provided SystemTopologyProto is empty, it instead guesses a likely
    * topology from the provided list of CPU IDs.
    */
-  constructor(response: SystemTopologyResponse, public cpus: number[]) {
+  constructor(response: SystemTopologyResponse, cpus: number[]) {
     super(response.systemTopology.logicalCores.map(cpuLabel => cpuLabel.cpuId));
     this.systemTopology = response.systemTopology;
     const validTopology = this.systemTopology &&
