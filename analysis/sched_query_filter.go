@@ -35,9 +35,17 @@ type filter struct {
 	cpus map[CPUID]struct{}
 	// if empty, all PIDs.
 	pids map[PID]struct{}
+	// The thread states to be included.  Defaults to AnyState.
+	threadStates ThreadState
 }
 
-// Filter specifies a filter to a sched collection query.
+// Filter specifies a filter to a sched collection query.  Filters can limit
+// the data processed to respond to a query, for instance by limiting the
+// time range, CPUs, or threads over which the query applies.  They can also
+// specify how the query analysis is performed, for instance by requesting
+// intervals be aggregated up to a specific duration.  Not all queries observe
+// all filters; each query function should document what filters it honors
+// and how it uses them.
 type Filter func(*filter)
 
 // TruncateToTimeRange sets whether intervals will be allowed to overlap
@@ -108,6 +116,15 @@ func PIDs(pids ...PID) func(*filter) {
 	}
 }
 
+// ThreadStates filters to the specified ThreadStates, overriding any previous
+// thread state filtering.  Multiple ThreadStates may be specified by joining
+// with bitwise OR.
+func ThreadStates(threadStates ThreadState) func(*filter) {
+	return func(f *filter) {
+		f.threadStates = threadStates
+	}
+}
+
 // duplicateFilter duplicates the provided filter.
 func duplicateFilter(inF *filter) func(*filter) {
 	return func(outF *filter) {
@@ -127,6 +144,7 @@ func duplicateFilter(inF *filter) func(*filter) {
 		for pid := range inF.pids {
 			outF.pids[pid] = struct{}{}
 		}
+		outF.threadStates = inF.threadStates
 	}
 }
 
@@ -139,6 +157,7 @@ func buildFilter(c *Collection, filtFuncs []Filter) *filter {
 		eventTypes:          map[string]struct{}{},
 		cpus:                map[CPUID]struct{}{},
 		pids:                map[PID]struct{}{},
+		threadStates:        RunningState | WaitingState | SleepingState | UnknownState,
 	}
 	for _, ff := range filtFuncs {
 		ff(f)
@@ -176,12 +195,13 @@ func buildFilter(c *Collection, filtFuncs []Filter) *filter {
 //  * s's time range must overlap f's time range,
 //  * s's PID must be present in f's pid set,
 //  * s's CPU must be present in f's cpu set.
+//  * s's ThreadState must be among f's filtered-in states.
 func (f *filter) spanFilteredIn(span *threadSpan) bool {
 	_, inCPUs := f.cpus[span.cpu]
 	_, inPIDs := f.pids[span.pid]
 	return span.endTimestamp >= f.startTimestamp &&
 		span.startTimestamp <= f.endTimestamp &&
-		inCPUs && inPIDs
+		inCPUs && inPIDs && ((span.state & f.threadStates) == span.state)
 }
 
 func (f *filter) maxCPUID() CPUID {
@@ -192,4 +212,8 @@ func (f *filter) maxCPUID() CPUID {
 		}
 	}
 	return max
+}
+
+func (f *filter) threadStateFilteredIn(threadState ThreadState) bool {
+	return (threadState & f.threadStates) == threadState
 }

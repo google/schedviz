@@ -55,7 +55,13 @@ func (c *Collection) PerThreadEventSeries(pid PID, startTimestamp, endTimestamp 
 	return ret, nil
 }
 
-// ThreadSummaries returns a set of thread summaries for a specified collection over a specified interval.
+// ThreadSummaries returns a set of thread summaries for a specified collection
+// over a specified interval.
+// FILTERS:
+//   ThreadSummaries performs its calculations over thread intervals, so it
+//   honors the same filters as ThreadIntervals, in the same ways.  However, it
+//   calls ThreadIntervals for each individual thread in the filtered-in PID
+//   set.
 func (c *Collection) ThreadSummaries(filters ...Filter) ([]*Metrics, error) {
 	f := buildFilter(c, filters)
 	pidsAndComms, err := c.PIDsAndComms()
@@ -84,20 +90,9 @@ func (c *Collection) ThreadSummaries(filters ...Filter) ([]*Metrics, error) {
 	filterCPUs := c.CPUs(cpuFilter)
 
 	var pidMetrics = []*Metrics{}
-	// Get timestamps from collection if not provided.
-	startTS := f.startTimestamp
-	if startTS <= trace.UnknownTimestamp {
-		collectionStartTS, _ := c.Interval()
-		startTS = collectionStartTS
-	}
-	endTS := f.endTimestamp
-	if endTS <= trace.UnknownTimestamp {
-		_, collectionEndTS := c.Interval()
-		endTS = collectionEndTS
-	}
 
 	for _, pid := range pids {
-		filters := []Filter{PIDs(pid), TimeRange(startTS, endTS)}
+		filters := []Filter{PIDs(pid), TimeRange(f.startTimestamp, f.endTimestamp)}
 		// Don't use CPU filter for ThreadIntervals or else migrates will be filtered out.
 		threadIntervals, err := c.ThreadIntervals(filters...)
 		if err != nil {
@@ -108,7 +103,7 @@ func (c *Collection) ThreadSummaries(filters ...Filter) ([]*Metrics, error) {
 		var lastInterval *Interval
 
 		for _, interval := range threadIntervals {
-			if err := metric.recordInterval(filterCPUs, startTS, endTS, lastInterval, interval); err != nil {
+			if err := metric.recordInterval(filterCPUs, f.startTimestamp, f.endTimestamp, lastInterval, interval); err != nil {
 				return nil, err
 			}
 			lastInterval = interval

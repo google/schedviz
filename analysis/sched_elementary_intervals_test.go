@@ -200,6 +200,56 @@ func TestElementaryCPUIntervals(t *testing.T) {
 			),
 		},
 	}, {
+		description: "CPU 1, test trace 1, full range, only running",
+		filters:     []Filter{CPUs(1), ThreadStates(RunningState)},
+		diffOutput:  false,
+		eventSet:    schedtestcommon.TestTrace1(t),
+		wantElementaryCPUIntervals: []*ElementaryCPUInterval{
+			elementaryCPUInterval(
+				trace.Timestamp(1000), trace.Timestamp(1010),
+				cpuState(CPUID(1), Full, thread3),
+			),
+			elementaryCPUInterval(
+				trace.Timestamp(1010), trace.Timestamp(1100),
+				cpuState(CPUID(1), Full, thread1),
+			),
+			elementaryCPUInterval(
+				trace.Timestamp(1100), trace.Timestamp(1100),
+				cpuState(CPUID(1), Full, thread3),
+			),
+		},
+	}, {
+		description: "CPU 1, test trace 1, full range, only waiting",
+		filters:     []Filter{CPUs(1), ThreadStates(WaitingState)},
+		diffOutput:  false,
+		eventSet:    schedtestcommon.TestTrace1(t),
+		wantElementaryCPUIntervals: []*ElementaryCPUInterval{
+			elementaryCPUInterval(
+				trace.Timestamp(1000), trace.Timestamp(1010),
+				cpuState(CPUID(1), Full, nil, thread1),
+			),
+			elementaryCPUInterval(
+				trace.Timestamp(1010), trace.Timestamp(1040),
+				cpuState(CPUID(1), Full, nil),
+			),
+			elementaryCPUInterval(
+				trace.Timestamp(1040), trace.Timestamp(1080),
+				cpuState(CPUID(1), Full, nil, thread2),
+			),
+			elementaryCPUInterval(
+				trace.Timestamp(1080), trace.Timestamp(1090),
+				cpuState(CPUID(1), Full, nil),
+			),
+			elementaryCPUInterval(
+				trace.Timestamp(1090), trace.Timestamp(1100),
+				cpuState(CPUID(1), Full, nil, thread3),
+			),
+			elementaryCPUInterval(
+				trace.Timestamp(1100), trace.Timestamp(1100),
+				cpuState(CPUID(1), Full, nil, thread1),
+			),
+		},
+	}, {
 		description: "overlapping waits",
 		filters:     nil,
 		diffOutput:  false,

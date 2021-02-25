@@ -406,24 +406,15 @@ func TestGetCPUIntervals(t *testing.T) {
 			},
 			Waiting: []*sched.Interval{
 				{
-					Duration: 21845,
+					Duration: 1924032,
 					ThreadResidencies: []*sched.ThreadResidency{
-						{
-							Thread: &sched.Thread{
-								PID:      17254,
-								Command:  "trace.sh",
-								Priority: 120,
-							},
-							Duration: 21845,
-							State:    sched.RunningState,
-						},
 						{
 							Thread: &sched.Thread{
 								PID:      17287,
 								Priority: 120,
 								Command:  "trace.sh",
 							},
-							Duration: 21845,
+							Duration: 1924032,
 							State:    sched.WaitingState,
 						},
 					},

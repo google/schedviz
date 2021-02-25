@@ -136,6 +136,11 @@ func (ab *antagonistBuilder) Antagonists() Antagonists {
 // not running.)  Its complexity is O(N) on the total events in the collection,
 // as it looks at any given event at most twice -- once when iterating through
 // per-PID events, and once when iterating through per-CPU events.
+// FILTERS:
+//   PIDs: Antagonists expects a single PID to be filtered in; this PID is the
+//       victim thread.  All threads are considered as antagonists.
+//   TimeRange, StartTimestamp, EndTimestamp: Antagonists are evaluated over
+//       the filtered-in time range.
 func (c *Collection) Antagonists(filters ...Filter) (Antagonists, error) {
 	f := buildFilter(c, filters)
 	pids := pidMapKeys(f.pids)
@@ -216,10 +221,23 @@ type Utilization struct {
 	UtilizationFraction float64 `json:"cpuUtilizationFraction"`
 }
 
-// UtilizationMetrics returns a Utilization for the requested set of CPUs and over the requested
-// duration.  Any CPUs in the requested set that lack any events are dropped, as we can't tell
-// whether they were off, idle, or running a single thread the entire time.
+// UtilizationMetrics returns a Utilization for the requested set of CPUs and
+// over the requested duration.  Any CPUs in the requested set that lack any
+// events are dropped, as we can't tell whether they were off, idle, or running
+// a single thread the entire time.
+// FILTERS:
+//   UtilizationMetrics performs its calculations over elementary CPU intervals,
+//   so it honors the same filters as NewElementaryCPUIntervalProvider:
+//   TruncateToTimeRange: If true, the elementary intervals will be clipped
+//       to the filtered time range.
+//   TimeRange, StartTimestamp, EndTimestamp: Metrics are generated over the
+//       filtered-in time range.
+//   CPUs: Intervals are restricted to the specified CPUs.
+//   PIDs: Intervals are restricted to the specified PIDs.
+//   However, it overrides ThreadStates:
+//   ThreadStates: UtilizationMetrics computes metrics over all states.
 func (c *Collection) UtilizationMetrics(filters ...Filter) (Utilization, error) {
+	filters = append(filters, ThreadStates(UnknownState|RunningState|WaitingState|SleepingState))
 	f := buildFilter(c, filters)
 	provider, err := c.NewElementaryCPUIntervalProvider(true /*=diffOutput*/, filters...)
 	if err != nil {
@@ -344,6 +362,21 @@ func (a *ThreadStatistics) add(b *ThreadStatistics) {
 
 // ThreadStats returns ThreadStatistics aggregated across the filtered-in
 // trace.
+// FILTERS:
+//   ThreadStats performs its calculations over thread intervals, so it honors
+//   the same filters as ThreadIntervals:
+//   CPUs: Intervals are restricted to only the specified CPUs.
+//   TimeRange, StartTimestamp, EndTimestamp: ThreadIntervals are produced for
+//       the filtered-in time range.
+//   ThreadState: Intervals are restricted to only the specified thread states.
+//   TruncateToTimeRange: If true, returned intervals will be clipped to the
+//       filtered time range.
+//   However, it overrides or specially handles some filters:
+//   PIDs: ThreadStats calls ThreadIntervals for each individual thread in the
+//       filtered-in PID set.
+//   MinimumIntervalDuration: ThreadStats overrides the minimum interval
+//       duration to 0.
+//   TruncateToTimeRange: ThreadStat truncates to the filtered-in time range.
 func (c *Collection) ThreadStats(filters ...Filter) (*ThreadStatistics, error) {
 	f := buildFilter(c, filters)
 	var m sync.Mutex

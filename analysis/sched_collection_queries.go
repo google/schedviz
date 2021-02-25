@@ -27,6 +27,10 @@ import (
 
 // PIDsAndComms returns the PIDs and their commands observed in the filtered-in
 // portion of the collection.
+// FILTERS:
+//   PIDs: Only the filtered-in PIDs are included.
+//   TimeRange, StartTimestamp, EndTimestamp: Only threads observed in the
+//       filtered-in range are returned.
 func (c *Collection) PIDsAndComms(filters ...Filter) (map[PID][]string, error) {
 	f := buildFilter(c, filters)
 	pidToCommSet := map[PID]map[string]struct{}{}
@@ -182,12 +186,20 @@ func (tib *threadIntervalBuilder) addSpan(span *threadSpan) (*Interval, error) {
 // extremities; otherwise they will be left whole.  The latter can be useful
 // for visualizers wishing to report the true length of a given interval even
 // when part of it lies outside the viewport.
-// If the filter specifies a minimum time interval greater than 1, smaller
-// adjacent intervals will be aggregated together until they exceed that
-// minimum interval.  When this occurs, multiple ThreadResidencies within the
-// Interval will reflect what states the PID held, and for how long, but not
-// precisely when.  Intervals with different CPUs are never merged.
-// The filter must specify exactly one PID.
+// FILTERS:
+//   PIDs: ThreadIntervals expects a single PID to be filtered in; this PID is
+//       the one for which intervals will be returned.
+//   CPUs: Intervals are restricted to only the specified CPUs.
+//   TimeRange, StartTimestamp, EndTimestamp: ThreadIntervals are produced for
+//       the filtered-in time range.
+//   ThreadState: Intervals are restricted to only the specified thread states.
+//   TruncateToTimeRange: If true, returned intervals will be clipped to the
+//       filtered time range.
+//   MinIntervalDuration: adjacent thread intervals are aggregated until they
+//       exceed the specified MinIntervalDuration.  When this occurs, multiple
+//       ThreadResidencies within the Interval will reflect what states the PID
+//       held, and for how long, but not precisely win.  Intervals with
+//       different CPUs are never aggregated.
 func (c *Collection) ThreadIntervals(filters ...Filter) ([]*Interval, error) {
 	f := buildFilter(c, filters)
 	var pids = []PID{}
@@ -386,7 +398,22 @@ func (cib *cpuIntervalBuilder) addElementaryInterval(eci *ElementaryCPUInterval)
 // minimum interval.  When this occurs, multiple ThreadResidencies within the
 // Interval will reflect what PIDs held what states on the CPU, and for how
 // long, but not precisely when.
-// The filter must specify exactly one CPU.
+// FILTERS:
+//   CPUIntervals performs its calculations over elementary CPU intervals,
+//   so it honors the same filters as NewElementaryCPUIntervalProvider:
+//   TruncateToTimeRange: If true, returned elementary intervals will be
+//       clipped to the filtered time range.
+//   TimeRange, StartTimestamp, EndTimestamp: Intervals are generated over the
+//       filtered-in time range.
+//   CPUs: Intervals are restricted to the specified CPUs.
+//   PIDs: Intervals are restricted to the specified PIDs.
+//   ThreadStates: Elementary intervals only include running and waiting
+//       threads
+//   It also supports:
+//   MinIntervalDuration: adjacent CPU intervals are aggregated until they
+//       exceed the specified MinIntervalDuration.  When this occurs, multiple
+//       ThreadResidencies within the Interval will reflect what PIDs held what
+//       states on the CPU, and for how long, but not precisely when.
 func (c *Collection) CPUIntervals(splitOnWaitingPIDChange bool, filters ...Filter) ([]*Interval, error) {
 	f := buildFilter(c, filters)
 	if len(f.cpus) > 1 {

@@ -177,38 +177,42 @@ func (c *Collection) newElementaryCPUIntervalBuilder(f *filter) (*elementaryCPUI
 	startTimestamp := f.startTimestamp
 	if !f.truncateToTimeRange {
 		newStartTimestamp := startTimestamp
-		// Find the earliest start time among all waiting threads.
-		for cpu := range f.cpus {
-			waitingTree, ok := c.waitingSpansByCPU[cpu]
-			if !ok {
-				continue
-			}
-			query := &threadSpan{
-				startTimestamp: startTimestamp,
-				endTimestamp:   startTimestamp,
-				id:             queryID,
-			}
-			waitingIntervals := waitingTree.Query(query)
-			for _, interval := range waitingIntervals {
-				ts := interval.(*threadSpan)
-				if ts.startTimestamp < newStartTimestamp {
-					newStartTimestamp = ts.startTimestamp
+		if f.threadStateFilteredIn(WaitingState) {
+			// Find the earliest start time among all waiting threads.
+			for cpu := range f.cpus {
+				waitingTree, ok := c.waitingSpansByCPU[cpu]
+				if !ok {
+					continue
+				}
+				query := &threadSpan{
+					startTimestamp: startTimestamp,
+					endTimestamp:   startTimestamp,
+					id:             queryID,
+				}
+				waitingIntervals := waitingTree.Query(query)
+				for _, interval := range waitingIntervals {
+					ts := interval.(*threadSpan)
+					if ts.startTimestamp < newStartTimestamp {
+						newStartTimestamp = ts.startTimestamp
+					}
 				}
 			}
 		}
-		// And the earliest start time among all running threads.
-		for cpu := range f.cpus {
-			runningThreads, ok := c.runningSpansByCPU[cpu]
-			if !ok {
-				continue
-			}
-			// Find the first index i in runningThreads at which
-			//   runningThreads[i].endTimestamp >= startTimestamp
-			startIdx := sort.Search(len(runningThreads), func(i int) bool {
-				return runningThreads[i].endTimestamp >= startTimestamp
-			})
-			if startIdx < len(runningThreads) && runningThreads[startIdx].startTimestamp < newStartTimestamp {
-				newStartTimestamp = runningThreads[startIdx].startTimestamp
+		if f.threadStateFilteredIn(RunningState) {
+			// And the earliest start time among all running threads.
+			for cpu := range f.cpus {
+				runningThreads, ok := c.runningSpansByCPU[cpu]
+				if !ok {
+					continue
+				}
+				// Find the first index i in runningThreads at which
+				//   runningThreads[i].endTimestamp >= startTimestamp
+				startIdx := sort.Search(len(runningThreads), func(i int) bool {
+					return runningThreads[i].endTimestamp >= startTimestamp
+				})
+				if startIdx < len(runningThreads) && runningThreads[startIdx].startTimestamp < newStartTimestamp {
+					newStartTimestamp = runningThreads[startIdx].startTimestamp
+				}
 			}
 		}
 		startTimestamp = newStartTimestamp
@@ -226,55 +230,59 @@ func (c *Collection) newElementaryCPUIntervalBuilder(f *filter) (*elementaryCPUI
 			Remove: make([]*CPUState, maxCPUID+1),
 		},
 	}
-	// Populate and sort the waiting interval slices.
-	for cpu := range f.cpus {
-		waitingTree, ok := c.waitingSpansByCPU[cpu]
-		if !ok {
-			continue
+	if f.threadStateFilteredIn(WaitingState) {
+		// Populate and sort the waiting interval slices.
+		for cpu := range f.cpus {
+			waitingTree, ok := c.waitingSpansByCPU[cpu]
+			if !ok {
+				continue
+			}
+			query := &threadSpan{
+				startTimestamp: startTimestamp,
+				endTimestamp:   f.endTimestamp,
+				id:             queryID,
+			}
+			waitingIntervals := waitingTree.Query(query)
+			for _, interval := range waitingIntervals {
+				ts := interval.(*threadSpan)
+				ret.waitingIntervalsByStart = append(ret.waitingIntervalsByStart, ts)
+				ret.waitingIntervalsByEnd = append(ret.waitingIntervalsByEnd, ts)
+			}
 		}
-		query := &threadSpan{
-			startTimestamp: startTimestamp,
-			endTimestamp:   f.endTimestamp,
-			id:             queryID,
-		}
-		waitingIntervals := waitingTree.Query(query)
-		for _, interval := range waitingIntervals {
-			ts := interval.(*threadSpan)
-			ret.waitingIntervalsByStart = append(ret.waitingIntervalsByStart, ts)
-			ret.waitingIntervalsByEnd = append(ret.waitingIntervalsByEnd, ts)
-		}
-	}
-	sort.Slice(ret.waitingIntervalsByStart, func(i, j int) bool {
-		return ret.waitingIntervalsByStart[i].startTimestamp < ret.waitingIntervalsByStart[j].startTimestamp
-	})
-	sort.Slice(ret.waitingIntervalsByEnd, func(i, j int) bool {
-		return ret.waitingIntervalsByEnd[i].endTimestamp < ret.waitingIntervalsByEnd[j].endTimestamp
-	})
-	// Populate running intervals.
-	for cpu := range f.cpus {
-		runningThreads, ok := c.runningSpansByCPU[cpu]
-		if !ok {
-			continue
-		}
-		// Find the first index i in runningThreads at which
-		//   runningThreads[i].endTimestamp >= startTimestamp
-		startIdx := sort.Search(len(runningThreads), func(i int) bool {
-			return runningThreads[i].endTimestamp >= startTimestamp
+		sort.Slice(ret.waitingIntervalsByStart, func(i, j int) bool {
+			return ret.waitingIntervalsByStart[i].startTimestamp < ret.waitingIntervalsByStart[j].startTimestamp
 		})
-		// Find the first index i in runningThreads at which
-		//   runningThreads[i].startTimestamp > endTimestamp
-		endIdx := sort.Search(len(runningThreads), func(i int) bool {
-			return runningThreads[i].startTimestamp > f.endTimestamp
+		sort.Slice(ret.waitingIntervalsByEnd, func(i, j int) bool {
+			return ret.waitingIntervalsByEnd[i].endTimestamp < ret.waitingIntervalsByEnd[j].endTimestamp
 		})
-		ret.runningIntervalsByStart = append(ret.runningIntervalsByStart, runningThreads[startIdx:endIdx]...)
-		ret.runningIntervalsByEnd = append(ret.runningIntervalsByEnd, runningThreads[startIdx:endIdx]...)
 	}
-	sort.Slice(ret.runningIntervalsByStart, func(i, j int) bool {
-		return ret.runningIntervalsByStart[i].startTimestamp < ret.runningIntervalsByStart[j].startTimestamp
-	})
-	sort.Slice(ret.runningIntervalsByEnd, func(i, j int) bool {
-		return ret.runningIntervalsByEnd[i].endTimestamp < ret.runningIntervalsByEnd[j].endTimestamp
-	})
+	if f.threadStateFilteredIn(RunningState) {
+		// Populate running intervals.
+		for cpu := range f.cpus {
+			runningThreads, ok := c.runningSpansByCPU[cpu]
+			if !ok {
+				continue
+			}
+			// Find the first index i in runningThreads at which
+			//   runningThreads[i].endTimestamp >= startTimestamp
+			startIdx := sort.Search(len(runningThreads), func(i int) bool {
+				return runningThreads[i].endTimestamp >= startTimestamp
+			})
+			// Find the first index i in runningThreads at which
+			//   runningThreads[i].startTimestamp > endTimestamp
+			endIdx := sort.Search(len(runningThreads), func(i int) bool {
+				return runningThreads[i].startTimestamp > f.endTimestamp
+			})
+			ret.runningIntervalsByStart = append(ret.runningIntervalsByStart, runningThreads[startIdx:endIdx]...)
+			ret.runningIntervalsByEnd = append(ret.runningIntervalsByEnd, runningThreads[startIdx:endIdx]...)
+		}
+		sort.Slice(ret.runningIntervalsByStart, func(i, j int) bool {
+			return ret.runningIntervalsByStart[i].startTimestamp < ret.runningIntervalsByStart[j].startTimestamp
+		})
+		sort.Slice(ret.runningIntervalsByEnd, func(i, j int) bool {
+			return ret.runningIntervalsByEnd[i].endTimestamp < ret.runningIntervalsByEnd[j].endTimestamp
+		})
+	}
 	// Set the initial running and waiting threads.
 	ret.updateRunningThreads()
 	ret.updateWaitingThreads()
@@ -287,46 +295,50 @@ func (c *Collection) newElementaryCPUIntervalBuilder(f *filter) (*elementaryCPUI
 // interesting things are happening, returns UnknownTimestamp.
 func (b *elementaryCPUIntervalBuilder) nextTimestamp() trace.Timestamp {
 	var ts = UnknownTimestamp
-	// Is the next thing happening a waiting interval starting?  Waiting
-	// intervals begin at the instant of their startTimestamp, so if one starts
-	// at currentTimestamp, it isn't the *next* one.
-	var nextStartingWaitingSpan *threadSpan
-	if b.nextWaitingIntervalByStartIdx < len(b.waitingIntervalsByStart) {
-		nextStartingWaitingSpan = b.waitingIntervalsByStart[b.nextWaitingIntervalByStartIdx]
+	if b.f.threadStateFilteredIn(WaitingState) {
+		// Is the next thing happening a waiting interval starting?  Waiting
+		// intervals begin at the instant of their startTimestamp, so if one starts
+		// at currentTimestamp, it isn't the *next* one.
+		var nextStartingWaitingSpan *threadSpan
+		if b.nextWaitingIntervalByStartIdx < len(b.waitingIntervalsByStart) {
+			nextStartingWaitingSpan = b.waitingIntervalsByStart[b.nextWaitingIntervalByStartIdx]
+		}
+		if nextStartingWaitingSpan != nil && nextStartingWaitingSpan.startTimestamp > b.currentTimestamp {
+			ts = nextStartingWaitingSpan.startTimestamp
+		}
+		// Or is it a waiting interval ending?  Waiting intervals end at the
+		// instant of their endTimestamp, so if one ends at currentTimestamp, it isn't
+		// the *next* one.
+		var nextEndingWaitingSpan *threadSpan
+		if b.nextWaitingIntervalByEndIdx < len(b.waitingIntervalsByEnd) {
+			nextEndingWaitingSpan = b.waitingIntervalsByEnd[b.nextWaitingIntervalByEndIdx]
+		}
+		if nextEndingWaitingSpan != nil && (ts == UnknownTimestamp ||
+			(nextEndingWaitingSpan.endTimestamp < ts &&
+				nextEndingWaitingSpan.endTimestamp > b.currentTimestamp)) {
+			ts = nextEndingWaitingSpan.endTimestamp
+		}
 	}
-	if nextStartingWaitingSpan != nil && nextStartingWaitingSpan.startTimestamp > b.currentTimestamp {
-		ts = nextStartingWaitingSpan.startTimestamp
-	}
-	// Or is it a waiting interval ending?  Waiting intervals end at the
-	// instant of their endTimestamp, so if one ends at currentTimestamp, it isn't
-	// the *next* one.
-	var nextEndingWaitingSpan *threadSpan
-	if b.nextWaitingIntervalByEndIdx < len(b.waitingIntervalsByEnd) {
-		nextEndingWaitingSpan = b.waitingIntervalsByEnd[b.nextWaitingIntervalByEndIdx]
-	}
-	if nextEndingWaitingSpan != nil && (ts == UnknownTimestamp ||
-		(nextEndingWaitingSpan.endTimestamp < ts &&
-			nextEndingWaitingSpan.endTimestamp > b.currentTimestamp)) {
-		ts = nextEndingWaitingSpan.endTimestamp
-	}
-	// Or is it a change in running thread?
-	var nextStartingRunningSpan *threadSpan
-	if b.nextRunningIntervalByStartIdx < len(b.runningIntervalsByStart) {
-		nextStartingRunningSpan = b.runningIntervalsByStart[b.nextRunningIntervalByStartIdx]
-	}
-	if nextStartingRunningSpan != nil && (ts == UnknownTimestamp ||
-		(nextStartingRunningSpan.startTimestamp < ts &&
-			nextStartingRunningSpan.startTimestamp > b.currentTimestamp)) {
-		ts = nextStartingRunningSpan.startTimestamp
-	}
-	var nextEndingRunningSpan *threadSpan
-	if b.nextRunningIntervalByEndIdx < len(b.runningIntervalsByEnd) {
-		nextEndingRunningSpan = b.runningIntervalsByEnd[b.nextRunningIntervalByEndIdx]
-	}
-	if nextEndingRunningSpan != nil && (ts == UnknownTimestamp ||
-		(nextEndingRunningSpan.endTimestamp < ts &&
-			nextEndingRunningSpan.endTimestamp > b.currentTimestamp)) {
-		ts = nextEndingRunningSpan.endTimestamp
+	if b.f.threadStateFilteredIn(RunningState) {
+		// Or is it a change in running thread?
+		var nextStartingRunningSpan *threadSpan
+		if b.nextRunningIntervalByStartIdx < len(b.runningIntervalsByStart) {
+			nextStartingRunningSpan = b.runningIntervalsByStart[b.nextRunningIntervalByStartIdx]
+		}
+		if nextStartingRunningSpan != nil && (ts == UnknownTimestamp ||
+			(nextStartingRunningSpan.startTimestamp < ts &&
+				nextStartingRunningSpan.startTimestamp > b.currentTimestamp)) {
+			ts = nextStartingRunningSpan.startTimestamp
+		}
+		var nextEndingRunningSpan *threadSpan
+		if b.nextRunningIntervalByEndIdx < len(b.runningIntervalsByEnd) {
+			nextEndingRunningSpan = b.runningIntervalsByEnd[b.nextRunningIntervalByEndIdx]
+		}
+		if nextEndingRunningSpan != nil && (ts == UnknownTimestamp ||
+			(nextEndingRunningSpan.endTimestamp < ts &&
+				nextEndingRunningSpan.endTimestamp > b.currentTimestamp)) {
+			ts = nextEndingRunningSpan.endTimestamp
+		}
 	}
 	return ts
 }
@@ -352,6 +364,9 @@ func (b *elementaryCPUIntervalBuilder) threadFromThreadSpan(ts *threadSpan) (*Th
 // running by currentTimestamp and then adding any that started running by
 // currentTimestamp.
 func (b *elementaryCPUIntervalBuilder) updateRunningThreads() {
+	if !b.f.threadStateFilteredIn(RunningState) {
+		return
+	}
 	b.startingRunningIntervals = nil
 	b.endingRunningIntervals = nil
 	// Add any newly-running threads, and remove any waiting ones.
@@ -387,6 +402,9 @@ func (b *elementaryCPUIntervalBuilder) updateRunningThreads() {
 // waiting by currentTimestamp and removing those that stopped waiting by
 // currentTimestamp.
 func (b *elementaryCPUIntervalBuilder) updateWaitingThreads() {
+	if !b.f.threadStateFilteredIn(WaitingState) {
+		return
+	}
 	b.startingWaitingIntervals = nil
 	b.endingWaitingIntervals = nil
 	for _, waitingThreadSpan := range b.waitingIntervalsByStart[b.nextWaitingIntervalByStartIdx:] {
@@ -478,24 +496,28 @@ func (b *elementaryCPUIntervalBuilder) updateRunningAndWaiting(resp *ElementaryC
 		}
 		return nil
 	}
-	for _, ts := range b.endingRunningIntervals {
-		if err := addThreadSpan(ts, Remove); err != nil {
-			return err
+	if b.f.threadStateFilteredIn(RunningState) {
+		for _, ts := range b.endingRunningIntervals {
+			if err := addThreadSpan(ts, Remove); err != nil {
+				return err
+			}
+		}
+		for _, ts := range b.startingRunningIntervals {
+			if err := addThreadSpan(ts, Add); err != nil {
+				return err
+			}
 		}
 	}
-	for _, ts := range b.startingRunningIntervals {
-		if err := addThreadSpan(ts, Add); err != nil {
-			return err
+	if b.f.threadStateFilteredIn(WaitingState) {
+		for _, ts := range b.endingWaitingIntervals {
+			if err := addThreadSpan(ts, Remove); err != nil {
+				return err
+			}
 		}
-	}
-	for _, ts := range b.endingWaitingIntervals {
-		if err := addThreadSpan(ts, Remove); err != nil {
-			return err
-		}
-	}
-	for _, ts := range b.startingWaitingIntervals {
-		if err := addThreadSpan(ts, Add); err != nil {
-			return err
+		for _, ts := range b.startingWaitingIntervals {
+			if err := addThreadSpan(ts, Add); err != nil {
+				return err
+			}
 		}
 	}
 	for _, css := range b.workingCPUStates {
@@ -650,6 +672,16 @@ type ElementaryCPUIntervalProvider struct {
 
 // NewElementaryCPUIntervalProvider returns a new ElementaryCPUIntervalProvider
 // that can be used to iterate through filtered-in elementary intervals.
+// FILTERS:
+//   TruncateToTimeRange: If true, returned elementary intervals will be
+//       clipped to the filtered time range.
+//   TimeRange, StartTimestamp, EndTimestamp: Intervals are generated over the
+//       filtered-in time range.
+//   CPUs: Intervals are restricted to the specified CPUs.
+//   PIDs: Intervals are restricted to the specified PIDs.
+//   ThreadStates: Elementary intervals only include running and waiting
+//       threads.  This may be further filtered to only running or only
+//       waiting.
 func (c *Collection) NewElementaryCPUIntervalProvider(diffOutput bool, filters ...Filter) (*ElementaryCPUIntervalProvider, error) {
 	f := buildFilter(c, filters)
 	ret := &ElementaryCPUIntervalProvider{}

@@ -250,22 +250,28 @@ func (c *Collection) GetRawEvents(filters ...Filter) ([]*trace.Event, error) {
 	return events, nil
 }
 
-// Interval returns the first and last timestamps of the events present in this Collection.
-// Only valid if tc.Valid() is true.
+// Interval returns the first and last timestamps of the events present in this
+// Collection.  Only valid if tc.Valid() is true.
+// FILTERS:
+//   TimeRange, StartTimestamp, EndTimestamp: The returned range is clipped to
+//       the filtered-in range.
 func (c *Collection) Interval(filters ...Filter) (startTS, endTS trace.Timestamp) {
 	f := buildFilter(c, filters)
 	return f.startTimestamp, f.endTimestamp
 }
 
-// CPUs returns the CPUs that the collection covers after the provided filters have been applied.
+// CPUs returns the CPUs that the collection covers.
+// FILTERS:
+//   CPUs: the returned set of CPUs is clipped to the filtered-in set of CPUs.
 func (c *Collection) CPUs(filters ...Filter) map[CPUID]struct{} {
 	f := buildFilter(c, filters)
 	return f.cpus
 }
 
-// NormalizationOffset returns the duration to subtract from each event's timestamp to normalize it.
-// This is the actual timestamp of the first valid, unclipped, sched event if timestamp
-// normalization is enabled, or zero if it is not.
+// NormalizationOffset returns the duration to subtract from each event's
+// timestamp to normalize it.  This is the actual timestamp of the first
+// valid, unclipped, sched event if timestamp normalization is enabled, or
+// zero if it is not.
 func (c *Collection) NormalizationOffset() trace.Timestamp {
 	return c.normalizationOffset
 }

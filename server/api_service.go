@@ -77,7 +77,10 @@ func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUInterv
 		})
 
 		g.Go(func() error {
-			waitingIntervals, err := c.Collection.CPUIntervals(true /*=splitOnWaitingPIDChange*/, filters...)
+			subFilters := make([]sched.Filter, len(filters))
+			copy(subFilters, filters)
+			subFilters = append(subFilters, sched.ThreadStates(sched.WaitingState))
+			waitingIntervals, err := c.Collection.CPUIntervals(true /*=splitOnWaitingPIDChange*/, subFilters...)
 			if err != nil {
 				return err
 			}
