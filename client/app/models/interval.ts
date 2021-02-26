@@ -135,6 +135,13 @@ export abstract class Interval {
   }
 
   /**
+   * @return whether or not this interval is visible
+   */
+  visible(visibleRows: number[]) {
+    return this.shouldRender && visibleRows.includes(this.cpu);
+  }
+
+  /**
    * @return row height, based on number of intervals in collection (currently
    *  hardcoded in APP_CONFIG)
    */

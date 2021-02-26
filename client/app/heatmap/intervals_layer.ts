@@ -193,7 +193,7 @@ export class IntervalsLayer implements AfterViewInit, OnInit {
     if (!intervals || !intervals.length) {
       return;
     }
-    let data = intervals.filter(interval => interval.shouldRender);
+    let data = intervals.filter(i => i.visible(this.cpus));
     // Hide sleeping intervals on request
     if (!this.showSleeping.value) {
       data = data.filter(
