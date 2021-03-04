@@ -235,6 +235,10 @@ func TestPIDSummary(t *testing.T) {
 				Priorities:       []Priority{50},
 			},
 		},
+	}, {
+		description: "Filtered to only missing CPUs",
+		filters:     []Filter{CPUs(4)},
+		wantMs:      []*Metrics{},
 	}}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {

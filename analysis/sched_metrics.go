@@ -82,28 +82,22 @@ func (c *Collection) ThreadSummaries(filters ...Filter) ([]*Metrics, error) {
 		return pids[i] < pids[j]
 	})
 
-	var cpuIDs = []CPUID{}
-	for cpu := range f.cpus {
-		cpuIDs = append(cpuIDs, CPUID(cpu))
-	}
-	cpuFilter := CPUs(cpuIDs...)
-	filterCPUs := c.CPUs(cpuFilter)
-
 	var pidMetrics = []*Metrics{}
 
 	for _, pid := range pids {
-		filters := []Filter{PIDs(pid), TimeRange(f.startTimestamp, f.endTimestamp)}
-		// Don't use CPU filter for ThreadIntervals or else migrates will be filtered out.
-		threadIntervals, err := c.ThreadIntervals(filters...)
+		// Fetch ThreadIntervals for this PID, but overriding the request's CPU
+		// filtering so that migrations (which may be from or to unfiltered CPUs)
+		// aren't lost.
+		threadIntervals, err := c.ThreadIntervals(duplicateFilter(f), PIDs(pid), CPUs())
 		if err != nil {
 			return nil, err
 		}
 		// Compute metrics on the thread intervals
-		metric := newMetric(c, append(filters, cpuFilter)...)
+		metric := newMetric(c, filters...)
 		var lastInterval *Interval
 
 		for _, interval := range threadIntervals {
-			if err := metric.recordInterval(filterCPUs, f.startTimestamp, f.endTimestamp, lastInterval, interval); err != nil {
+			if err := metric.recordInterval(f.cpus, f.startTimestamp, f.endTimestamp, lastInterval, interval); err != nil {
 				return nil, err
 			}
 			lastInterval = interval
@@ -165,8 +159,8 @@ func isWakeup(last, curr *Interval) bool {
 }
 
 func (m *metric) recordInterval(filterCPUs map[CPUID]struct{}, startTimestamp, endTimestamp trace.Timestamp, last, curr *Interval) error {
-	// If filterCPUs is set and the interval's CPU is filtered, don't record anything
-	if _, ok := filterCPUs[curr.CPU]; len(filterCPUs) > 0 && !ok {
+	// If the interval's CPU is filtered out, don't record anything
+	if _, ok := filterCPUs[curr.CPU]; !ok {
 		return nil
 	}
 	m.intervalCount++
