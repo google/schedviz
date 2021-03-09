@@ -339,7 +339,7 @@ func parseFTraceTar(dir string, failOnUnknownEventFormat bool) (*eventpb.EventSe
 	}
 
 	overflowed, err := findOverflowedCPUs(path.Join(dir, "stats"))
-	if err != nil {
+	if err == nil {
 		eventSetBuilder.SetOverflowedCPUs(overflowed)
 	}
 

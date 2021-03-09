@@ -93,6 +93,9 @@ func (ev Event) String() string {
 	}
 	sort.Sort(props)
 	out = append(out, props...)
+	if ev.Clipped {
+		out = append(out, "CLIPPED")
+	}
 	return strings.Join(out, " ")
 }
 
