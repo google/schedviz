@@ -68,7 +68,7 @@ func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUInterv
 		res.Intervals[i].CPU = cpu
 
 		g.Go(func() error {
-			cpuIntervals, err := c.Collection.CPUIntervals(false /*=splitOnWaitingPIDChange*/, filters...)
+			cpuIntervals, err := c.SchedCollection().CPUIntervals(false /*=splitOnWaitingPIDChange*/, filters...)
 			if err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ func (as *APIService) GetCPUIntervals(ctx context.Context, req *models.CPUInterv
 			subFilters := make([]sched.Filter, len(filters))
 			copy(subFilters, filters)
 			subFilters = append(subFilters, sched.ThreadStates(sched.WaitingState))
-			waitingIntervals, err := c.Collection.CPUIntervals(true /*=splitOnWaitingPIDChange*/, subFilters...)
+			waitingIntervals, err := c.SchedCollection().CPUIntervals(true /*=splitOnWaitingPIDChange*/, subFilters...)
 			if err != nil {
 				return err
 			}
@@ -110,7 +110,7 @@ func (as *APIService) GetPIDIntervals(ctx context.Context, req *models.PidInterv
 	for i, pid := range req.Pids {
 		i, pid := i, pid
 		g.Go(func() error {
-			pidIntervals, err := c.Collection.ThreadIntervals(
+			pidIntervals, err := c.SchedCollection().ThreadIntervals(
 				sched.PIDs(sched.PID(pid)),
 				sched.TimeRange(trace.Timestamp(req.StartTimestampNs), trace.Timestamp(req.EndTimestampNs)),
 				sched.MinIntervalDuration(sched.Duration(req.MinIntervalDurationNs)),
@@ -142,7 +142,7 @@ func (as *APIService) GetAntagonists(ctx context.Context, req *models.Antagonist
 		CollectionName: req.CollectionName,
 	}
 	for _, pid := range req.Pids {
-		ants, err := c.Collection.Antagonists(
+		ants, err := c.SchedCollection().Antagonists(
 			sched.PIDs(sched.PID(pid)),
 			sched.StartTimestamp(trace.Timestamp(req.StartTimestampNs)),
 			sched.EndTimestamp(trace.Timestamp(req.EndTimestampNs)))
@@ -168,7 +168,7 @@ func (as *APIService) GetPerThreadEventSeries(ctx context.Context, req *models.P
 		// Create a copy of pid
 		pid := pid
 		g.Go(func() error {
-			events, err := c.Collection.PerThreadEventSeries(pid, time.Duration(req.StartTimestampNs), time.Duration(req.EndTimestampNs))
+			events, err := c.SchedCollection().PerThreadEventSeries(pid, time.Duration(req.StartTimestampNs), time.Duration(req.EndTimestampNs))
 			if err != nil {
 				return fmt.Errorf("error occurred getting thread events for PID: %d, %v", pid, err)
 			}
@@ -197,7 +197,7 @@ func (as *APIService) GetThreadSummaries(ctx context.Context, req *models.Thread
 	if err != nil {
 		return nil, err
 	}
-	threadSummaries, err := c.Collection.ThreadSummaries(
+	threadSummaries, err := c.SchedCollection().ThreadSummaries(
 		sched.CPUs(req.Cpus...),
 		sched.TimeRange(trace.Timestamp(req.StartTimestampNs), trace.Timestamp(req.EndTimestampNs)))
 	if err != nil {
@@ -217,7 +217,7 @@ func (as *APIService) GetUtilizationMetrics(ctx context.Context, req *models.Uti
 	if err != nil {
 		return nil, err
 	}
-	um, err := c.Collection.UtilizationMetrics(sched.CPUs(req.Cpus...), sched.TimeRange(req.StartTimestampNs, req.EndTimestampNs), sched.TruncateToTimeRange(true))
+	um, err := c.SchedCollection().UtilizationMetrics(sched.CPUs(req.Cpus...), sched.TimeRange(req.StartTimestampNs, req.EndTimestampNs), sched.TruncateToTimeRange(true))
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (as *APIService) GetSystemTopology(ctx context.Context, collectionName stri
 		return nil, err
 	}
 
-	return &c.SystemTopology, err
+	return c.SystemTopology(), err
 }
 
 

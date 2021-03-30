@@ -112,9 +112,9 @@ func (fs *FsStorage) GetCollection(ctx context.Context, collectionName string) (
 	if err != nil {
 		return nil, err
 	}
-	cachedCollection.Collection = collection
-	cachedCollection.SystemTopology = convertTopologyProtoToStruct(collectionProto.Topology)
-	cachedCollection.Payload = map[string]interface{}{}
+	cachedCollection.collection = collection
+	cachedCollection.systemTopology = convertTopologyProtoToStruct(collectionProto.Topology)
+	cachedCollection.payload = map[string]interface{}{}
 	return cachedCollection, nil
 }
 
@@ -217,18 +217,19 @@ func (fs *FsStorage) GetCollectionParameters(ctx context.Context, collectionName
 	if len(collectionName) == 0 {
 		return models.CollectionParametersResponse{}, missingFieldError("collection_name")
 	}
-	collection, err := fs.GetCollection(ctx, collectionName)
+	cc, err := fs.GetCollection(ctx, collectionName)
 	if err != nil {
 		return models.CollectionParametersResponse{}, err
 	}
+	sc := cc.SchedCollection()
 
-	startTimestamp, endTimestamp := collection.Collection.Interval()
+	startTimestamp, endTimestamp := sc.Interval()
 
-	ftraceEvents := collection.Collection.TraceCollection.EventNames()
+	ftraceEvents := sc.TraceCollection.EventNames()
 
 	ret := models.CollectionParametersResponse{
 		CollectionName:   collectionName,
-		CPUs:             collection.Collection.ExpandCPUs(nil),
+		CPUs:             sc.ExpandCPUs(nil),
 		StartTimestampNs: int64(startTimestamp),
 		EndTimestampNs:   int64(endTimestamp),
 		FtraceEvents:     ftraceEvents,
@@ -242,17 +243,16 @@ func (fs *FsStorage) GetFtraceEvents(ctx context.Context, req *models.FtraceEven
 	if len(req.CollectionName) == 0 {
 		return models.FtraceEventsResponse{}, missingFieldError("collection_name")
 	}
-	collection, err := fs.GetCollection(ctx, req.CollectionName)
+	cc, err := fs.GetCollection(ctx, req.CollectionName)
 	if err != nil {
 		return models.FtraceEventsResponse{}, err
 	}
-
 	var cpus = []sched.CPUID{}
 	for _, cpu := range req.Cpus {
 		cpus = append(cpus, sched.CPUID(cpu))
 	}
 
-	events, err := collection.Collection.GetRawEvents(
+	events, err := cc.SchedCollection().GetRawEvents(
 		sched.CPUs(cpus...),
 		sched.TimeRange(trace.Timestamp(req.StartTimestamp), trace.Timestamp(req.EndTimestamp)),
 		sched.EventTypes(req.EventTypes...))

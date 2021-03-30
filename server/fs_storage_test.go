@@ -99,14 +99,14 @@ func TestFsStorage_UploadFile(t *testing.T) {
 		wantNumEvents      int
 		wantStart          trace.Timestamp
 		wantEnd            trace.Timestamp
-		wantSystemTopology models.SystemTopology
+		wantSystemTopology *models.SystemTopology
 	}{
 		{
 			file:          getTestTarFile(t, "test.tar.gz"),
 			wantNumEvents: 28922,
 			wantStart:     0,
 			wantEnd:       2009150555,
-			wantSystemTopology: models.SystemTopology{
+			wantSystemTopology: &models.SystemTopology{
 				LogicalCores: []*models.LogicalCore{{
 					SocketID:   0,
 					DieID:      0,
@@ -122,7 +122,7 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			wantNumEvents: 28922,
 			wantStart:     0,
 			wantEnd:       2009150555,
-			wantSystemTopology: models.SystemTopology{
+			wantSystemTopology: &models.SystemTopology{
 				LogicalCores: []*models.LogicalCore{{
 					SocketID:   0,
 					DieID:      0,
@@ -138,7 +138,7 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			wantNumEvents: 991,
 			wantStart:     0,
 			wantEnd:       12321353,
-			wantSystemTopology: models.SystemTopology{
+			wantSystemTopology: &models.SystemTopology{
 				LogicalCores: []*models.LogicalCore{
 					{
 						SocketID:   0,
@@ -188,14 +188,14 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			t.Fatalf("unexpected error thrown by FsStorage::GetCollection: %s", err)
 		}
 
-		rawEvents, err := cachedValue.Collection.GetRawEvents()
+		rawEvents, err := cachedValue.SchedCollection().GetRawEvents()
 		if err != nil {
 			t.Fatalf("unexpected error thrown while checking number of raw events: %s", err)
 		}
 		if len(rawEvents) != test.wantNumEvents {
 			t.Errorf("wrong number of events in event set. got: %d, want: %d", len(rawEvents), test.wantNumEvents)
 		}
-		gotStart, gotEnd := cachedValue.Collection.Interval()
+		gotStart, gotEnd := cachedValue.SchedCollection().Interval()
 		if gotStart != test.wantStart {
 			t.Errorf("wrong start time of collection. got: %d, want: %d", gotStart, test.wantStart)
 		}
@@ -203,11 +203,12 @@ func TestFsStorage_UploadFile(t *testing.T) {
 			t.Errorf("wrong end time of collection. got: %d, want: %d", gotEnd, test.wantEnd)
 		}
 
-		sort.Slice(cachedValue.SystemTopology.LogicalCores, func(i, j int) bool {
-			lc := cachedValue.SystemTopology.LogicalCores
+		st := cachedValue.SystemTopology()
+		sort.Slice(st.LogicalCores, func(i, j int) bool {
+			lc := st.LogicalCores
 			return lc[i].CPUID < lc[j].CPUID
 		})
-		if diff := cmp.Diff(test.wantSystemTopology, cachedValue.SystemTopology); diff != "" {
+		if diff := cmp.Diff(test.wantSystemTopology, st); diff != "" {
 			t.Errorf("wrong system topology returned; Diff -want +got %v", diff)
 		}
 	}

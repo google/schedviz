@@ -265,10 +265,15 @@ func (ti *Interval) String() string {
 // Antagonism is an interval during which a single thread running on a
 // single CPU antagonized the waiting victim.
 type Antagonism struct {
-	RunningThread  *Thread          `json:"runningThread"`
+	RunningThread  *Thread         `json:"runningThread"`
 	CPU            CPUID           `json:"cpu"`
 	StartTimestamp trace.Timestamp `json:"startTimestamp"`
 	EndTimestamp   trace.Timestamp `json:"endTimestamp"`
+}
+
+// Duration returns the duration of an antagonism.
+func (a *Antagonism) Duration() Duration {
+	return duration(a.StartTimestamp, a.EndTimestamp)
 }
 
 // Antagonists are threads that are running instead of the victim thread

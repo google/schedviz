@@ -19,6 +19,7 @@ package sched
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	log "github.com/golang/glog"
 	"github.com/Workiva/go-datastructures/augmentedtree"
@@ -274,6 +275,24 @@ func (c *Collection) CPUs(filters ...Filter) map[CPUID]struct{} {
 // zero if it is not.
 func (c *Collection) NormalizationOffset() trace.Timestamp {
 	return c.normalizationOffset
+}
+
+// TimestampFromDuration returns a trace.Timestamp corresponding to a
+// time.Duration from the trace's start.
+func (c *Collection) TimestampFromDuration(dur time.Duration) trace.Timestamp {
+	return trace.Timestamp(dur.Nanoseconds())
+}
+
+// DurationFromTimestamp returns a time.Duration from the trace's start
+// corresponding to a trace.Timestamp.
+func (c *Collection) DurationFromTimestamp(ts trace.Timestamp) time.Duration {
+	return time.Duration(ts) * time.Nanosecond
+}
+
+// DurationFromSchedDuration returns a time.Duration corresponding to a
+// sched.Duration.
+func (c *Collection) DurationFromSchedDuration(dur Duration) time.Duration {
+	return time.Duration(dur) * time.Nanosecond
 }
 
 // DroppedEventIDs returns the IDs, or indices, of events dropped during CPU

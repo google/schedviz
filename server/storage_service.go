@@ -35,14 +35,37 @@ import (
 
 // CachedCollection is a collection and its metadata that is stored in the LRU cache.
 type CachedCollection struct {
-	Collection     *sched.Collection
-	SystemTopology models.SystemTopology
+	collection     *sched.Collection
+	systemTopology models.SystemTopology
 	// Payload stores arbitrary data by a string key.
-	Payload map[string]interface{}
+	payload map[string]interface{}
 	// ready blocks until the collection is ready to be read.
 	ready chan struct{}
 	// Any error encountered while creating the collection.
 	err error
+}
+
+// SchedCollection returns the cached collection's sched.Collection.
+func (cc *CachedCollection) SchedCollection() *sched.Collection {
+	return cc.collection
+}
+
+// SystemTopology returns the cached collection's system topology.
+func (cc *CachedCollection) SystemTopology() *models.SystemTopology {
+	return &cc.systemTopology
+}
+
+// GetPayload returns the specified payload from the cached collection,
+// and a boolean indicating whether it was present.
+func (cc *CachedCollection) GetPayload(name string) (interface{}, bool) {
+	got, ok := cc.payload[name]
+	return got, ok
+}
+
+// SetPayload sets the specified name to the provided payload in the cached
+// collection, replacing whatever was there before.
+func (cc *CachedCollection) SetPayload(name string, payload interface{}) {
+	cc.payload[name] = payload
 }
 
 func newCachedCollection() *CachedCollection {
