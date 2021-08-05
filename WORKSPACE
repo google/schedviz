@@ -153,6 +153,11 @@ go_repository(
     importpath = "github.com/golang/sync",
     tag = "112230192c580c3556b8cee6403af37a4fc5f28c",
 )
+go_repository(
+    name = "com_github_ilhamster_ltl",
+    importpath = "github.com/ilhamster/ltl",
+    tag = "a7018a511f62f2326be6234934efbbeb44826475",
+)
 
 # abseil-cpp
 http_archive(

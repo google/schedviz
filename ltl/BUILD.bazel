@@ -1,0 +1,32 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+go_library(
+    name = "tracepointmatcher",
+    importpath = "github.com/google/schedviz/ltl/tracepointmatcher",
+
+    srcs = ["tracepoint_matcher.go"],
+    deps = [
+        "//tracedata:trace",
+        "@com_github_ilhamster_ltl//pkg/bindingenvironment:go_default_library",
+        "@com_github_ilhamster_ltl//pkg/ltl:go_default_library",
+    ],
+)
+
+go_test(
+    name = "tracepointmatcher_test",
+    size = "small",
+    srcs = ["tracepoint_matcher_test.go"],
+    embed = [":tracepointmatcher"],
+    deps = [
+        "//tracedata:eventsetbuilder",
+        "//tracedata:trace",
+        "@com_github_ilhamster_ltl//pkg/ltl:go_default_library",
+        "@com_github_ilhamster_ltl//pkg/operators:go_default_library",
+    ],
+)
