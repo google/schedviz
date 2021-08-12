@@ -99,9 +99,9 @@ one showing waiting thread queues for periods of CPU runtime.
 
 Our investigative flow typically involves:
 
-1.  Create layers for some threads, tasks, and/or event types of interest
-    (e.g. typing 'VCPU' into the Command query box and clicking the "Create
-    Layer for Query" button on the right).
+1.  Create layers for some threads, tasks, and/or event types of interest (e.g.
+    typing 'VCPU' into the Command query box and clicking the "Create Layer for
+    Query" button on the right).
 2.  Identifying an interesting set of CPUs (i.e., the CPUs they ran on, or the
     CPUs they *could* run on).
 3.  Filtering to those CPUs (via links in the CPU axes or via the CPU filter
@@ -214,8 +214,8 @@ specified by comma-separated lists or hyphen-connected ranges (e.g. `5` or
 labeling), not by attributes of their topology.
 
 The **Detail Factor** slider permits you to adjust the tradeoff between visual
-precision and UI performance.  More detail, and reduced UI performance, is to
-the right.
+precision and UI performance. More detail, and reduced UI performance, is to the
+right.
 
 > WARNING: It's best to reduce the size of the viewport, by CPU- filtering
 > and/or zooming, before enabling this, especially for large or complex traces.
@@ -241,8 +241,8 @@ between.
 
 #### Heatmap
 
-The **Heatmap** is a multi-dimensional chart, with time as the x-axis, CPUs
-as the y-axis, and various other metrics encoded into cell heights, intensities,
+The **Heatmap** is a multi-dimensional chart, with time as the x-axis, CPUs as
+the y-axis, and various other metrics encoded into cell heights, intensities,
 and opacities. The chart comprises horizontal swim-lanes, one per CPU, with
 rendered intervals, the intensities of which indicate how busy or idle the CPU
 was and how many threads were waiting on that CPU.
@@ -323,10 +323,10 @@ messy, hard-to-follow view, and can severely degrade browser performance.
 
 ![Zoom Brush](images/walkthrough/zoombrush.png)
 
-At the bottom of the **Heatmap Pane** is the **Zoom Brush**, which indicates
-the current zoom level in x (time), and can be used to quickly narrow down
-to a desired time range. The **Zoom Brush** background represents and aggregate,
-1D heatmap, for all CPUs. At the top of the pan is a header showing a set of
+At the bottom of the **Heatmap Pane** is the **Zoom Brush**, which indicates the
+current zoom level in x (time), and can be used to quickly narrow down to a
+desired time range. The **Zoom Brush** background represents and aggregate, 1D
+heatmap, for all CPUs. At the top of the pan is a header showing a set of
 **Metrics** for the visible interval. These describe the CPU utilization and
 overall balance of the currently-visible portion of the trace. Four metrics are
 shown:
@@ -369,7 +369,7 @@ URL contains hashed UI state to replicate the current view.
 
 
 It is also possible to apply some filters by more explicit URL hashing that can
-be manually or programmatically generated.  These filtering options include:
+be manually or programmatically generated. These filtering options include:
 
 *   Selected PIDs. Add `pids=<comma-separated PID list>` to the URL after the
     hash. Any invalid PIDs or PIDs that don't parse as integers are ignored.
