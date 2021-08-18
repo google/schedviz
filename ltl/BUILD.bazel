@@ -26,6 +26,7 @@ go_test(
     deps = [
         "//tracedata:eventsetbuilder",
         "//tracedata:trace",
+        "@com_github_ilhamster_ltl//pkg/bindingenvironment:go_default_library",
         "@com_github_ilhamster_ltl//pkg/ltl:go_default_library",
         "@com_github_ilhamster_ltl//pkg/operators:go_default_library",
     ],
