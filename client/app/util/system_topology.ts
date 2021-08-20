@@ -18,7 +18,7 @@
  * A CPU selection fragment is either a single decimal number or a range
  * specified by two decimal numbers separated by a hyphen.
  */
-const CPU_SELECTION_REGEX = new RegExp(`^([0-9]+)(\-([0-9]+))?$`);
+const CPU_SELECTION_REGEX = new RegExp(`^([0-9]+)(-([0-9]+))?$`);
 
 import {Viewport} from './viewport';
 
