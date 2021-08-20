@@ -24,7 +24,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ilhamster/ltl/pkg/binder"
 	be "github.com/ilhamster/ltl/pkg/bindingenvironment"
+	"github.com/ilhamster/ltl/pkg/bindings"
 	"github.com/ilhamster/ltl/pkg/ltl"
 	"github.com/google/schedviz/tracedata/trace"
 )
@@ -87,6 +89,9 @@ type TracepointMatcher struct {
 	// given trace.Event. The implementation is dependent on which field
 	// of a trace.Event the matcher is targeting.
 	matching func(ev *trace.Event) bool
+	// extractToken extracts the appropriate value for a binding, dependent
+	// on which field of a trace.Event the matcher is targeting.
+	extractToken func(name string, tok ltl.Token) (*bindings.Bindings, error)
 }
 
 func (tm TracepointMatcher) String() string {
@@ -103,7 +108,7 @@ func newAttributeMatcher(col *trace.Collection, tpm *TracepointMatcher, lhs stri
 	attributeName, attributeSelector, attributeValue := "", "", rhs
 
 	if !fieldNamesRe.MatchString(lhs) {
-		return nil, fmt.Errorf("invalid attribute or format '%s'", lhs)
+		return nil, fmt.Errorf("invalid attribute or format %q", lhs)
 	}
 
 	parsedAttributes := extractFieldsRe.FindStringSubmatch(lhs)
@@ -118,7 +123,7 @@ func newAttributeMatcher(col *trace.Collection, tpm *TracepointMatcher, lhs stri
 	case NumberProperties:
 		expectedValueNum, err := strconv.ParseInt(attributeValue, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("expected number for attribute '%s', got '%s'", attributeName, attributeValue)
+			return nil, fmt.Errorf("expected number for attribute %q, got %q", attributeName, attributeValue)
 		}
 		tpm.matching = func(ev *trace.Event) bool {
 			gotValue, ok := ev.NumberProperties[attributeSelector]
@@ -131,7 +136,7 @@ func newAttributeMatcher(col *trace.Collection, tpm *TracepointMatcher, lhs stri
 	case CPU:
 		expectedValueNum, err := strconv.ParseInt(attributeValue, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("expected number for attribute '%s', got '%s'", attributeName, attributeValue)
+			return nil, fmt.Errorf("expected number for attribute %q, got %q", attributeName, attributeValue)
 		}
 		tpm.matching = func(ev *trace.Event) bool {
 			return ev.CPU == expectedValueNum
@@ -139,7 +144,7 @@ func newAttributeMatcher(col *trace.Collection, tpm *TracepointMatcher, lhs stri
 	case Timestamp:
 		expectedValueNum, err := strconv.ParseInt(attributeValue, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("expected number for attribute '%s', got '%s'", attributeName, attributeValue)
+			return nil, fmt.Errorf("expected number for attribute %q, got %q", attributeName, attributeValue)
 		}
 		tpm.matching = func(ev *trace.Event) bool {
 			return ev.Timestamp == trace.Timestamp(expectedValueNum)
@@ -147,7 +152,7 @@ func newAttributeMatcher(col *trace.Collection, tpm *TracepointMatcher, lhs stri
 	case Clipped:
 		expectedValueBool, err := strconv.ParseBool(attributeValue)
 		if err != nil {
-			return nil, fmt.Errorf("expected boolean for attribute '%s', got '%s'", attributeName, attributeValue)
+			return nil, fmt.Errorf("expected boolean for attribute %q, got %q", attributeName, attributeValue)
 		}
 		tpm.matching = func(ev *trace.Event) bool {
 			return ev.Clipped == expectedValueBool
@@ -157,11 +162,108 @@ func newAttributeMatcher(col *trace.Collection, tpm *TracepointMatcher, lhs stri
 	return tpm, nil
 }
 
-// newMatcherFromString "parses" a string to a TracepointMatcher.
-// Returns either a valid *TracepointMatcher, or an error if parsing fails.
+// attachTokenExtractor takes a TracepointMatcher, attaches the appropriate extractToken function to it,
+// and returns it for use in binding and referencing values. Also may return an error upon invalid input.
+func attachTokenExtractor(tpm *TracepointMatcher, col *trace.Collection, attributeName string, attributeSelector string) (*TracepointMatcher, error) {
+	var extractTokenInternal func(name string, ev trace.Event) (*bindings.Bindings, error)
+
+	switch attributeName {
+	case Name:
+		extractTokenInternal = func(name string, ev trace.Event) (*bindings.Bindings, error) {
+			return bindings.New(bindings.String(name, ev.Name))
+		}
+	case CPU:
+		extractTokenInternal = func(name string, ev trace.Event) (*bindings.Bindings, error) {
+			return bindings.New(bindings.Int(name, int(ev.CPU)))
+		}
+	case Timestamp:
+		extractTokenInternal = func(name string, ev trace.Event) (*bindings.Bindings, error) {
+			return bindings.New(bindings.Int(name, int(ev.Timestamp)))
+		}
+	case TextProperties:
+		extractTokenInternal = func(name string, ev trace.Event) (*bindings.Bindings, error) {
+			val, ok := ev.TextProperties[attributeSelector]
+			if !ok {
+				return nil, fmt.Errorf("failed to make binding: key %s doesn't exist in TextProperties", attributeSelector)
+			}
+			return bindings.New(bindings.String(name, val))
+		}
+	case NumberProperties:
+		extractTokenInternal = func(name string, ev trace.Event) (*bindings.Bindings, error) {
+			val, ok := ev.NumberProperties[attributeSelector]
+			if !ok {
+				return nil, fmt.Errorf("failed to make binding: key %s doesn't exist in NumberProperties", attributeSelector)
+			}
+			return bindings.New(bindings.Int(name, int(val)))
+		}
+	case Clipped:
+		extractTokenInternal = func(name string, ev trace.Event) (*bindings.Bindings, error) {
+			return nil, fmt.Errorf("binding on the 'clipped' attribute is not currently supported")
+		}
+	default:
+		return nil, fmt.Errorf("invalid attribute %s in binding reference", attributeName)
+	}
+
+	tpm.extractToken = func(name string, tok ltl.Token) (*bindings.Bindings, error) {
+		ttok, ok := tok.(TracepointToken)
+		if !ok {
+			return nil, fmt.Errorf("failed to make binding: got %T but want TracepointToken", tok)
+		}
+		ev, err := col.EventByIndex(int(ttok))
+		if err != nil {
+			return nil, fmt.Errorf("failed to make binding: error '%v' when retrieving trace.Event at index %d of collection", err, ttok)
+		}
+		return extractTokenInternal(name, *ev)
+	}
+
+	return tpm, nil
+}
+
+// newBindingBind registers an assignment to a binding name. The left-hand side of the
+// expression must be a binding name of the form $bindingName`. The right-hand side of
+// the expression must be a valid attribute (+ optional selector) upon which to match.
+func newBindingBind(col *trace.Collection, tpm *TracepointMatcher, bindingName string, bindingValue string) (ltl.Operator, error) {
+	if !fieldNamesRe.MatchString(bindingValue) {
+		return nil, fmt.Errorf("invalid binding value or format %q", bindingValue)
+	}
+
+	parsedAttributes := extractFieldsRe.FindStringSubmatch(bindingValue)
+	name, selector := parsedAttributes[1], parsedAttributes[2]
+
+	tpm, err := attachTokenExtractor(tpm, col, name, selector)
+	if err != nil {
+		return nil, err
+	}
+
+	bindingBuilder := binder.NewBuilder(true, tpm.extractToken)
+	return bindingBuilder.Bind(bindingName), nil
+}
+
+// newBindingReference registers a reference to a binding name. The left-hand side of the
+// expression must be a valid attribute (+ optional selector) upon which to match. The
+// right-hand side of the expression can be an arbitrary string of the form `$bindingName`.
+func newBindingReference(col *trace.Collection, tpm *TracepointMatcher, attributeQuery string, attributeValue string) (ltl.Operator, error) {
+	if !fieldNamesRe.MatchString(attributeQuery) {
+		return nil, fmt.Errorf("invalid attribute or format %q", attributeQuery)
+	}
+
+	parsedAttributes := extractFieldsRe.FindStringSubmatch(attributeQuery)
+	name, selector := parsedAttributes[1], parsedAttributes[2]
+
+	tpm, err := attachTokenExtractor(tpm, col, name, selector)
+	if err != nil {
+		return nil, err
+	}
+
+	bindingBuilder := binder.NewBuilder(true, tpm.extractToken)
+	return bindingBuilder.Reference(strings.TrimPrefix(attributeValue, "$")), nil
+}
+
+// newMatcherFromString "parses" a string to a TracepointMatcher, binder.Binder,
+// or binder.Referencer. May return an error if parsing fails.
 func newMatcherFromString(col *trace.Collection, s string) (ltl.Operator, error) {
 	if !matchExprRe.MatchString(s) {
-		return nil, fmt.Errorf("expected format 'attribute=value', 'attribute[selector]=value', or 'name<-value', but got '%s'", s)
+		return nil, fmt.Errorf("expected format 'attribute=value', 'attribute[selector]=value', or 'name<-value', but got %q", s)
 	}
 
 	captures := matchExprRe.FindStringSubmatch(s)
@@ -178,9 +280,12 @@ func newMatcherFromString(col *trace.Collection, s string) (ltl.Operator, error)
 	if attributeLHS != "" && attributeRHS != "" && !strings.HasPrefix(attributeRHS, "$") {
 		return newAttributeMatcher(col, tpm, attributeLHS, attributeRHS)
 	}
-
-	// TODO(mirrorkeydev): add support for bindings
-	return nil, fmt.Errorf("TODO: add support for processing bindings like %s<-%s", bindingLHS, bindingRHS)
+	// A reference to a bound value like `event.name=$boundValue`
+	if attributeLHS != "" && attributeRHS != "" && strings.HasPrefix(attributeRHS, "$") {
+		return newBindingReference(col, tpm, attributeLHS, attributeRHS)
+	}
+	// An assignment to a bound value like `$boundValue<-event.name`
+	return newBindingBind(col, tpm, bindingLHS, bindingRHS)
 }
 
 // newToken converts a trace.Event to a TracepointToken by
@@ -219,8 +324,8 @@ func (tm *TracepointMatcher) Match(tok ltl.Token) (ltl.Operator, ltl.Environment
 // Generator returns a generator function producing tracepoint matchers.
 // The returned function accepts a string and returns a matcher for that
 // string (and possibly an error).
-func Generator() func(col *trace.Collection, s string) (ltl.Operator, error) {
-	return func(col *trace.Collection, s string) (ltl.Operator, error) {
+func Generator(col *trace.Collection) func(s string) (ltl.Operator, error) {
+	return func(s string) (ltl.Operator, error) {
 		return newMatcherFromString(col, s)
 	}
 }
