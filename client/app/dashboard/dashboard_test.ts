@@ -15,7 +15,7 @@
 //
 //
 import {HttpErrorResponse} from '@angular/common/http';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {ComponentFixture, TestBed, waitForAsync} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatDialogModule} from '@angular/material/dialog';
@@ -30,7 +30,8 @@ import {BrowserModule} from '@angular/platform-browser';
 import {BehaviorSubject, throwError} from 'rxjs';
 
 import {HeatmapModule} from '../heatmap/heatmap_module';
-import {Checkpoint, CpuIdleWaitLayer, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../models';
+import {Checkpoint, CollectionParameters, CpuIdleWaitLayer, CpuRunningLayer, CpuWaitQueueLayer, Layer} from '../models';
+// END-INTERNAL
 
 import {LocalCollectionDataService} from '../services/collection_data_service';
 import {ColorService} from '../services/color_service';
@@ -104,7 +105,7 @@ describe('Dashboard', () => {
     });
   });
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.compileComponents().then(() => {
       fixture = TestBed.createComponent(Dashboard);
       dashboard = fixture.debugElement.componentInstance;

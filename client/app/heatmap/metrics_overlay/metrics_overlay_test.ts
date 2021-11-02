@@ -14,13 +14,15 @@
 // limitations under the License.
 //
 //
-import {async, TestBed} from '@angular/core/testing';
+import {TestBed, waitForAsync} from '@angular/core/testing';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {BehaviorSubject} from 'rxjs';
+
 import {CollectionParameters} from '../../models';
 import {LocalMetricsService} from '../../services/metrics_service';
 import {LocalRenderDataService} from '../../services/render_data_service';
 import {Viewport} from '../../util';
+
 import {MetricsOverlay} from './metrics_overlay';
 import {MetricsOverlayModule} from './metrics_overlay_module';
 
@@ -51,7 +53,7 @@ function mockParameters(): CollectionParameters {
 }
 
 describe('MetricsOverlayLayer', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
     TestBed

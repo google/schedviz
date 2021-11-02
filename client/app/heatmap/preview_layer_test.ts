@@ -14,18 +14,18 @@
 // limitations under the License.
 //
 //
-import {async, TestBed} from '@angular/core/testing';
+import {TestBed, waitForAsync} from '@angular/core/testing';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {BehaviorSubject} from 'rxjs';
 
 import {CollectionParameters, Interval, Layer, Thread} from '../models';
 import {LocalMetricsService} from '../services/metrics_service';
 import {LocalRenderDataService} from '../services/render_data_service';
+import {ShortcutService} from '../services/shortcut_service';
 import {SystemTopology, Viewport} from '../util';
 
 import {Heatmap} from './heatmap';
 import {HeatmapModule} from './heatmap_module';
-import {ShortcutService} from '../services/shortcut_service';
 
 const CPU_COUNT = 72;
 const CPUS: number[] = [];
@@ -65,7 +65,7 @@ function mockTopology(): SystemTopology {
 
 // Test preview change yields correct rendering
 describe('PreviewLayer', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
     TestBed

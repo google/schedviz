@@ -14,20 +14,20 @@
 // limitations under the License.
 //
 //
-import {async, TestBed} from '@angular/core/testing';
+import {TestBed, waitForAsync} from '@angular/core/testing';
+import {MatDialog} from '@angular/material/dialog';
 import {Router} from '@angular/router';
 import {RouterTestingModule} from '@angular/router/testing';
 
 import {AppRoot} from './app_root';
 import {AppRootModule} from './app_root_module';
 import {routes} from './app_routing_module';
-import {serializeHashFragment} from './util';
-import {ShortcutService, ShortcutId} from './services/shortcut_service';
+import {ShortcutId, ShortcutService} from './services/shortcut_service';
 import {triggerShortcut} from './services/shortcut_service_test';
-import {MatDialog} from '@angular/material/dialog';
+import {serializeHashFragment} from './util';
 
 describe('AppRoot', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed
         .configureTestingModule({
           imports: [AppRootModule, RouterTestingModule.withRoutes(routes)],

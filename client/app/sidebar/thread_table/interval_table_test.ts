@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {ComponentFixture, TestBed, waitForAsync} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -23,12 +23,12 @@ import {Sort} from '@angular/material/sort';
 import {MatTableModule} from '@angular/material/table';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
-import * as jumpToTime from './jump_to_time';
 import {BehaviorSubject, ReplaySubject} from 'rxjs';
 
 import {Interval, Layer} from '../../models';
 
 import {IntervalTable} from './interval_table';
+import * as jumpToTime from './jump_to_time';
 import {mockThreadIntervals, verifySorting} from './table_helpers_test';
 import {ThreadTableModule} from './thread_table_module';
 
@@ -64,7 +64,7 @@ function createTableWithMockData(): ComponentFixture<IntervalTable> {
 }
 
 describe('IntervalTable', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
     TestBed
