@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, TestBed, ComponentFixture} from '@angular/core/testing';
+import {ComponentFixture, TestBed, waitForAsync} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -29,7 +29,7 @@ import {Interval, Layer} from '../../models';
 
 import {AntagonistTable} from './antagonist_table';
 import * as jumpToTime from './jump_to_time';
-import {mockThreads, verifySorting, verifyPreviewOnHover, verifyLayerToggle} from './table_helpers_test';
+import {mockThreads, verifyLayerToggle, verifyPreviewOnHover, verifySorting} from './table_helpers_test';
 import {ThreadTableModule} from './thread_table_module';
 
 try {
@@ -64,7 +64,7 @@ function createTableWithMockData(): ComponentFixture<AntagonistTable> {
 }
 
 describe('AntagonistTable', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
     TestBed

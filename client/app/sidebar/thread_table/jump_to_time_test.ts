@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, TestBed} from '@angular/core/testing';
+import {TestBed, waitForAsync} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -80,7 +80,7 @@ function expectIntervalOnPageByRow(
 }
 
 describe('jumpToTime', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
     TestBed

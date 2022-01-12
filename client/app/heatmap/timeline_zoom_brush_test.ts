@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, TestBed} from '@angular/core/testing';
+import {TestBed, waitForAsync} from '@angular/core/testing';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import * as d3 from 'd3';
 import {BehaviorSubject, Observable} from 'rxjs';
@@ -88,7 +88,7 @@ function mockParameters(): CollectionParameters {
 
 // Test preview change yields correct rendering
 describe('TimelineZoomBrush', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
     TestBed

@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, fakeAsync, TestBed, tick} from '@angular/core/testing';
+import {fakeAsync, TestBed, tick, waitForAsync} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -56,7 +56,7 @@ function setupThreadTable(component: ThreadTable) {
 }
 
 describe('ThreadTable', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
     TestBed

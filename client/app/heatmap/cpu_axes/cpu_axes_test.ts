@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //
-import {async, TestBed} from '@angular/core/testing';
+import {TestBed, waitForAsync} from '@angular/core/testing';
 import {BrowserDynamicTestingModule, platformBrowserDynamicTesting} from '@angular/platform-browser-dynamic/testing';
 import * as d3 from 'd3';
 import {BehaviorSubject} from 'rxjs';
@@ -22,11 +22,12 @@ import {BehaviorSubject} from 'rxjs';
 import {CollectionParameters, Interval, Layer} from '../../models';
 import {LocalMetricsService} from '../../services/metrics_service';
 import {LocalRenderDataService} from '../../services/render_data_service';
+import {ShortcutService} from '../../services/shortcut_service';
 import {SystemTopology, Viewport} from '../../util';
 import {Heatmap} from '../heatmap';
-import {CpuAxisLayer} from './cpu_axis_layer';
 import {HeatmapModule} from '../heatmap_module';
-import {ShortcutService} from '../../services/shortcut_service';
+
+import {CpuAxisLayer} from './cpu_axis_layer';
 
 const CPU_COUNT = 72;
 const CPUS: number[] = [];
@@ -65,7 +66,7 @@ function mockTopology(): SystemTopology {
 }
 
 describe('CpuAxisLayer', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     document.body.style.width = '500px';
     document.body.style.height = '500px';
     TestBed
