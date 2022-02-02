@@ -27,6 +27,7 @@ ng_module(
         "thread_table.ng.html",
         "thread_table.css",
     ],
+    strict_templates = False,
     deps = [
         "//client/app/models",
         "//client/app/services",
