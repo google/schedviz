@@ -17,6 +17,6 @@
 import 'zone.js/dist/zone.min.js';
 import {enableProdMode} from '@angular/core';
 import {platformBrowser} from '@angular/platform-browser';
-import {AppRootModuleNgFactory} from './app/app_root_module.ngfactory';
+import {AppRootModule} from './app/app_root_module';
 
-platformBrowser().bootstrapModuleFactory(AppRootModuleNgFactory);
+platformBrowser().bootstrapModule(AppRootModule);
