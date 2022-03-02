@@ -128,6 +128,10 @@ func TestFieldParsing(t *testing.T) {
 			out: FormatField{FieldType: "char comm[16]", Name: "comm", ProtoType: "string", Offset: 0, Size: 16, NumElements: 16, ElementSize: 1, Signed: false, IsDynamicArray: false},
 		},
 		{
+			in: "	field: char comm[TASK_COMM_LEN];	offset:0;	size:16;	signed:0;",
+			out: FormatField{FieldType: "char comm[TASK_COMM_LEN]", Name: "comm", ProtoType: "string", Offset: 0, Size: 16, NumElements: 16, ElementSize: 1, Signed: false, IsDynamicArray: false},
+		},
+		{
 			in: "	field: __data_loc char[] dev;	offset:0;	size:16;	signed:0;",
 			// Note: don't currently compute number of elements by size/type size.
 			// Instead, we look at the number in the brackets.
