@@ -30,7 +30,7 @@ var (
 	nameRe   = regexp.MustCompile(`name:[ \t]*(\w+)`)
 	idRe     = regexp.MustCompile(`ID:[ \t]*(\d+)`)
 	fieldRe  = regexp.MustCompile(`field:[ \t]*([^;]+);[ \t]*offset:[ \t]*(\d+);[ \t]*size:[ \t]*(\d+);[ \t]*(?:signed:[ \t]*(\d+);)?`)
-	typeRe   = regexp.MustCompile(`^((?:\w+\s+)?\w+(?:\s+\**\s*)?(?:\[])?)\s+(\w+)\s*(?:\[\s*(\d+)\s*])?$`)
+	typeRe   = regexp.MustCompile(`^((?:\w+\s+)?\w+(?:\s+\**\s*)?(?:\[])?)\s+(\w+)\s*(?:\[\s*(\S+)\s*])?$`)
 	charRe   = regexp.MustCompile(`\bchar\b`)
 	dynArrRe = regexp.MustCompile(`^__data_loc\b`)
 )
@@ -258,7 +258,14 @@ func constructFormatField(fieldType string, size uint64) (FormatField, error) {
 	if matches[3] != nil {
 		numElems, err := strconv.ParseUint(string(matches[3]), 10, 32)
 		if err != nil {
-			return FormatField{}, fmt.Errorf("unable to parse numElems for field %s. caused by: %s", field.Name, err)
+			// It is possible that the array length is specified in terms of a named value, ie. char comm[TASK_COMM_LEN].
+			// We can special case this as long as we know the size of the array type.
+			if charRe.Match(cType) {
+				// char is 1 byte
+				numElems = size
+			} else {
+				return FormatField{}, fmt.Errorf("unable to parse numElems for field %s. caused by: %s", field.Name, err)
+			}
 		}
 
 		if numElems == 0 {
