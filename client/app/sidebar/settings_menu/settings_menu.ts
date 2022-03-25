@@ -16,7 +16,7 @@
 //
 import {CdkDragDrop, moveItemInArray} from '@angular/cdk/drag-drop';
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit} from '@angular/core';
-import {FormControl} from '@angular/forms';
+import {UntypedFormControl} from '@angular/forms';
 import {ErrorStateMatcher} from '@angular/material/core';
 import {BehaviorSubject, merge} from 'rxjs';
 import {switchMap} from 'rxjs/operators';
@@ -31,7 +31,7 @@ import {getHumanReadableDurationFromNs, timeInputToNs} from '../../util/duration
  * Matcher which enters an error state immediately, ignoring empty fields.
  */
 class ImmediateErrorStateMatcher implements ErrorStateMatcher {
-  isErrorState(control: FormControl|null): boolean {
+  isErrorState(control: UntypedFormControl|null): boolean {
     if (!control) {
       return false;
     }

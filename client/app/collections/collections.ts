@@ -16,7 +16,7 @@
 //
 import {HttpErrorResponse} from '@angular/common/http';
 import {ChangeDetectionStrategy, Component, ElementRef, Inject, OnDestroy, OnInit, ViewChild} from '@angular/core';
-import {FormControl, FormGroupDirective, NgForm} from '@angular/forms';
+import {UntypedFormControl, FormGroupDirective, NgForm} from '@angular/forms';
 import {ErrorStateMatcher} from '@angular/material/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
@@ -157,7 +157,7 @@ export class Collections implements OnInit, OnDestroy {
 }
 
 class DisabledErrorStateMatcher implements ErrorStateMatcher {
-  isErrorState(control: FormControl|null, form: FormGroupDirective|NgForm|null):
+  isErrorState(control: UntypedFormControl|null, form: FormGroupDirective|NgForm|null):
       boolean {
     return false;
   }

@@ -16,7 +16,7 @@
 //
 import {animate, state, style, transition, trigger} from '@angular/animations';
 import {AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit} from '@angular/core';
-import {FormControl} from '@angular/forms';
+import {UntypedFormControl} from '@angular/forms';
 import {ErrorStateMatcher} from '@angular/material/core';
 import {BehaviorSubject, Observable} from 'rxjs';
 
@@ -33,7 +33,7 @@ const EMBEDDED_PAGE_SIZE = 20;
  * Matcher which enters an error state immediately, ignoring empty fields.
  */
 class ImmediateErrorStateMatcher implements ErrorStateMatcher {
-  isErrorState(control: FormControl|null): boolean {
+  isErrorState(control: UntypedFormControl|null): boolean {
     if (!control) {
       return false;
     }
