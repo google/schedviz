@@ -7,7 +7,7 @@
     "@angular/animations": "8.1.0",
     "@angular/cdk": "8.0.2",
     "@angular/common": "8.1.0",
-    "@angular/core": "8.1.0",
+    "@angular/core": "10.2.5",
     "@angular/forms": "8.1.0",
     "@angular/material": "8.0.2",
     "@angular/platform-browser": "8.1.0",
